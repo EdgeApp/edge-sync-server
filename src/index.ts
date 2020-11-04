@@ -5,52 +5,16 @@ import express from 'express'
 import nano from 'nano'
 
 import config from '../config.json'
+import {
+  ApiResponse,
+  DocumentRequest,
+  Results,
+  StoreCreate,
+  StoreRoot
+} from './types'
 
 const url = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`
 const dataStore = nano(url).db.use('datastore')
-
-interface StoreCreate {
-  repoid: string
-  lastgithash: string
-  lastgittime: number
-}
-
-interface StoreRoot extends nano.MaybeDocument {
-  files: object
-  timestamp: number
-  lastGitHash: string
-  lastGitTime: number
-  size: number
-  sizeLastCreated: number
-  maxSize: number
-}
-
-interface DocumentRequest {
-  [Key: string]: number
-}
-
-interface Results {
-  [Key: string]: StoreDocument
-}
-
-interface StoreDocument {
-  timestamp: number
-  files?: object
-  content?: string
-}
-
-type DbResponse = nano.DocumentGetResponse & StoreDocument
-
-interface File {
-  timestamp: number
-  content: string
-}
-
-interface Response {
-  success: boolean
-  response?: object
-  message?: string
-}
 
 async function main(): Promise<void> {
   const app = express()
@@ -67,7 +31,7 @@ async function main(): Promise<void> {
     try {
       // Check that the store does not exist...there must be a better way to do this
       await dataStore.head(path)
-      const result: Response = {
+      const result: ApiResponse = {
         success: false,
         message: 'Datastore already exists'
       }
@@ -90,14 +54,14 @@ async function main(): Promise<void> {
       const query = await dataStore.insert(data, path)
       data._rev = query.rev
       data._id = query.id
-      const result: Response = {
+      const result: ApiResponse = {
         success: true,
         response: data
       }
       res.status(201).json(result)
     } catch (e) {
       console.log(e)
-      const result: Response = {
+      const result: ApiResponse = {
         success: false,
         message: 'Internal server error'
       }
@@ -122,14 +86,14 @@ async function main(): Promise<void> {
         */
       } catch (e) {
         console.log(e)
-        const result: Response = {
+        const result: ApiResponse = {
           success: false,
           message: 'Internal server error'
         }
         res.status(500).json(result)
       }
     }
-    const result: Response = {
+    const result: ApiResponse = {
       success: true,
       response: contents
     }
@@ -145,8 +109,8 @@ async function main(): Promise<void> {
     res.status(500).send('TODO')
   })
 
-  app.listen(C.httpPort, () => {
-    console.log('Server is listening on:', C.httpPort)
+  app.listen(config.httpPort, () => {
+    console.log('Server is listening on:', config.httpPort)
   })
 }
 
