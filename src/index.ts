@@ -4,9 +4,9 @@ import cors from 'cors'
 import express from 'express'
 import nano from 'nano'
 
-import C from '../config.json'
+import config from '../config.json'
 
-const url = `http://admin:${C.couchAdminPassword}@${C.couchHost}:${C.couchPort}`
+const url = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`
 const dataStore = nano(url).db.use('datastore')
 
 interface StoreCreate {
