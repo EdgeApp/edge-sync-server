@@ -1,15 +1,36 @@
+import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
 import { dataStore } from '../db'
-import { StoreCreate, ApiResponse, StoreRoot } from '../types'
+import { ApiResponse, StoreRoot } from '../types'
+
+type RootPutBody = ReturnType<typeof asRootPutBody>
+
+const asRootPutBody = asObject({
+  repoid: asString,
+  lastGitHash: asOptional(asString),
+  lastGitTime: asOptional(asNumber)
+})
 
 export const rootRouter = Router()
 
 rootRouter.put('/', async (req, res, next) => {
-  const repoInfo: StoreCreate = req.body
-  const path: string = `${repoInfo.repoid}:/`
+  let body: RootPutBody
 
+  // Request body validation
   try {
-    // Check that the store does not exist...there must be a better way to do this
+    body = req.body
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      message: error.message
+    }
+    return res.status(400).json(response)
+  }
+
+  const path: string = `${body.repoid}:/`
+
+  // Return HTTP 409 if repo already exists
+  try {
     await dataStore.head(path)
     const result: ApiResponse = {
       success: false,
@@ -17,25 +38,30 @@ rootRouter.put('/', async (req, res, next) => {
     }
     res.status(409).json(result)
     return
-  } catch (e) {
-    // ignore
+  } catch (error) {
+    // Throw response errors other than 404
+    if (error.statusCode !== 404) {
+      throw error
+    }
   }
 
-  const data: StoreRoot = {
+  // Create new repo
+  const timestamp = Date.now()
+  const repo: StoreRoot = {
     files: {},
-    timestamp: new Date().getTime(),
-    lastGitHash: repoInfo.lastgithash,
-    lastGitTime: repoInfo.lastgittime,
+    timestamp,
+    lastGitHash: body.lastGitHash,
+    lastGitTime: body.lastGitTime,
     size: 0,
     sizeLastCreated: 0,
     maxSize: 0
   }
-  const query = await dataStore.insert(data, path)
-  data._rev = query.rev
-  data._id = query.id
-  const result: ApiResponse = {
+  await dataStore.insert(repo, path)
+
+  // Send response
+  const response: ApiResponse = {
     success: true,
-    data
+    data: { timestamp }
   }
-  res.status(201).json(result)
+  res.status(201).json(response)
 })

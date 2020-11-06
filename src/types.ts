@@ -1,16 +1,10 @@
 import * as Nano from 'nano'
 
-export interface StoreCreate {
-  repoid: string
-  lastgithash: string
-  lastgittime: number
-}
-
 export interface StoreRoot extends Nano.MaybeDocument {
   files: object
   timestamp: number
-  lastGitHash: string
-  lastGitTime: number
+  lastGitHash?: string
+  lastGitTime?: number
   size: number
   sizeLastCreated: number
   maxSize: number
