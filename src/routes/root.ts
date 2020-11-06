@@ -36,7 +36,7 @@ rootRouter.put('/', async (req, res, next) => {
     data._id = query.id
     const result: ApiResponse = {
       success: true,
-      response: data
+      data
     }
     res.status(201).json(result)
   } catch (e) {

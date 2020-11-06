@@ -29,7 +29,7 @@ filesRouter.get('/files', async (req, res, next) => {
   }
   const result: ApiResponse = {
     success: true,
-    response: contents
+    data: contents
   }
   res.status(200).json(result)
 })

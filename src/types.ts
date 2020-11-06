@@ -39,6 +39,6 @@ export interface File {
 
 export interface ApiResponse {
   success: boolean
-  response?: object
+  data?: object
   message?: string
 }
