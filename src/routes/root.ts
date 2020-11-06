@@ -15,7 +15,7 @@ rootRouter.put('/', async (req, res, next) => {
       success: false,
       message: 'Datastore already exists'
     }
-    res.status(401).json(result)
+    res.status(409).json(result)
     return
   } catch (e) {
     // ignore
