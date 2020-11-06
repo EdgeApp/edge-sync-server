@@ -1,13 +1,17 @@
 import * as Nano from 'nano'
 
 export interface StoreRoot extends Nano.MaybeDocument {
-  files: object
+  files: StoreFileMap
   timestamp: number
   lastGitHash?: string
   lastGitTime?: number
   size: number
   sizeLastCreated: number
   maxSize: number
+}
+
+export interface StoreFileMap {
+  [path: string]: number | null
 }
 
 export interface DocumentRequest {
