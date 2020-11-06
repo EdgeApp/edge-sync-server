@@ -66,6 +66,7 @@
     "edge-core-js": "^0.16.21",
     "edge-currency-bitcoin": "^4.7.7",
     "express": "^4.17.1",
+    "express-promise-router": "^4.0.1",
     "nano": "^8.2.2",
     "react-bootstrap": "^1.0.0-beta.16"
   }

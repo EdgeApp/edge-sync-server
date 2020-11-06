@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import Router from 'express-promise-router'
 import { dataStore } from '../db'
 import { StoreCreate, ApiResponse, StoreRoot } from '../types'
 
