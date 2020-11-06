@@ -8,6 +8,7 @@ import config from '../config.json'
 import { rootRouter } from './routes/root'
 import { filesRouter } from './routes/files'
 import { updatesRouter } from './routes/updates'
+import { ApiResponse } from './types'
 
 async function main(): Promise<void> {
   const app = express()
@@ -19,6 +20,19 @@ async function main(): Promise<void> {
 
   // Routes
   app.use('/api/v3', [rootRouter, filesRouter, updatesRouter])
+
+  // Error Route
+  app.use((err, _req, res, _next) => {
+    // logging
+    console.error(err)
+
+    // response
+    const response: ApiResponse = {
+      success: false,
+      message: 'Internal server error'
+    }
+    res.status(500).json(response)
+  })
 
   // Instantiate server
   app.listen(config.httpPort, () => {
