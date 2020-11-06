@@ -21,30 +21,21 @@ rootRouter.put('/', async (req, res, next) => {
     // ignore
   }
 
-  try {
-    const data: StoreRoot = {
-      files: {},
-      timestamp: new Date().getTime(),
-      lastGitHash: repoInfo.lastgithash,
-      lastGitTime: repoInfo.lastgittime,
-      size: 0,
-      sizeLastCreated: 0,
-      maxSize: 0
-    }
-    const query = await dataStore.insert(data, path)
-    data._rev = query.rev
-    data._id = query.id
-    const result: ApiResponse = {
-      success: true,
-      data
-    }
-    res.status(201).json(result)
-  } catch (e) {
-    console.log(e)
-    const result: ApiResponse = {
-      success: false,
-      message: 'Internal server error'
-    }
-    res.status(500).json(result)
+  const data: StoreRoot = {
+    files: {},
+    timestamp: new Date().getTime(),
+    lastGitHash: repoInfo.lastgithash,
+    lastGitTime: repoInfo.lastgittime,
+    size: 0,
+    sizeLastCreated: 0,
+    maxSize: 0
   }
+  const query = await dataStore.insert(data, path)
+  data._rev = query.rev
+  data._id = query.id
+  const result: ApiResponse = {
+    success: true,
+    data
+  }
+  res.status(201).json(result)
 })
