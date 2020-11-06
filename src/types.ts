@@ -31,8 +31,11 @@ export interface File {
   content: string
 }
 
-export interface ApiResponse {
-  success: boolean
-  data?: object
-  message?: string
+export interface ApiResponse<Data> {
+  success: true
+  data: Data
+}
+export interface ApiErrorResponse {
+  success: false
+  message: string
 }

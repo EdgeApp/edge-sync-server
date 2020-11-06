@@ -8,7 +8,7 @@ import config from '../config.json'
 import { rootRouter } from './routes/root'
 import { filesRouter } from './routes/files'
 import { updatesRouter } from './routes/updates'
-import { ApiResponse } from './types'
+import { ApiErrorResponse } from './types'
 
 async function main(): Promise<void> {
   const app = express()
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     console.error(err)
 
     // response
-    const response: ApiResponse = {
+    const response: ApiErrorResponse = {
       success: false,
       message: 'Internal server error'
     }

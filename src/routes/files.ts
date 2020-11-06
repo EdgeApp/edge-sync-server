@@ -1,6 +1,11 @@
 import Router from 'express-promise-router'
 import { dataStore } from '../db'
-import { ApiResponse, DocumentRequest, Results } from '../types'
+import {
+  ApiErrorResponse,
+  ApiResponse,
+  DocumentRequest,
+  Results
+} from '../types'
 
 export const filesRouter = Router()
 
@@ -20,14 +25,14 @@ filesRouter.get('/files', async (req, res, next) => {
 			*/
     } catch (e) {
       console.log(e)
-      const result: ApiResponse = {
+      const result: ApiErrorResponse = {
         success: false,
         message: 'Internal server error'
       }
       res.status(500).json(result)
     }
   }
-  const result: ApiResponse = {
+  const result: ApiResponse<Results> = {
     success: true,
     data: contents
   }

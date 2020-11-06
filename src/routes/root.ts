@@ -1,9 +1,13 @@
 import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
 import { dataStore } from '../db'
-import { ApiResponse, StoreRoot } from '../types'
+import { ApiErrorResponse, ApiResponse, StoreRoot } from '../types'
 
 type RootPutBody = ReturnType<typeof asRootPutBody>
+
+interface RootPutResponseData {
+  timestamp: number
+}
 
 const asRootPutBody = asObject({
   repoid: asString,
@@ -20,7 +24,7 @@ rootRouter.put('/', async (req, res, next) => {
   try {
     body = req.body
   } catch (error) {
-    const response: ApiResponse = {
+    const response: ApiErrorResponse = {
       success: false,
       message: error.message
     }
@@ -32,7 +36,7 @@ rootRouter.put('/', async (req, res, next) => {
   // Return HTTP 409 if repo already exists
   try {
     await dataStore.head(path)
-    const result: ApiResponse = {
+    const result: ApiErrorResponse = {
       success: false,
       message: 'Datastore already exists'
     }
@@ -59,7 +63,7 @@ rootRouter.put('/', async (req, res, next) => {
   await dataStore.insert(repo, path)
 
   // Send response
-  const response: ApiResponse = {
+  const response: ApiResponse<RootPutResponseData> = {
     success: true,
     data: { timestamp }
   }
