@@ -1,7 +1,7 @@
 import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
 import { dataStore } from '../db'
-import { ApiErrorResponse, ApiResponse, StoreRoot } from '../types'
+import { ApiErrorResponse, ApiResponse, StoreRootDocument } from '../types'
 
 type RootPutBody = ReturnType<typeof asRootPutBody>
 
@@ -51,8 +51,9 @@ rootRouter.put('/', async (req, res, next) => {
 
   // Create new repo
   const timestamp = Date.now()
-  const repo: StoreRoot = {
-    files: {},
+  const repo: StoreRootDocument = {
+    paths: {},
+    deleted: {},
     timestamp,
     lastGitHash: body.lastGitHash,
     lastGitTime: body.lastGitTime,
