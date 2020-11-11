@@ -43,3 +43,9 @@ export interface ApiErrorResponse {
   success: false
   message: string
 }
+
+export type ApiClientError = ReturnType<typeof asApiClientError>
+export const asApiClientError = asObject({
+  status: asNumber,
+  message: asString
+})
