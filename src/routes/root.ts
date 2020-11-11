@@ -1,5 +1,6 @@
 import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
+
 import { dataStore } from '../db'
 import { ApiErrorResponse, ApiResponse, StoreRootDocument } from '../types'
 
@@ -10,7 +11,7 @@ interface RootPutResponseData {
 }
 
 const asRootPutBody = asObject({
-  repoid: asString,
+  repoId: asString,
   lastGitHash: asOptional(asString),
   lastGitTime: asOptional(asNumber)
 })
@@ -31,7 +32,7 @@ rootRouter.put('/', async (req, res, next) => {
     return res.status(400).json(response)
   }
 
-  const path: string = `${body.repoid}:/`
+  const path: string = `${body.repoId}:/`
 
   // Return HTTP 409 if repo already exists
   try {
