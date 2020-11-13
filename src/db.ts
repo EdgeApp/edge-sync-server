@@ -6,4 +6,4 @@ const url = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${con
 
 type AllDocumentTypes = StoreRoot | StoreDirectory | StoreFile
 
-export const dataStore = nano(url).use<AllDocumentTypes>('datastore')
+export const dataStore = nano(url).use<AllDocumentTypes>('sync_datastore')
