@@ -8,7 +8,7 @@ import config from '../config.json'
 import { rootRouter } from './routes/root'
 import { filesRouter } from './routes/files'
 import { updatesRouter } from './routes/updates'
-import { ApiErrorResponse } from './types'
+import { ApiErrorResponse, asApiClientError } from './types'
 
 async function main(): Promise<void> {
   const app = express()
@@ -21,7 +21,25 @@ async function main(): Promise<void> {
   // Routes
   app.use('/api/v3', [rootRouter, filesRouter, updatesRouter])
 
-  // Error Route
+  // Client Error Route
+  app.use((err, _req, res, next) => {
+    if (err instanceof Error) {
+      return next(err)
+    }
+
+    try {
+      const error = asApiClientError(err)
+      const status = error.status
+      const response: ApiErrorResponse = {
+        success: false,
+        message: error.message
+      }
+      res.status(status).json(response)
+    } catch (error) {
+      return next(err)
+    }
+  })
+  // Server Error Route
   app.use((err, _req, res, _next) => {
     // logging
     console.error(err)
