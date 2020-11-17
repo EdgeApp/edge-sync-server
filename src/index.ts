@@ -4,9 +4,8 @@ import cors from 'cors'
 import express from 'express'
 
 import config from '../config.json'
-
-import { rootRouter } from './routes/root'
 import { filesRouter } from './routes/files'
+import { rootRouter } from './routes/root'
 import { updatesRouter } from './routes/updates'
 import { ApiErrorResponse, asApiClientError } from './types'
 

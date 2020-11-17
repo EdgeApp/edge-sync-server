@@ -1,4 +1,5 @@
 import nano from 'nano'
+
 import config from '../config.json'
 import { StoreDirectory, StoreFile, StoreRoot } from './types'
 
