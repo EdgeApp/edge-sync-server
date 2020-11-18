@@ -18,7 +18,7 @@ export const getNameFromPath = (path: string): string => {
 /**
  * Returns an array of paths for each ancestory directory of a given
  * file path starting with immediate parent directory to the top-most
- * directory (which is the directory below the root/repo directory).
+ * directory (which is the directory below the repo directory).
  *
  * Example: '/dir1/dir2/file.txt' -> ['/dir1/dir2/', '/dir1']
  *

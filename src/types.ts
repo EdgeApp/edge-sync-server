@@ -23,9 +23,9 @@ export const asStoreDirectoryDocument = asObject({
   ...asStoreDirectory.shape
 })
 
-// Root
+// Repo
 
-export interface StoreRoot extends StoreDirectory {
+export interface StoreRepo extends StoreDirectory {
   timestamp: number
   lastGitHash?: string
   lastGitTime?: number
@@ -33,8 +33,8 @@ export interface StoreRoot extends StoreDirectory {
   sizeLastCreated: number
   maxSize: number
 }
-export type StoreRootDocument = ReturnType<typeof asStoreRootDocument>
-export const asStoreRoot = asObject<StoreRoot>({
+export type StoreRepoDocument = ReturnType<typeof asStoreRepoDocument>
+export const asStoreRepo = asObject<StoreRepo>({
   ...asStoreDirectory.shape,
   timestamp: asNumber,
   lastGitHash: asOptional(asString),
@@ -43,9 +43,9 @@ export const asStoreRoot = asObject<StoreRoot>({
   sizeLastCreated: asNumber,
   maxSize: asNumber
 })
-export const asStoreRootDocument = asObject({
+export const asStoreRepoDocument = asObject({
   ...asNanoMaybeDocument.shape,
-  ...asStoreRoot.shape
+  ...asStoreRepo.shape
 })
 
 // File

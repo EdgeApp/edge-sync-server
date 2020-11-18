@@ -2,28 +2,28 @@ import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { dataStore } from '../db'
-import { ApiErrorResponse, ApiResponse, StoreRootDocument } from '../types'
+import { ApiErrorResponse, ApiResponse, StoreRepoDocument } from '../types'
 
-type RootPutBody = ReturnType<typeof asRootPutBody>
+type PutRepoBody = ReturnType<typeof asPutRepoBody>
 
-interface RootPutResponseData {
+interface RepoPutResponseData {
   timestamp: number
 }
 
-const asRootPutBody = asObject({
+const asPutRepoBody = asObject({
   repoId: asString,
   lastGitHash: asOptional(asString),
   lastGitTime: asOptional(asNumber)
 })
 
-export const rootRouter = Router()
+export const repoRouter = Router()
 
-rootRouter.put('/', async (req, res, next) => {
-  let body: RootPutBody
+repoRouter.put('/repo', async (req, res) => {
+  let body: PutRepoBody
 
   // Request body validation
   try {
-    body = req.body
+    body = asPutRepoBody(req.body)
   } catch (error) {
     const response: ApiErrorResponse = {
       success: false,
@@ -52,7 +52,7 @@ rootRouter.put('/', async (req, res, next) => {
 
   // Create new repo
   const timestamp = Date.now()
-  const repo: StoreRootDocument = {
+  const repo: StoreRepoDocument = {
     paths: {},
     deleted: {},
     timestamp,
@@ -65,7 +65,7 @@ rootRouter.put('/', async (req, res, next) => {
   await dataStore.insert(repo, path)
 
   // Send response
-  const response: ApiResponse<RootPutResponseData> = {
+  const response: ApiResponse<RepoPutResponseData> = {
     success: true,
     data: { timestamp }
   }

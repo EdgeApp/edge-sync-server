@@ -5,7 +5,7 @@ import express from 'express'
 
 import config from '../config.json'
 import { filesRouter } from './routes/files'
-import { rootRouter } from './routes/root'
+import { repoRouter } from './routes/repo'
 import { updatesRouter } from './routes/updates'
 import { ApiErrorResponse, asApiClientError } from './types'
 
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   app.use('/', express.static('dist'))
 
   // Routes
-  app.use('/api/v3', [rootRouter, filesRouter, updatesRouter])
+  app.use('/api/v3', [repoRouter, filesRouter, updatesRouter])
 
   // Client Error Route
   app.use((err, _req, res, next) => {

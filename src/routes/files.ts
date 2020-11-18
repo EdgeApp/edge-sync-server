@@ -9,14 +9,14 @@ import {
   asStoreDirectoryDocument,
   asStoreFile,
   asStoreFileDocument,
-  asStoreRootDocument,
+  asStoreRepoDocument,
   DocumentRequest,
   Results,
   StoreDirectory,
   StoreDirectoryDocument,
   StoreFile,
   StoreFileDocument,
-  StoreRootDocument
+  StoreRepoDocument
 } from '../types'
 import {
   getNameFromPath,
@@ -83,10 +83,10 @@ filesRouter.post('/files', async (req, res) => {
   }
 
   // Validate request body timestamp
-  let repoDoc: StoreRootDocument
+  let repoDoc: StoreRepoDocument
   try {
     const repoQuery = await dataStore.get(repoKey)
-    repoDoc = asStoreRootDocument(repoQuery)
+    repoDoc = asStoreRepoDocument(repoQuery)
   } catch (err) {
     throw new Error(`Failed to validate repo: ${err.message}`)
   }
@@ -148,7 +148,7 @@ const filesUpdateRoutine = async (
   const storeFileDocuments: StoreFileDocument[] = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
   let repoModification: Pick<
-    StoreRootDocument,
+    StoreRepoDocument,
     'paths' | 'deleted' | 'timestamp'
   > = { paths: {}, deleted: {}, timestamp: 0 }
 
@@ -218,7 +218,7 @@ const filesUpdateRoutine = async (
     // Prepare Repo Modifications:
 
     // We want to use the top-most directory from the directory paths as the
-    // file pointer path because it's the direct decendent from the root.
+    // file pointer path because it's the direct decendent from the repo.
     // This should be the last element in the directoryPaths.
     // If there are no directories and therefore no top-most directory, then
     // we use the file path as the file pointer path.
@@ -288,17 +288,17 @@ const filesUpdateRoutine = async (
   // Prepare Repo Document:
 
   const repoFetchResult = await dataStore.fetch({ keys: [repoKey] })
-  const storeRepoDocuments: StoreRootDocument[] = []
+  const storeRepoDocuments: StoreRepoDocument[] = []
 
-  // Prepare repo (root) documents
+  // Prepare repo documents
   repoFetchResult.rows.forEach(row => {
     const repoKey = row.key
 
     if ('doc' in row) {
-      let existingRepo: StoreRootDocument
+      let existingRepo: StoreRepoDocument
 
       try {
-        existingRepo = asStoreRootDocument(row.doc)
+        existingRepo = asStoreRepoDocument(row.doc)
       } catch (err) {
         throw makeApiClientError(
           422,
@@ -307,7 +307,7 @@ const filesUpdateRoutine = async (
         )
       }
 
-      const repoDocument: StoreRootDocument = mergeDirectoryFilePointers(
+      const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
         existingRepo,
         repoModification
       )
