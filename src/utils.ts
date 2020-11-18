@@ -12,7 +12,7 @@ export const makeApiClientError = (
 
 export const getNameFromPath = (path: string): string => {
   const pathParts = path.split('/')
-  return '/' + pathParts[pathParts.length - 1]
+  return pathParts[pathParts.length - 1]
 }
 
 /**
