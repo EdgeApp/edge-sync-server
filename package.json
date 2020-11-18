@@ -1,9 +1,9 @@
 {
-  "name": "edge-rest-wallet",
+  "name": "edge-sync-server",
   "version": "0.1.0",
   "private": true,
-  "description": "A REST API for storing & sending money, powered by Edge",
-  "repository": "https://github.app/EdgeApp/edge-referral-manager",
+  "description": "A REST API for storing & syncing files",
+  "repository": "https://github.com/EdgeApp/edge-sync-server",
   "license": "MIT",
   "author": "Airbitz, Inc.",
   "main": "lib/index.js",
