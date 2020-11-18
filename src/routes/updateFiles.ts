@@ -4,14 +4,11 @@ import { DocumentBulkResponse } from 'nano'
 
 import { dataStore } from '../db'
 import {
-  ApiErrorResponse,
   ApiResponse,
   asStoreDirectoryDocument,
   asStoreFile,
   asStoreFileDocument,
   asStoreRepoDocument,
-  DocumentRequest,
-  Results,
   StoreDirectory,
   StoreDirectoryDocument,
   StoreFile,
@@ -26,14 +23,14 @@ import {
   updateDirectoryFilePointers
 } from '../utils'
 
-type FilesPostBody = ReturnType<typeof asFilesPostBody>
-const asFilesPostBody = asObject({
+type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
+const asUpdateFilesBody = asObject({
   timestamp: asNumber,
   repoId: asString,
   paths: asMap(asEither(asStoreFile, asNull))
 })
 
-interface FilesPostResponseData {
+interface UpdateFilesResponseData {
   timestamp: number
   paths: {
     [path: string]: number
@@ -42,14 +39,10 @@ interface FilesPostResponseData {
 
 const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
 
-export const filesRouter = Router()
+export const updateFilesRouter = Router()
 
-// ---------------------------------------------------------------------
-// POST /files
-// ---------------------------------------------------------------------
-
-filesRouter.post('/files', async (req, res) => {
-  let body: FilesPostBody
+updateFilesRouter.post('/updateFiles', async (req, res) => {
+  let body: UpdateFilesBody
   let paths: string[]
   let fileKeys: string[]
   let repoId: string
@@ -57,7 +50,7 @@ filesRouter.post('/files', async (req, res) => {
 
   // Validate request body
   try {
-    body = asFilesPostBody(req.body)
+    body = asUpdateFilesBody(req.body)
     repoId = body.repoId
     repoKey = `${repoId}:/`
 
@@ -121,7 +114,7 @@ filesRouter.post('/files', async (req, res) => {
 
   // Response:
 
-  const responseData: FilesPostResponseData = {
+  const responseData: UpdateFilesResponseData = {
     timestamp: requestTimestamp,
     paths: paths.reduce((paths, path) => {
       paths[path] = requestTimestamp
@@ -129,7 +122,7 @@ filesRouter.post('/files', async (req, res) => {
     }, {})
   }
 
-  const response: ApiResponse<FilesPostResponseData> = {
+  const response: ApiResponse<UpdateFilesResponseData> = {
     success: true,
     data: responseData
   }
@@ -137,7 +130,7 @@ filesRouter.post('/files', async (req, res) => {
 })
 
 const filesUpdateRoutine = async (
-  body: FilesPostBody,
+  body: UpdateFilesBody,
   repoKey: string,
   fileKeys: string[],
   requestTimestamp: number
@@ -355,37 +348,3 @@ const checkResultsForErrors = (results: DocumentBulkResponse[]): void =>
       }
     }
   })
-
-// ---------------------------------------------------------------------
-// GET /files
-// ---------------------------------------------------------------------
-
-filesRouter.get('/files', async (req, res, next) => {
-  const paths: DocumentRequest = JSON.parse(req.query.paths)
-  console.log(paths)
-  const contents: Results = {}
-  const keys: string[] = Object.keys(paths)
-  for (let i = 0; i < keys.length; ++i) {
-    // const path = keys[i]
-    try {
-      /*
-			const query: DbResponse = await dataStore.get(path)
-			if (query.timestamp > paths[path]) {
-				contents[path] = query
-			}
-			*/
-    } catch (e) {
-      console.log(e)
-      const result: ApiErrorResponse = {
-        success: false,
-        message: 'Internal server error'
-      }
-      res.status(500).json(result)
-    }
-  }
-  const result: ApiResponse<Results> = {
-    success: true,
-    data: contents
-  }
-  res.status(200).json(result)
-})
