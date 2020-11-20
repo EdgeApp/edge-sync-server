@@ -1,6 +1,6 @@
 import nano from 'nano'
 
-import config from '../config.json'
+import { config } from './config'
 import { StoreDirectory, StoreFile, StoreRepo } from './types'
 
 const url = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`

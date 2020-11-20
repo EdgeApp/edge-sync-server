@@ -1,9 +1,8 @@
 import bodyParser from 'body-parser'
-// import { asArray, asObject, asOptional } from 'cleaners'
 import cors from 'cors'
 import express from 'express'
 
-import config from '../config.json'
+import { config } from './config'
 import { repoRouter } from './routes/repo'
 import { updateFilesRouter } from './routes/updateFiles'
 import { ApiErrorResponse, asApiClientError } from './types'
