@@ -80,3 +80,23 @@ export const updateDirectoryFilePointers = (
     }
   }
 }
+
+export const validateModification = (
+  modification: StoreDirectory,
+  directory: StoreDirectory,
+  directoryPath: string
+): void => {
+  const deletedFilePaths = Object.keys(directory.deleted)
+
+  // Deleted paths must not be already deleted
+  Object.keys(modification.deleted).forEach(fileName => {
+    const filePath = `${directoryPath}/${fileName}`
+
+    if (deletedFilePaths.includes(fileName)) {
+      throw makeApiClientError(
+        422,
+        `Unable to delete file '${filePath}'. ` + `File is already deleted.`
+      )
+    }
+  })
+}

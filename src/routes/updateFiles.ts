@@ -22,7 +22,8 @@ import {
   getParentPathsOfPath,
   makeApiClientError,
   mergeDirectoryFilePointers,
-  updateDirectoryFilePointers
+  updateDirectoryFilePointers,
+  validateModification
 } from '../utils'
 
 type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
@@ -136,14 +137,15 @@ const filesUpdateRoutine = async (
     const storeFile: StoreFile = body.paths[filePath] ?? { text: '' }
     const isDeletion = body.paths[filePath] === null
 
-    if (!isDeletion) {
-      if ('doc' in row) {
+    if ('doc' in row) {
+      // We don't modify the file document for deletion
+      if (!isDeletion) {
         try {
           asStoreFileDocument(row.doc)
         } catch (err) {
           throw makeApiClientError(
             422,
-            `Unable to write file '${fileKey}'. ` +
+            `Unable to write file '${filePath}'. ` +
               `Existing document is not a file.`
           )
         }
@@ -154,9 +156,18 @@ const filesUpdateRoutine = async (
           _id: fileKey,
           _rev: row.value.rev
         })
-      } else {
+      }
+    } else {
+      // We must throw an exception when client wants to delete a file that
+      // doesn't exist.
+      if (!isDeletion) {
         // Document will be inserted
         storeFileDocuments.push({ ...storeFile, _id: fileKey })
+      } else {
+        throw makeApiClientError(
+          422,
+          `Unable to delete file '${filePath}'. ` + `Document does not exist.`
+        )
       }
     }
 
@@ -228,6 +239,7 @@ const filesUpdateRoutine = async (
     // Prepare directory documents
     directoryFetchResult.rows.forEach(row => {
       const directoryKey = row.key
+      const directoryPath = directoryKey.split(':')[1]
       const directoryModification = directoryModifications.get(directoryKey)
 
       if (directoryModification !== undefined) {
@@ -239,20 +251,27 @@ const filesUpdateRoutine = async (
           } catch (err) {
             throw makeApiClientError(
               422,
-              `Unable to write files under '${directoryKey}'. ` +
+              `Unable to write files under '${directoryPath}'. ` +
                 `Existing document is not a directory.`
             )
           }
+
+          // Validate modificaiton
+          validateModification(
+            directoryModification,
+            existingDirectory,
+            directoryPath
+          )
 
           const directoryDocument: StoreDirectoryDocument = mergeDirectoryFilePointers(
             existingDirectory,
             directoryModification
           )
 
-          // Update document
+          // Update directory
           storeDirectoryDocuments.push(directoryDocument)
         } else {
-          // Insert document
+          // Insert directory
           storeDirectoryDocuments.push({
             ...directoryModification,
             _id: directoryKey
@@ -283,6 +302,9 @@ const filesUpdateRoutine = async (
             `Document is not a repo.`
         )
       }
+
+      // Validate modificaiton
+      validateModification(repoModification, existingRepo, '')
 
       const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
         existingRepo,
