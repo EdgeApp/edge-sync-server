@@ -1,6 +1,11 @@
 import { asMap, asNumber, asObject, asOptional, asString } from 'cleaners'
 import * as Nano from 'nano'
 
+// Regexes:
+export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
+
+// Types:
+
 // Is there a better way to make optional properties for this type?
 const asNanoMaybeDocument = asObject<Nano.MaybeDocument>({
   _id: asOptional(asString),
@@ -23,9 +28,9 @@ export const asStoreDirectoryDocument = asObject({
   ...asStoreDirectory.shape
 })
 
-// Root
+// Repo
 
-export interface StoreRoot extends StoreDirectory {
+export interface StoreRepo extends StoreDirectory {
   timestamp: number
   lastGitHash?: string
   lastGitTime?: number
@@ -33,8 +38,8 @@ export interface StoreRoot extends StoreDirectory {
   sizeLastCreated: number
   maxSize: number
 }
-export type StoreRootDocument = ReturnType<typeof asStoreRootDocument>
-export const asStoreRoot = asObject<StoreRoot>({
+export type StoreRepoDocument = ReturnType<typeof asStoreRepoDocument>
+export const asStoreRepo = asObject<StoreRepo>({
   ...asStoreDirectory.shape,
   timestamp: asNumber,
   lastGitHash: asOptional(asString),
@@ -43,9 +48,9 @@ export const asStoreRoot = asObject<StoreRoot>({
   sizeLastCreated: asNumber,
   maxSize: asNumber
 })
-export const asStoreRootDocument = asObject({
+export const asStoreRepoDocument = asObject({
   ...asNanoMaybeDocument.shape,
-  ...asStoreRoot.shape
+  ...asStoreRepo.shape
 })
 
 // File
@@ -59,27 +64,6 @@ export const asStoreFileDocument = asObject({
   ...asNanoMaybeDocument.shape,
   ...asStoreFile.shape
 })
-
-export interface DocumentRequest {
-  [Key: string]: number
-}
-
-export interface Results {
-  [Key: string]: StoreDocument
-}
-
-export interface StoreDocument {
-  timestamp: number
-  files?: object
-  content?: string
-}
-
-export type DbResponse = Nano.DocumentGetResponse & StoreDocument
-
-export interface File {
-  timestamp: number
-  content: string
-}
 
 export interface ApiResponse<Data> {
   success: true
@@ -95,3 +79,25 @@ export const asApiClientError = asObject({
   status: asNumber,
   message: asString
 })
+
+// General Purpose Cleaner Types
+
+export function asNonEmptyString(raw: any): string {
+  const str = asString(raw)
+
+  if (str === '') {
+    throw new TypeError('Expected non empty string')
+  }
+
+  return str
+}
+
+export function asPath(raw: any): string {
+  const path = asString(raw)
+
+  if (!VALID_PATH_REGEX.test(path)) {
+    throw new Error(`Invalid path '${path}'`)
+  }
+
+  return path
+}

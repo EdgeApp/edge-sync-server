@@ -12,13 +12,13 @@ export const makeApiClientError = (
 
 export const getNameFromPath = (path: string): string => {
   const pathParts = path.split('/')
-  return '/' + pathParts[pathParts.length - 1]
+  return pathParts[pathParts.length - 1]
 }
 
 /**
  * Returns an array of paths for each ancestory directory of a given
  * file path starting with immediate parent directory to the top-most
- * directory (which is the directory below the root/repo directory).
+ * directory (which is the directory below the repo directory).
  *
  * Example: '/dir1/dir2/file.txt' -> ['/dir1/dir2/', '/dir1']
  *
@@ -79,4 +79,24 @@ export const updateDirectoryFilePointers = (
       ...directoryMutations.deleted
     }
   }
+}
+
+export const validateModification = (
+  modification: StoreDirectory,
+  directory: StoreDirectory,
+  directoryPath: string
+): void => {
+  const deletedFilePaths = Object.keys(directory.deleted)
+
+  // Deleted paths must not be already deleted
+  Object.keys(modification.deleted).forEach(fileName => {
+    const filePath = `${directoryPath}/${fileName}`
+
+    if (deletedFilePaths.includes(fileName)) {
+      throw makeApiClientError(
+        422,
+        `Unable to delete file '${filePath}'. ` + `File is already deleted.`
+      )
+    }
+  })
 }

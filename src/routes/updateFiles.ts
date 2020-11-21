@@ -1,92 +1,70 @@
-import { asEither, asMap, asNull, asNumber, asObject, asString } from 'cleaners'
+import { asEither, asMap, asNull, asNumber, asObject } from 'cleaners'
 import Router from 'express-promise-router'
 import { DocumentBulkResponse } from 'nano'
 
 import { dataStore } from '../db'
 import {
-  ApiErrorResponse,
   ApiResponse,
+  asNonEmptyString,
+  asPath,
   asStoreDirectoryDocument,
   asStoreFile,
   asStoreFileDocument,
-  asStoreRootDocument,
-  DocumentRequest,
-  Results,
+  asStoreRepoDocument,
   StoreDirectory,
   StoreDirectoryDocument,
   StoreFile,
   StoreFileDocument,
-  StoreRootDocument
+  StoreRepoDocument
 } from '../types'
 import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError,
   mergeDirectoryFilePointers,
-  updateDirectoryFilePointers
+  updateDirectoryFilePointers,
+  validateModification
 } from '../utils'
 
-type FilesPostBody = ReturnType<typeof asFilesPostBody>
-const asFilesPostBody = asObject({
+type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
+const asUpdateFilesBody = asObject({
+  repoId: asNonEmptyString,
   timestamp: asNumber,
-  repoId: asString,
   paths: asMap(asEither(asStoreFile, asNull))
 })
 
-interface FilesPostResponseData {
+interface UpdateFilesResponseData {
   timestamp: number
   paths: {
     [path: string]: number
   }
 }
 
-const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
+export const updateFilesRouter = Router()
 
-export const filesRouter = Router()
-
-// ---------------------------------------------------------------------
-// POST /files
-// ---------------------------------------------------------------------
-
-filesRouter.post('/files', async (req, res) => {
-  let body: FilesPostBody
+updateFilesRouter.post('/updateFiles', async (req, res) => {
+  let body: UpdateFilesBody
   let paths: string[]
-  let fileKeys: string[]
-  let repoId: string
-  let repoKey: string
 
   // Validate request body
   try {
-    body = asFilesPostBody(req.body)
-    repoId = body.repoId
-    repoKey = `${repoId}:/`
+    body = asUpdateFilesBody(req.body)
 
-    if (repoId === '') {
-      throw new Error(`Missing repoId.`)
-    }
-
-    paths = Object.keys(body.paths)
-
-    // Validate paths are formated correctly
-    paths.forEach(path => {
-      if (path === '/') {
-        throw new Error(`Invalid path '${path}'. Path cannot be root.`)
-      }
-      if (!VALID_PATH_REGEX.test(path)) {
-        throw new Error(`Invalid path '${path}'`)
-      }
-    })
-
-    fileKeys = paths.map(path => `${repoId}:${path}`)
+    // Validate paths
+    paths = Object.keys(body.paths).map(asPath)
   } catch (error) {
     throw makeApiClientError(400, error.message)
   }
 
+  const repoId = body.repoId
+  const repoKey = `${repoId}:/`
+  const fileKeys = paths.map(path => `${repoId}:${path}`)
+
   // Validate request body timestamp
-  let repoDoc: StoreRootDocument
+  let repoDoc: StoreRepoDocument
   try {
     const repoQuery = await dataStore.get(repoKey)
-    repoDoc = asStoreRootDocument(repoQuery)
+    repoDoc = asStoreRepoDocument(repoQuery)
   } catch (err) {
     throw new Error(`Failed to validate repo: ${err.message}`)
   }
@@ -121,7 +99,7 @@ filesRouter.post('/files', async (req, res) => {
 
   // Response:
 
-  const responseData: FilesPostResponseData = {
+  const responseData: UpdateFilesResponseData = {
     timestamp: requestTimestamp,
     paths: paths.reduce((paths, path) => {
       paths[path] = requestTimestamp
@@ -129,7 +107,7 @@ filesRouter.post('/files', async (req, res) => {
     }, {})
   }
 
-  const response: ApiResponse<FilesPostResponseData> = {
+  const response: ApiResponse<UpdateFilesResponseData> = {
     success: true,
     data: responseData
   }
@@ -137,7 +115,7 @@ filesRouter.post('/files', async (req, res) => {
 })
 
 const filesUpdateRoutine = async (
-  body: FilesPostBody,
+  body: UpdateFilesBody,
   repoKey: string,
   fileKeys: string[],
   requestTimestamp: number
@@ -148,7 +126,7 @@ const filesUpdateRoutine = async (
   const storeFileDocuments: StoreFileDocument[] = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
   let repoModification: Pick<
-    StoreRootDocument,
+    StoreRepoDocument,
     'paths' | 'deleted' | 'timestamp'
   > = { paths: {}, deleted: {}, timestamp: 0 }
 
@@ -159,14 +137,15 @@ const filesUpdateRoutine = async (
     const storeFile: StoreFile = body.paths[filePath] ?? { text: '' }
     const isDeletion = body.paths[filePath] === null
 
-    if (!isDeletion) {
-      if ('doc' in row) {
+    if ('doc' in row) {
+      // We don't modify the file document for deletion
+      if (!isDeletion) {
         try {
           asStoreFileDocument(row.doc)
         } catch (err) {
           throw makeApiClientError(
             422,
-            `Unable to write file '${fileKey}'. ` +
+            `Unable to write file '${filePath}'. ` +
               `Existing document is not a file.`
           )
         }
@@ -177,9 +156,18 @@ const filesUpdateRoutine = async (
           _id: fileKey,
           _rev: row.value.rev
         })
-      } else {
+      }
+    } else {
+      // We must throw an exception when client wants to delete a file that
+      // doesn't exist.
+      if (!isDeletion) {
         // Document will be inserted
         storeFileDocuments.push({ ...storeFile, _id: fileKey })
+      } else {
+        throw makeApiClientError(
+          422,
+          `Unable to delete file '${filePath}'. ` + `Document does not exist.`
+        )
       }
     }
 
@@ -218,7 +206,7 @@ const filesUpdateRoutine = async (
     // Prepare Repo Modifications:
 
     // We want to use the top-most directory from the directory paths as the
-    // file pointer path because it's the direct decendent from the root.
+    // file pointer path because it's the direct decendent from the repo.
     // This should be the last element in the directoryPaths.
     // If there are no directories and therefore no top-most directory, then
     // we use the file path as the file pointer path.
@@ -251,6 +239,7 @@ const filesUpdateRoutine = async (
     // Prepare directory documents
     directoryFetchResult.rows.forEach(row => {
       const directoryKey = row.key
+      const directoryPath = directoryKey.split(':')[1]
       const directoryModification = directoryModifications.get(directoryKey)
 
       if (directoryModification !== undefined) {
@@ -262,20 +251,27 @@ const filesUpdateRoutine = async (
           } catch (err) {
             throw makeApiClientError(
               422,
-              `Unable to write files under '${directoryKey}'. ` +
+              `Unable to write files under '${directoryPath}'. ` +
                 `Existing document is not a directory.`
             )
           }
+
+          // Validate modificaiton
+          validateModification(
+            directoryModification,
+            existingDirectory,
+            directoryPath
+          )
 
           const directoryDocument: StoreDirectoryDocument = mergeDirectoryFilePointers(
             existingDirectory,
             directoryModification
           )
 
-          // Update document
+          // Update directory
           storeDirectoryDocuments.push(directoryDocument)
         } else {
-          // Insert document
+          // Insert directory
           storeDirectoryDocuments.push({
             ...directoryModification,
             _id: directoryKey
@@ -288,17 +284,17 @@ const filesUpdateRoutine = async (
   // Prepare Repo Document:
 
   const repoFetchResult = await dataStore.fetch({ keys: [repoKey] })
-  const storeRepoDocuments: StoreRootDocument[] = []
+  const storeRepoDocuments: StoreRepoDocument[] = []
 
-  // Prepare repo (root) documents
+  // Prepare repo documents
   repoFetchResult.rows.forEach(row => {
     const repoKey = row.key
 
     if ('doc' in row) {
-      let existingRepo: StoreRootDocument
+      let existingRepo: StoreRepoDocument
 
       try {
-        existingRepo = asStoreRootDocument(row.doc)
+        existingRepo = asStoreRepoDocument(row.doc)
       } catch (err) {
         throw makeApiClientError(
           422,
@@ -307,7 +303,10 @@ const filesUpdateRoutine = async (
         )
       }
 
-      const repoDocument: StoreRootDocument = mergeDirectoryFilePointers(
+      // Validate modificaiton
+      validateModification(repoModification, existingRepo, '')
+
+      const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
         existingRepo,
         repoModification
       )
@@ -355,37 +354,3 @@ const checkResultsForErrors = (results: DocumentBulkResponse[]): void =>
       }
     }
   })
-
-// ---------------------------------------------------------------------
-// GET /files
-// ---------------------------------------------------------------------
-
-filesRouter.get('/files', async (req, res, next) => {
-  const paths: DocumentRequest = JSON.parse(req.query.paths)
-  console.log(paths)
-  const contents: Results = {}
-  const keys: string[] = Object.keys(paths)
-  for (let i = 0; i < keys.length; ++i) {
-    // const path = keys[i]
-    try {
-      /*
-			const query: DbResponse = await dataStore.get(path)
-			if (query.timestamp > paths[path]) {
-				contents[path] = query
-			}
-			*/
-    } catch (e) {
-      console.log(e)
-      const result: ApiErrorResponse = {
-        success: false,
-        message: 'Internal server error'
-      }
-      res.status(500).json(result)
-    }
-  }
-  const result: ApiResponse<Results> = {
-    success: true,
-    data: contents
-  }
-  res.status(200).json(result)
-})
