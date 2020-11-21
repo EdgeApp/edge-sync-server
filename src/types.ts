@@ -1,6 +1,11 @@
 import { asMap, asNumber, asObject, asOptional, asString } from 'cleaners'
 import * as Nano from 'nano'
 
+// Regexes:
+export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
+
+// Types:
+
 // Is there a better way to make optional properties for this type?
 const asNanoMaybeDocument = asObject<Nano.MaybeDocument>({
   _id: asOptional(asString),
@@ -95,3 +100,25 @@ export const asApiClientError = asObject({
   status: asNumber,
   message: asString
 })
+
+// General Purpose Cleaner Types
+
+export function asNonEmptyString(raw: any): string {
+  const str = asString(raw)
+
+  if (str === '') {
+    throw new TypeError('Expected non empty string')
+  }
+
+  return str
+}
+
+export function asPath(raw: any): string {
+  const path = asString(raw)
+
+  if (!VALID_PATH_REGEX.test(path)) {
+    throw new Error(`Invalid path '${path}'`)
+  }
+
+  return path
+}

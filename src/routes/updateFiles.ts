@@ -1,10 +1,12 @@
-import { asEither, asMap, asNull, asNumber, asObject, asString } from 'cleaners'
+import { asEither, asMap, asNull, asNumber, asObject } from 'cleaners'
 import Router from 'express-promise-router'
 import { DocumentBulkResponse } from 'nano'
 
 import { dataStore } from '../db'
 import {
   ApiResponse,
+  asNonEmptyString,
+  asPath,
   asStoreDirectoryDocument,
   asStoreFile,
   asStoreFileDocument,
@@ -25,8 +27,8 @@ import {
 
 type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
 const asUpdateFilesBody = asObject({
+  repoId: asNonEmptyString,
   timestamp: asNumber,
-  repoId: asString,
   paths: asMap(asEither(asStoreFile, asNull))
 })
 
@@ -37,43 +39,25 @@ interface UpdateFilesResponseData {
   }
 }
 
-const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
-
 export const updateFilesRouter = Router()
 
 updateFilesRouter.post('/updateFiles', async (req, res) => {
   let body: UpdateFilesBody
   let paths: string[]
-  let fileKeys: string[]
-  let repoId: string
-  let repoKey: string
 
   // Validate request body
   try {
     body = asUpdateFilesBody(req.body)
-    repoId = body.repoId
-    repoKey = `${repoId}:/`
 
-    if (repoId === '') {
-      throw new Error(`Missing repoId.`)
-    }
-
-    paths = Object.keys(body.paths)
-
-    // Validate paths are formated correctly
-    paths.forEach(path => {
-      if (path === '/') {
-        throw new Error(`Invalid path '${path}'. Path cannot be root.`)
-      }
-      if (!VALID_PATH_REGEX.test(path)) {
-        throw new Error(`Invalid path '${path}'`)
-      }
-    })
-
-    fileKeys = paths.map(path => `${repoId}:${path}`)
+    // Validate paths
+    paths = Object.keys(body.paths).map(asPath)
   } catch (error) {
     throw makeApiClientError(400, error.message)
   }
+
+  const repoId = body.repoId
+  const repoKey = `${repoId}:/`
+  const fileKeys = paths.map(path => `${repoId}:${path}`)
 
   // Validate request body timestamp
   let repoDoc: StoreRepoDocument
