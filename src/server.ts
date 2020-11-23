@@ -2,6 +2,7 @@ import bodyParser from 'body-parser'
 import cors from 'cors'
 import express from 'express'
 
+import { configRouter } from './routes/config'
 import { repoRouter } from './routes/repo'
 import { updateFilesRouter } from './routes/updateFiles'
 import { ApiErrorResponse, asApiClientError } from './types'
@@ -15,7 +16,7 @@ app.use(cors())
 app.use('/', express.static('dist'))
 
 // Routes
-app.use('/api/v3', [repoRouter, updateFilesRouter])
+app.use('/api/v3', [configRouter, repoRouter, updateFilesRouter])
 
 // 404 Error Route
 app.use((_req, _res, next) => {
