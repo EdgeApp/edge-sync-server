@@ -65,6 +65,8 @@ export const asStoreFileDocument = asObject({
   ...asStoreFile.shape
 })
 
+// API Responses
+
 export interface ApiResponse<Data> {
   success: true
   data: Data
