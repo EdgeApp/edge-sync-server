@@ -7,4 +7,12 @@ const url = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${con
 
 type AllDocumentTypes = StoreRepo | StoreDirectory | StoreFile
 
-export const dataStore = nano(url).use<AllDocumentTypes>('sync_datastore')
+const database =
+  typeof process.env.DATABASE === 'string'
+    ? process.env.DATABASE
+    : 'sync_datastore'
+
+const connection = nano(url)
+const dataStore = connection.use<AllDocumentTypes>(database)
+
+export { connection as nano, dataStore }
