@@ -2,6 +2,7 @@
 /.cache/
 /dist/
 /lib/
+/.nyc_output
 /config.json
 
 # Package managers:
