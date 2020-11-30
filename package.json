@@ -58,7 +58,7 @@
   "dependencies": {
     "@types/express": "^4.17.2",
     "biggystring": "^3.0.2",
-    "cleaners": "^0.3.1",
+    "cleaners": "^0.3.2",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "express-promise-router": "^4.0.1",
