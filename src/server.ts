@@ -4,6 +4,7 @@ import express from 'express'
 
 import { ApiErrorResponse, asApiClientError } from './types'
 import { makeApiClientError } from './utils'
+import { v2Router } from './v2Router'
 import { v3Router } from './v3Router'
 
 export const app = express()
@@ -14,6 +15,7 @@ app.use(cors())
 app.use('/', express.static('dist'))
 
 // Routes
+app.use('/api/v2', v2Router)
 app.use('/api/v3', v3Router)
 
 // 404 Error Route

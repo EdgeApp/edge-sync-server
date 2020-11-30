@@ -39,6 +39,8 @@ export async function fetchGetFilesStoreFileMap(
 ): Promise<GetFilesStoreFileMap> {
   const paths = Object.keys(requestPaths)
 
+  if (paths.length === 0) return {}
+
   // Use max page size config to limit the paths processed
   if (paths.length > maxPageSize) {
     throw makeApiClientError(
@@ -91,9 +93,7 @@ export async function fetchGetFilesStoreFileMap(
 
       const doc = asMaybe(asStoreDirectoryDocument)(row.doc)
 
-      if (doc == null) {
-        throw new Error(`File '${row.key}' is not a directory.`)
-      }
+      if (doc == null) throw new Error(`File '${row.key}' is not a directory.`)
 
       return Object.assign(map, { [row.key]: doc })
     },
@@ -129,9 +129,7 @@ export async function fetchGetFilesStoreFileMap(
           ? parentDocument.paths[documentFileName]
           : repoDocument.timestamp
 
-      if (!ignoreTimestamps && timestamp <= sentTimestamp) {
-        return map
-      }
+      if (!ignoreTimestamps && timestamp <= sentTimestamp) return map
 
       // Handle file document
       if (fileDocument != null) {
