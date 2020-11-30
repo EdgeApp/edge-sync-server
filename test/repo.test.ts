@@ -6,7 +6,7 @@ import { app } from '../src/server'
 import { apiSuite } from './suites'
 import { isErrorResponse, isSuccessfulResponse } from './utils'
 
-apiSuite('/api/v3/repo', () => {
+apiSuite('PUT /api/v3/repo', () => {
   const agent = supertest.agent(app)
 
   const repoId = 'test'
