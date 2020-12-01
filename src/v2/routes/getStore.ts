@@ -4,7 +4,7 @@ import Router from 'express-promise-router'
 import { getRepoUpdates } from '../../api/getUpdates'
 import { asNonEmptyString } from '../../types'
 import { makeApiClientError } from '../../utils'
-import { ChangeSet } from '../types'
+import { ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
 
 type GetStoreParams = ReturnType<typeof asGetStoreParams>
@@ -15,7 +15,7 @@ const asGetStoreParams = asObject({
 
 interface GetStoreResponseData {
   hash: string
-  changes: ChangeSet
+  changes: ChangeSetV2
 }
 
 export const getStoreRouter = Router()
@@ -35,7 +35,7 @@ getStoreRouter.get('/store/:storeId/:hash?', async (req, res) => {
 
   const repoChanges = await getRepoUpdates(repoId, clientTimestamp)
 
-  const changes: ChangeSet = await getChangesFromRepoUpdates(
+  const changes: ChangeSetV2 = await getChangesFromRepoUpdates(
     repoId,
     repoChanges
   )

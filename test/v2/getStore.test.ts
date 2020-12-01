@@ -4,7 +4,12 @@ import supertest from 'supertest'
 
 import { app } from '../../src/server'
 import { apiSuite } from '../suites'
-import { delay, isErrorResponse, isSuccessfulResponse } from '../utils'
+import {
+  delay,
+  isErrorResponse,
+  isSuccessfulResponse,
+  makeMockStoreFile
+} from '../utils'
 
 apiSuite('GET /api/v2/store', () => {
   const agent = supertest.agent(app)
@@ -17,12 +22,12 @@ apiSuite('GET /api/v2/store', () => {
   let latestTs: number = 0
 
   const CONTENT = {
-    file1: { text: '/file1 content' },
-    file2: { text: '/file2 content' },
-    deletedFile: { text: '/deletedFile content' },
-    dirFile1: { text: '/dir/file1 content' },
-    dirFile2: { text: '/dir/file2 content' },
-    dirDeletedFile: { text: '/dir/deletedFile content' }
+    file1: makeMockStoreFile({ text: '/file1 content' }),
+    file2: makeMockStoreFile({ text: '/file2 content' }),
+    deletedFile: makeMockStoreFile({ text: '/deletedFile content' }),
+    dirFile1: makeMockStoreFile({ text: '/dir/file1 content' }),
+    dirFile2: makeMockStoreFile({ text: '/dir/file2 content' }),
+    dirDeletedFile: makeMockStoreFile({ text: '/dir/deletedFile content' })
   } as const
 
   // Fixtures:
@@ -131,10 +136,10 @@ apiSuite('GET /api/v2/store', () => {
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
-          file1: CONTENT.file1.text,
-          'dir/file1': CONTENT.dirFile1.text,
-          'dir/file2': CONTENT.dirFile2.text,
-          file2: CONTENT.file2.text,
+          file1: CONTENT.file1.box,
+          'dir/file1': CONTENT.dirFile1.box,
+          'dir/file2': CONTENT.dirFile2.box,
+          file2: CONTENT.file2.box,
           deletedFile: null,
           'dir/deletedFile': null
         })
@@ -148,8 +153,8 @@ apiSuite('GET /api/v2/store', () => {
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
-          'dir/file2': CONTENT.dirFile2.text,
-          file2: CONTENT.file2.text,
+          'dir/file2': CONTENT.dirFile2.box,
+          file2: CONTENT.file2.box,
           deletedFile: null,
           'dir/deletedFile': null
         })
@@ -160,8 +165,8 @@ apiSuite('GET /api/v2/store', () => {
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
-          'dir/file2': CONTENT.dirFile2.text,
-          file2: CONTENT.file2.text
+          'dir/file2': CONTENT.dirFile2.box,
+          file2: CONTENT.file2.box
         })
       })
     await agent

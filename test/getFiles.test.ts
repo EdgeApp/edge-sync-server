@@ -4,7 +4,7 @@ import supertest from 'supertest'
 
 import { app } from '../src/server'
 import { apiSuite } from './suites'
-import { delay, isSuccessfulResponse } from './utils'
+import { delay, isSuccessfulResponse, makeMockStoreFile } from './utils'
 
 apiSuite('/api/v3/getFiles', () => {
   const agent = supertest.agent(app)
@@ -16,12 +16,12 @@ apiSuite('/api/v3/getFiles', () => {
   let latestTs: number = 0
 
   const CONTENT = {
-    file1: { text: '/file1 content' },
-    file2: { text: '/file2 content' },
-    deletedFile: { text: '/deletedFile content' },
-    dirFile1: { text: '/dir/file1 content' },
-    dirFile2: { text: '/dir/file2 content' },
-    dirDeletedFile: { text: '/dir/deletedFil contente' }
+    file1: makeMockStoreFile({ text: '/file1 content' }),
+    file2: makeMockStoreFile({ text: '/file2 content' }),
+    deletedFile: makeMockStoreFile({ text: '/deletedFile content' }),
+    dirFile1: makeMockStoreFile({ text: '/dir/file1 content' }),
+    dirFile2: makeMockStoreFile({ text: '/dir/file2 content' }),
+    dirDeletedFile: makeMockStoreFile({ text: '/dir/deletedFil contente' })
   } as const
 
   // Fixtures:

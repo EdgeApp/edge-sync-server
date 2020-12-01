@@ -4,7 +4,11 @@ import supertest, { Response } from 'supertest'
 
 import { app } from '../src/server'
 import { apiSuite } from './suites'
-import { isErrorResponse, isSuccessfulResponse } from './utils'
+import {
+  isErrorResponse,
+  isSuccessfulResponse,
+  makeMockStoreFile
+} from './utils'
 
 apiSuite('POST /api/v3/updateFiles', () => {
   const agent = supertest.agent(app)
@@ -78,7 +82,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
           repoId,
           timestamp: 0,
           paths: {
-            [path]: { text: 'content' }
+            [path]: makeMockStoreFile({ text: 'content' })
           }
         })
         .expect(isErrorResponse(400, `Invalid path '${path}'`))
@@ -107,7 +111,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -123,7 +127,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -134,7 +138,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -150,7 +154,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -167,7 +171,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -178,7 +182,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [dirPath]: { text: 'content' }
+          [dirPath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(
@@ -200,7 +204,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isSuccessfulResponse)
@@ -211,7 +215,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [badFilePath]: { text: 'content' }
+          [badFilePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(
@@ -232,7 +236,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isUpdateFilesResponse)
@@ -279,7 +283,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp,
         paths: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isSuccessfulResponse)
@@ -319,7 +323,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
         repoId,
         timestamp: repoTimestamp - 1,
         paths: {
-          '/file': { text: 'content' }
+          '/file': makeMockStoreFile({ text: 'content' })
         }
       })
       .expect(isErrorResponse(422, 'Failed due to out-of-date timestamp'))

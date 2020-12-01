@@ -4,7 +4,11 @@ import supertest, { Response } from 'supertest'
 
 import { app } from '../../src/server'
 import { apiSuite } from '../suites'
-import { isErrorResponse, isSuccessfulResponse } from '../utils'
+import {
+  isErrorResponse,
+  isSuccessfulResponse,
+  makeMockStoreFile
+} from '../utils'
 
 apiSuite('POST /api/v2/store', () => {
   const agent = supertest.agent(app)
@@ -55,7 +59,7 @@ apiSuite('POST /api/v2/store', () => {
         .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
         .send({
           changes: {
-            [path]: { text: 'content' }
+            [path]: makeMockStoreFile({ text: 'content' }).box
           }
         })
         .expect(isErrorResponse(400, `Invalid path '/${path}'`))
@@ -69,7 +73,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -83,7 +87,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -92,7 +96,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -106,7 +110,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -121,7 +125,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -130,7 +134,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [dirPath]: { text: 'content' }
+          [dirPath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(
@@ -150,7 +154,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -159,7 +163,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [badFilePath]: { text: 'content' }
+          [badFilePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(
@@ -178,7 +182,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -219,7 +223,7 @@ apiSuite('POST /api/v2/store', () => {
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: {
-          [filePath]: { text: 'content' }
+          [filePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
       .expect(isPostStoreResponse)
@@ -250,15 +254,15 @@ apiSuite('POST /api/v2/store', () => {
 
   it('Can write files with out-of-date timestamp', async () => {
     const file1Path = `file1 ${Math.random()}`
-    const file1Content = { text: file1Path }
+    const file1Content = makeMockStoreFile({ text: file1Path }).box
     const file2Path = `file2 ${Math.random()}`
-    const file2Content = { text: file2Path }
+    const file2Content = makeMockStoreFile({ text: file2Path }).box
     const file3Path = `file3 ${Math.random()}`
-    const file3Content = { text: file3Path }
+    const file3Content = makeMockStoreFile({ text: file3Path }).box
     const file4Path = `file4 ${Math.random()}`
-    const file4Content = { text: file4Path }
+    const file4Content = makeMockStoreFile({ text: file4Path }).box
     const file5Path = `file5 ${Math.random()}`
-    const file5Content = { text: file5Path }
+    const file5Content = makeMockStoreFile({ text: file5Path }).box
     let file2Timestamp: number = 0
 
     await agent

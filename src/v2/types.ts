@@ -1,15 +1,9 @@
-import { asEither, asMap, asNull, asString } from 'cleaners'
+import { asEither, asMap, asNull } from 'cleaners'
 
-export type ChangeSet = ReturnType<typeof asChangeSet>
+import { asEdgeBox } from '../types'
 
-export const asChangeSet = asMap(
-  asEither(asEither(asObjectType, asString), asNull)
-)
+export type FileChangeV2 = ReturnType<typeof asFileChangeV2>
+export const asFileChangeV2 = asEither(asEdgeBox, asNull)
 
-function asObjectType(raw: any): object {
-  if (typeof raw === 'object') {
-    return raw
-  } else {
-    throw TypeError('Expected object type')
-  }
-}
+export type ChangeSetV2 = ReturnType<typeof asChangeSetV2>
+export const asChangeSetV2 = asMap(asFileChangeV2)

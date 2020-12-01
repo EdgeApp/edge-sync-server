@@ -5,11 +5,11 @@ import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
   asStoreRepoDocument,
+  ChangeSet,
+  FileChange,
   StoreDirectory,
   StoreDirectoryDocument,
-  StoreFile,
   StoreFileDocument,
-  StoreFileMap,
   StoreRepoDocument
 } from '../types'
 import {
@@ -40,7 +40,7 @@ export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
 
 export async function updateFiles(
   repoId: string,
-  storeFileMap: StoreFileMap
+  changeSet: ChangeSet
 ): Promise<number> {
   // Timestamp is the same for all updates for this request
   let requestTimestamp = Date.now()
@@ -49,7 +49,7 @@ export async function updateFiles(
   while (true) {
     try {
       if (retries < 100) {
-        await filesUpdateRoutine(repoId, storeFileMap, requestTimestamp)
+        await filesUpdateRoutine(repoId, changeSet, requestTimestamp)
       } else {
         throw new Error(`Failed to resolve conflicts after ${retries} attempts`)
       }
@@ -71,11 +71,11 @@ export async function updateFiles(
 
 export async function filesUpdateRoutine(
   repoId: string,
-  storeFileMap: StoreFileMap,
+  changeSet: ChangeSet,
   requestTimestamp: number
 ): Promise<void> {
   const repoKey = `${repoId}:/`
-  const fileKeys = Object.keys(storeFileMap).map(path => `${repoId}:${path}`)
+  const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
   // Prepare Files Documents:
   const fileRevsResult = await dataStore.fetch({ keys: fileKeys })
@@ -90,12 +90,11 @@ export async function filesUpdateRoutine(
   fileRevsResult.rows.forEach(row => {
     const fileKey = row.key
     const [repoId, filePath] = fileKey.split(':')
-    const storeFile: StoreFile = storeFileMap[filePath] ?? { text: '' }
-    const isDeletion = storeFileMap[filePath] === null
+    const fileChange: FileChange = changeSet[filePath]
 
     if ('doc' in row) {
       // We don't modify the file document for deletion
-      if (!isDeletion) {
+      if (fileChange !== null) {
         try {
           asStoreFileDocument(row.doc)
         } catch (err) {
@@ -108,7 +107,7 @@ export async function filesUpdateRoutine(
 
         // Document will be overwritten
         storeFileDocuments.push({
-          ...storeFile,
+          ...fileChange,
           _id: fileKey,
           _rev: row.value.rev
         })
@@ -116,9 +115,9 @@ export async function filesUpdateRoutine(
     } else {
       // We must throw an exception when client wants to delete a file that
       // doesn't exist.
-      if (!isDeletion) {
+      if (fileChange !== null) {
         // Document will be inserted
-        storeFileDocuments.push({ ...storeFile, _id: fileKey })
+        storeFileDocuments.push({ ...fileChange, _id: fileKey })
       } else {
         throw makeApiClientError(
           422,
@@ -151,7 +150,7 @@ export async function filesUpdateRoutine(
         filePointerPath,
         requestTimestamp,
         // Only delete if file pointer is the file (don't delete directories)
-        filePointerPath === fileName && isDeletion
+        fileChange === null && filePointerPath === fileName
       )
 
       directoryModifications.set(directoryKey, directoryModification)
@@ -175,7 +174,7 @@ export async function filesUpdateRoutine(
         filePointerPath,
         requestTimestamp,
         // Only delete if file pointer is the file (don't delete directories)
-        filePointerPath === fileName && isDeletion
+        fileChange === null && filePointerPath === fileName
       ),
       timestamp: requestTimestamp
     }

@@ -1,4 +1,4 @@
-import { asMaybe } from 'cleaners'
+import { asMaybe, asNumber, asObject } from 'cleaners'
 
 import { config } from '../config'
 import { dataStore } from '../db'
@@ -8,7 +8,6 @@ import {
   asStoreFileDocument,
   asStoreRepoDocument,
   StoreDirectoryDocument,
-  StoreFile,
   StoreFileTimestampMap
 } from '../types'
 import {
@@ -23,9 +22,11 @@ export interface GetFilesStoreFileMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
 }
 
-export interface StoreFileWithTimestamp extends StoreFile {
-  timestamp: number
-}
+export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
+export const asStoreFileWithTimestamp = asObject({
+  ...asStoreFile.shape,
+  timestamp: asNumber
+})
 
 export interface StoreDirectoryPathWithTimestamp {
   paths: StoreFileTimestampMap
@@ -134,7 +135,10 @@ export async function fetchGetFilesStoreFileMap(
       // Handle file document
       if (fileDocument != null) {
         return Object.assign(map, {
-          [documentPath]: { ...asStoreFile(fileDocument), timestamp }
+          [documentPath]: asStoreFileWithTimestamp({
+            ...fileDocument,
+            timestamp
+          })
         })
       }
 

@@ -1,6 +1,8 @@
 import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
+import { StoreFile } from '../src/types'
+
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -20,12 +22,25 @@ export const isErrorResponse = (status: number, message?: string) => (
 
 export const isSuccessfulResponse = (res): void => {
   if (res.body.success === false || res.body.message !== undefined) {
-    console.error(res.body.error)
     throw new Error(
-      `Not expecting error response: ${res.status} ${res.body.message}`
+      `Not expecting error response: ${res.status} ${res.body.message}${
+        res.body.error != null ? `:\n${res.body.error}` : ''
+      }`
     )
   }
   expect(res.body.error, 'res.body.error').to.be.a('undefined')
   expect(res.status, 'res.status').to.be.least(200)
   expect(res.status, 'res.status').to.be.below(300)
+}
+
+export const makeMockStoreFile = (data: object): StoreFile => {
+  const dataBase64 = JSON.stringify(data)
+
+  return {
+    box: {
+      iv_hex: '',
+      encryptionType: 0,
+      data_base64: dataBase64
+    }
+  }
 }
