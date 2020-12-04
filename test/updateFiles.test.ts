@@ -6,7 +6,7 @@ import { app } from '../src/server'
 import { apiSuite } from './suites'
 import { isErrorResponse, isSuccessfulResponse } from './utils'
 
-apiSuite('/api/v3/updateFiles', () => {
+apiSuite('POST /api/v3/updateFiles', () => {
   const agent = supertest.agent(app)
 
   const repoId = 'test'
@@ -64,6 +64,7 @@ apiSuite('/api/v3/updateFiles', () => {
 
   it('Can validate paths', async () => {
     const invalidPaths = [
+      '',
       '/',
       '/ bad/space',
       'has/no/root/slash',

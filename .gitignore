@@ -2,6 +2,8 @@
 /.cache/
 /dist/
 /lib/
+/.nyc_output
+/coverage
 /config.json
 
 # Package managers:

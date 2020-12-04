@@ -1,8 +1,9 @@
 import { asNumber, asObject, asOptional, asString } from 'cleaners'
 import Router from 'express-promise-router'
 
-import { dataStore } from '../db'
-import { ApiErrorResponse, ApiResponse, StoreRepoDocument } from '../types'
+import { checkRepoExists, createRepoDocument } from '../api/repo'
+import { asNonEmptyString } from '../types'
+import { makeApiClientError, makeApiResponse } from '../utils'
 
 type PutRepoBody = ReturnType<typeof asPutRepoBody>
 
@@ -11,7 +12,7 @@ interface RepoPutResponseData {
 }
 
 const asPutRepoBody = asObject({
-  repoId: asString,
+  repoId: asNonEmptyString,
   lastGitHash: asOptional(asString),
   lastGitTime: asOptional(asNumber)
 })
@@ -25,49 +26,26 @@ repoRouter.put('/repo', async (req, res) => {
   try {
     body = asPutRepoBody(req.body)
   } catch (error) {
-    const response: ApiErrorResponse = {
-      success: false,
-      message: error.message
-    }
-    return res.status(400).json(response)
+    throw makeApiClientError(400, error.message)
   }
 
-  const path: string = `${body.repoId}:/`
+  const repoKey: string = `${body.repoId}:/`
 
-  // Return HTTP 409 if repo already exists
-  try {
-    await dataStore.head(path)
-    const result: ApiErrorResponse = {
-      success: false,
-      message: 'Datastore already exists'
-    }
-    res.status(409).json(result)
-    return
-  } catch (error) {
-    // Throw response errors other than 404
-    if (error.statusCode !== 404) {
-      throw error
-    }
+  if (await checkRepoExists(repoKey)) {
+    throw makeApiClientError(409, 'Datastore already exists')
   }
 
   // Create new repo
   const timestamp = Date.now()
-  const repo: StoreRepoDocument = {
-    paths: {},
-    deleted: {},
+
+  await createRepoDocument(repoKey, {
     timestamp,
     lastGitHash: body.lastGitHash,
-    lastGitTime: body.lastGitTime,
-    size: 0,
-    sizeLastCreated: 0,
-    maxSize: 0
-  }
-  await dataStore.insert(repo, path)
+    lastGitTime: body.lastGitTime
+  })
 
   // Send response
-  const response: ApiResponse<RepoPutResponseData> = {
-    success: true,
-    data: { timestamp }
-  }
-  res.status(201).json(response)
+  res.status(201).json(
+    makeApiResponse<RepoPutResponseData>({ timestamp })
+  )
 })

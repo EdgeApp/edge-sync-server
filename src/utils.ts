@@ -1,4 +1,4 @@
-import { ApiClientError, StoreDirectory } from './types'
+import { ApiClientError, ApiResponse, StoreDirectory } from './types'
 
 export const makeApiClientError = (
   status: number,
@@ -7,6 +7,13 @@ export const makeApiClientError = (
   return {
     status,
     message
+  }
+}
+
+export const makeApiResponse = <T>(data: T): ApiResponse<T> => {
+  return {
+    success: true,
+    data
   }
 }
 

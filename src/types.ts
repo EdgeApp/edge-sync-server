@@ -1,4 +1,12 @@
-import { asMap, asNumber, asObject, asOptional, asString } from 'cleaners'
+import {
+  asEither,
+  asMap,
+  asNull,
+  asNumber,
+  asObject,
+  asOptional,
+  asString
+} from 'cleaners'
 import * as Nano from 'nano'
 
 // Regexes:
@@ -12,16 +20,16 @@ const asNanoMaybeDocument = asObject<Nano.MaybeDocument>({
   _rev: asOptional(asString)
 })
 
-export type StoreFileMap = ReturnType<typeof asStoreFileMap>
-export const asStoreFileMap = asMap(asNumber)
+export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
+export const asStoreFileTimestampMap = asMap(asNumber)
 
 // Directory
 
 export type StoreDirectory = ReturnType<typeof asStoreDirectory>
 export type StoreDirectoryDocument = ReturnType<typeof asStoreDirectoryDocument>
 export const asStoreDirectory = asObject({
-  deleted: asStoreFileMap,
-  paths: asStoreFileMap
+  deleted: asStoreFileTimestampMap,
+  paths: asStoreFileTimestampMap
 })
 export const asStoreDirectoryDocument = asObject({
   ...asNanoMaybeDocument.shape,
@@ -64,6 +72,12 @@ export const asStoreFileDocument = asObject({
   ...asNanoMaybeDocument.shape,
   ...asStoreFile.shape
 })
+
+export type StoreFileMap = ReturnType<typeof asStoreFileMap>
+export const asStoreFileMap = asMap(asEither(asStoreFile, asNull))
+
+// Union of all document types
+export type StoreDocument = StoreRepo | StoreDirectory | StoreFile
 
 // API Responses
 

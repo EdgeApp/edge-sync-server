@@ -1,4 +1,4 @@
-import { expect } from 'chai'
+import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
 export const delay = (ms: number): Promise<void> => {
@@ -8,15 +8,14 @@ export const delay = (ms: number): Promise<void> => {
 export const isErrorResponse = (status: number, message?: string) => (
   res: Response
 ): void => {
-  expect(res.status, 'res.status').equals(status)
-
-  expect(res.body.success).to.equal(false, 'res.body.success')
-
-  if (message !== undefined) {
-    expect(res.body.message).to.equal(message)
-  } else {
-    expect(res.body.message).to.be.an('string', 'res.body.message')
-  }
+  assert(
+    res.status === status && (message === res.body.message || message == null),
+    `Error ${res.status} (${res.body.message}); ` +
+      `Expected ${status}${message != null ? ` (${message})` : ''};`
+  )
+  expect(res.body)
+    .property('message')
+    .a('string')
 }
 
 export const isSuccessfulResponse = (res): void => {
