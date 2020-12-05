@@ -1,11 +1,16 @@
-import { fetchGetFilesStoreFileMap } from '../api/getFiles'
+import { asMaybe } from 'cleaners'
+
+import {
+  asStoreFileWithTimestamp,
+  fetchGetFilesStoreFileMap
+} from '../api/getFiles'
 import { RepoUpdates } from '../api/getUpdates'
-import { ChangeSet } from './types'
+import { ChangeSetV2 } from './types'
 
 export async function getChangesFromRepoUpdates(
   repoId: string,
   repoUpdates: RepoUpdates
-): Promise<ChangeSet> {
+): Promise<ChangeSetV2> {
   const { deleted, paths } = repoUpdates
 
   const getFilesStoreFileMap = await fetchGetFilesStoreFileMap(
@@ -14,30 +19,26 @@ export async function getChangesFromRepoUpdates(
     true
   )
 
-  const fileChanges: ChangeSet = Object.entries(getFilesStoreFileMap).reduce(
-    (changes: ChangeSet, [path, fileOrDir]) => {
-      if ('text' in fileOrDir) {
-        const compatiblePath = path.substr(1)
-        const file = fileOrDir
-        try {
-          changes[compatiblePath] = JSON.parse(file.text)
-        } catch (_e) {
-          changes[compatiblePath] = file.text
-        }
-      }
-      return changes
-    },
-    {}
-  )
+  const changes: ChangeSetV2 = {}
 
-  const deletedChanges: ChangeSet = Object.keys(deleted).reduce(
-    (changes: ChangeSet, path) => {
+  Object.entries(getFilesStoreFileMap).forEach(([path, fileOrDir]) => {
+    const file = asMaybe(asStoreFileWithTimestamp)(fileOrDir)
+
+    // File should never be a directory
+    if (file != null) {
+      // Strip leading forward slash from path
       const compatiblePath = path.substr(1)
-      changes[compatiblePath] = null
-      return changes
-    },
-    {}
-  )
+      // Return the file document's box
+      changes[compatiblePath] = file.box
+    } else {
+      throw new Error(`Unexpected document type from change set`)
+    }
+  })
 
-  return { ...fileChanges, ...deletedChanges }
+  Object.keys(deleted).forEach(path => {
+    const compatiblePath = path.substr(1)
+    changes[compatiblePath] = null
+  })
+
+  return changes
 }

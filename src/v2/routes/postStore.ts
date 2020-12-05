@@ -7,11 +7,10 @@ import {
   asApiClientError,
   asNonEmptyString,
   asPath,
-  StoreFile,
-  StoreFileMap
+  ChangeSet
 } from '../../types'
 import { makeApiClientError } from '../../utils'
-import { asChangeSet, ChangeSet } from '../types'
+import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
 
 export const postStoreRouter = Router()
@@ -24,12 +23,12 @@ const asPostStoreParams = asObject({
 
 type PostStoreBody = ReturnType<typeof asPostStoreBody>
 const asPostStoreBody = asObject({
-  changes: asChangeSet
+  changes: asChangeSetV2
 })
 
 interface PostStoreResponseData {
   hash: string
-  changes: ChangeSet
+  changes: ChangeSetV2
 }
 
 postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
@@ -50,25 +49,13 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
 
   const repoId = params.storeId
   let clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
-  const changeList = body.changes
-  const changeListPaths = Object.keys(changeList)
+  const changesPaths = Object.keys(body.changes)
 
-  const storeFileMap: StoreFileMap = Object.entries(changeList).reduce(
-    (paths: StoreFileMap, [path, data]) => {
+  const changes: ChangeSet = Object.entries(body.changes).reduce(
+    (changes: ChangeSet, [path, box]) => {
       const compatiblePath = '/' + path
-      let storeFile: StoreFile | null
-
-      if (typeof data === 'object' && data !== null) {
-        storeFile = { text: JSON.stringify(data) }
-      } else if (typeof data === 'string') {
-        storeFile = { text: data }
-      } else {
-        storeFile = null
-      }
-
-      paths[compatiblePath] = storeFile
-
-      return paths
+      changes[compatiblePath] = box != null ? { box } : null
+      return changes
     },
     {}
   )
@@ -88,15 +75,15 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
   }
 
   // Update files
-  const requestTimestamp = await updateFiles(repoId, storeFileMap)
+  const requestTimestamp = await updateFiles(repoId, changes)
 
   // Get diff of updates given and updates to send
-  const changesDelta: ChangeSet = {}
+  const changesDelta: ChangeSetV2 = {}
   if (repoUpdates != null) {
     const changes = await getChangesFromRepoUpdates(repoId, repoUpdates)
 
     Object.entries(changes).forEach(([path, change]) => {
-      if (!changeListPaths.includes(path)) {
+      if (!changesPaths.includes(path)) {
         changesDelta[path] = change
       }
     })

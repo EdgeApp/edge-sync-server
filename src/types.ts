@@ -20,6 +20,13 @@ const asNanoMaybeDocument = asObject<Nano.MaybeDocument>({
   _rev: asOptional(asString)
 })
 
+export type EdgeBox = ReturnType<typeof asEdgeBox>
+export const asEdgeBox = asObject({
+  iv_hex: asString,
+  encryptionType: asNumber,
+  data_base64: asString
+})
+
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
 export const asStoreFileTimestampMap = asMap(asNumber)
 
@@ -66,15 +73,20 @@ export const asStoreRepoDocument = asObject({
 export type StoreFile = ReturnType<typeof asStoreFile>
 export type StoreFileDocument = ReturnType<typeof asStoreFileDocument>
 export const asStoreFile = asObject({
-  text: asString
+  box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({
   ...asNanoMaybeDocument.shape,
   ...asStoreFile.shape
 })
 
-export type StoreFileMap = ReturnType<typeof asStoreFileMap>
-export const asStoreFileMap = asMap(asEither(asStoreFile, asNull))
+// Change Set
+
+export type FileChange = ReturnType<typeof asFileChange>
+export const asFileChange = asEither(asStoreFile, asNull)
+
+export type ChangeSet = ReturnType<typeof asChangeSet>
+export const asChangeSet = asMap(asFileChange)
 
 // Union of all document types
 export type StoreDocument = StoreRepo | StoreDirectory | StoreFile
