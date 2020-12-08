@@ -125,8 +125,8 @@ apiSuite('GET /api/v2/store', () => {
 
   it('will return 404 for non-existing repos', async () => {
     await agent
-      .get(`/api/v2/store/none/0`)
-      .expect(isErrorResponse(404, `Repo 'none' not found`))
+      .get(`/api/v2/store/abc/0`)
+      .expect(isErrorResponse(404, `Repo 'abc' not found`))
   })
 
   it('can get updates with 0 timestamp parameter', async () => {
