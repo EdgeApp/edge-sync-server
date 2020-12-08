@@ -18,9 +18,9 @@
     "prepare": "npm-run-all clean -p build.*",
     "start": "node -r sucrase/register src/index.ts",
     "posttest": "nyc report --reporter=cobertura --reporter=html",
-    "test": "nyc yarn test.base --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
-    "test.base": "DATABASE=sync_datastore_test mocha 'test/**/*.test.ts'",
-    "test.watch": "yarn test.base --watch --watch-files 'src/**/*, test/**/*'"
+    "test": "DATABASE=sync_datastore_test nyc yarn test.base --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
+    "test.base": "mocha 'test/**/*.test.ts'",
+    "test.watch": "DATABASE=sync_datastore_test_watch yarn test.base --watch --watch-files 'src/**/*, test/**/*'"
   },
   "husky": {
     "hooks": {
