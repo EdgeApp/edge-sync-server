@@ -18,7 +18,7 @@ import {
 
 const { maxPageSize } = config
 
-export interface GetFilesStoreFileMap {
+export interface GetFilesMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
 }
 
@@ -33,11 +33,11 @@ export interface StoreDirectoryPathWithTimestamp {
   timestamp: number
 }
 
-export async function fetchGetFilesStoreFileMap(
+export async function fetchGetFilesMap(
   repoId: string,
   requestPaths: StoreFileTimestampMap,
   ignoreTimestamps: boolean
-): Promise<GetFilesStoreFileMap> {
+): Promise<GetFilesMap> {
   const paths = Object.keys(requestPaths)
 
   if (paths.length === 0) return {}
@@ -102,7 +102,7 @@ export async function fetchGetFilesStoreFileMap(
   )
 
   const responsePaths = childDocumentResult.rows.reduce(
-    (map: GetFilesStoreFileMap, row) => {
+    (map: GetFilesMap, row) => {
       if (row.error === 'not_found') {
         throw makeApiClientError(404, `Path '${row.key}' not found.`)
       }

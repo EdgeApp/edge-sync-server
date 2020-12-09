@@ -1,10 +1,7 @@
 import { asBoolean, asMap, asNumber, asObject, asOptional } from 'cleaners'
 import Router from 'express-promise-router'
 
-import {
-  fetchGetFilesStoreFileMap,
-  GetFilesStoreFileMap
-} from '../api/getFiles'
+import { fetchGetFilesMap, GetFilesMap } from '../api/getFiles'
 import { asNonEmptyString } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
@@ -17,7 +14,7 @@ const asGetFilesBody = asObject({
 
 interface GetFilesResponseData {
   total: number
-  paths: GetFilesStoreFileMap
+  paths: GetFilesMap
 }
 
 export const getFilesRouter = Router()
@@ -34,7 +31,7 @@ getFilesRouter.post('/getFiles', async (req, res) => {
 
   const { repoId, paths, ignoreTimestamps = false } = body
 
-  const getFilesStoreFileMap = await fetchGetFilesStoreFileMap(
+  const getFilesStoreFileMap = await fetchGetFilesMap(
     repoId,
     paths,
     ignoreTimestamps
