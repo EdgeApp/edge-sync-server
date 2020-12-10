@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs'
 import { join as joinPath } from 'path'
 
-import { asConfig } from '../config.schema'
+import { asConfig } from './config.schema'
 
 let config: ReturnType<typeof asConfig>
 
