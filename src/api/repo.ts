@@ -1,7 +1,8 @@
 import { dataStore } from '../db'
 import { StoreRepo } from '../types'
 
-export async function checkRepoExists(repoKey: string): Promise<boolean> {
+export async function checkRepoExists(repoId: string): Promise<boolean> {
+  const repoKey = `${repoId}:/`
   try {
     await dataStore.head(repoKey)
     return true
@@ -15,13 +16,18 @@ export async function checkRepoExists(repoKey: string): Promise<boolean> {
 }
 
 export async function createRepoDocument(
-  repoKey: string,
-  data: Pick<StoreRepo, 'timestamp' | 'lastGitHash' | 'lastGitTime'>
+  repoId: string,
+  data: Pick<StoreRepo, 'timestamp' | 'lastGitHash' | 'lastGitTime'> &
+    Partial<Pick<StoreRepo, 'paths' | 'deleted'>>
 ): Promise<void> {
+  const repoKey = `${repoId}:/`
+
+  const { paths = {}, deleted = {} } = data
+
   await dataStore.insert(
     {
-      paths: {},
-      deleted: {},
+      paths,
+      deleted,
       timestamp: data.timestamp,
       lastGitHash: data.lastGitHash,
       lastGitTime: data.lastGitTime,

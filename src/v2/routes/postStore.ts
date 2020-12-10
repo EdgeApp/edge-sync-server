@@ -2,7 +2,7 @@ import { asMaybe, asObject, asOptional } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
-import { updateFiles, validateRepoTimestamp } from '../../api/updateFiles'
+import { updateDocuments, validateRepoTimestamp } from '../../api/updateFiles'
 import {
   asApiClientError,
   asNonEmptyString,
@@ -75,7 +75,7 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
   }
 
   // Update files
-  const requestTimestamp = await updateFiles(repoId, changes)
+  const updateTimestamp = await updateDocuments(repoId, changes)
 
   // Get diff of updates given and updates to send
   const changesDelta: ChangeSetV2 = {}
@@ -90,7 +90,7 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
   }
 
   const responseData: PostStoreResponseData = {
-    hash: requestTimestamp.toString(),
+    hash: updateTimestamp.toString(),
     changes: changesDelta
   }
 

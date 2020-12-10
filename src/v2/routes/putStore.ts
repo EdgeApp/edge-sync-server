@@ -27,16 +27,14 @@ putStoreRouter.put('/store/:storeId', async (req, res) => {
     throw makeApiClientError(400, error.message)
   }
 
-  const repoKey: string = `${params.storeId}:/`
-
-  if (await checkRepoExists(repoKey)) {
+  if (await checkRepoExists(params.storeId)) {
     throw makeApiClientError(409, 'Datastore already exists')
   }
 
   // Create new repo
   const timestamp = Date.now()
 
-  await createRepoDocument(repoKey, {
+  await createRepoDocument(params.storeId, {
     timestamp
   })
 

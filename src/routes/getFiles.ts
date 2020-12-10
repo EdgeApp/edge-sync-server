@@ -1,10 +1,9 @@
 import { asBoolean, asMap, asNumber, asObject, asOptional } from 'cleaners'
 import Router from 'express-promise-router'
 
-import {
-  fetchGetFilesStoreFileMap,
-  GetFilesStoreFileMap
-} from '../api/getFiles'
+import { fetchGetFilesMap, GetFilesMap } from '../api/getFiles'
+import { migrateRepo } from '../api/migrations'
+import { checkRepoExists } from '../api/repo'
 import { asNonEmptyString } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
@@ -17,7 +16,7 @@ const asGetFilesBody = asObject({
 
 interface GetFilesResponseData {
   total: number
-  paths: GetFilesStoreFileMap
+  paths: GetFilesMap
 }
 
 export const getFilesRouter = Router()
@@ -34,7 +33,19 @@ getFilesRouter.post('/getFiles', async (req, res) => {
 
   const { repoId, paths, ignoreTimestamps = false } = body
 
-  const getFilesStoreFileMap = await fetchGetFilesStoreFileMap(
+  // Deprecate after migrations
+  if (!(await checkRepoExists(repoId))) {
+    try {
+      await migrateRepo(repoId)
+    } catch (error) {
+      if (error.message === 'Repo not found') {
+        throw makeApiClientError(404, `Repo '${repoId}' not found`)
+      }
+      throw error
+    }
+  }
+
+  const getFilesStoreFileMap = await fetchGetFilesMap(
     repoId,
     paths,
     ignoreTimestamps

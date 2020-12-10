@@ -18,8 +18,14 @@ import {
   makeApiClientError,
   mergeDirectoryFilePointers,
   updateDirectoryFilePointers,
-  validateModification
+  validateModification,
+  withRetries
 } from '../utils'
+
+type RepoModification = Pick<
+  StoreRepoDocument,
+  'paths' | 'deleted' | 'timestamp'
+>
 
 export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
   const repoKey = `${repoId}:/`
@@ -38,53 +44,42 @@ export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
   }
 }
 
-export async function updateFiles(
+export function updateDocuments(
   repoId: string,
   changeSet: ChangeSet
 ): Promise<number> {
-  // Timestamp is the same for all updates for this request
-  let requestTimestamp = Date.now()
-  let retries: number = 0
+  return withRetries(
+    async (): Promise<number> => {
+      const updateTimestamp = Date.now()
+      const repoModification = await updateFilesAndDirectories(
+        repoId,
+        changeSet,
+        updateTimestamp
+      )
+      await updateRepoDocument(repoId, repoModification)
 
-  while (true) {
-    try {
-      if (retries < 100) {
-        await filesUpdateRoutine(repoId, changeSet, requestTimestamp)
-      } else {
-        throw new Error(`Failed to resolve conflicts after ${retries} attempts`)
-      }
-    } catch (err) {
-      if (err.message === 'conflict') {
-        requestTimestamp = Date.now()
-        retries += 1
-        continue
-      } else {
-        throw err
-      }
-    }
-
-    break
-  }
-
-  return requestTimestamp
+      return updateTimestamp
+    },
+    err => err.message === 'conflict'
+  )
 }
 
-export async function filesUpdateRoutine(
+export async function updateFilesAndDirectories(
   repoId: string,
   changeSet: ChangeSet,
-  requestTimestamp: number
-): Promise<void> {
-  const repoKey = `${repoId}:/`
+  updateTimestamp: number
+): Promise<RepoModification> {
   const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
   // Prepare Files Documents:
   const fileRevsResult = await dataStore.fetch({ keys: fileKeys })
   const storeFileDocuments: StoreFileDocument[] = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
-  let repoModification: Pick<
-    StoreRepoDocument,
-    'paths' | 'deleted' | 'timestamp'
-  > = { paths: {}, deleted: {}, timestamp: 0 }
+  let repoModification: RepoModification = {
+    paths: {},
+    deleted: {},
+    timestamp: 0
+  }
 
   // Prepare file documents:
   fileRevsResult.rows.forEach(row => {
@@ -148,7 +143,7 @@ export async function filesUpdateRoutine(
       const directoryModification = updateDirectoryFilePointers(
         existingDirModification,
         filePointerPath,
-        requestTimestamp,
+        updateTimestamp,
         // Only delete if file pointer is the file (don't delete directories)
         fileChange === null && filePointerPath === fileName
       )
@@ -172,11 +167,11 @@ export async function filesUpdateRoutine(
       ...updateDirectoryFilePointers(
         repoModification,
         filePointerPath,
-        requestTimestamp,
+        updateTimestamp,
         // Only delete if file pointer is the file (don't delete directories)
         fileChange === null && filePointerPath === fileName
       ),
-      timestamp: requestTimestamp
+      timestamp: updateTimestamp
     }
   })
 
@@ -232,6 +227,21 @@ export async function filesUpdateRoutine(
     })
   }
 
+  // Write Files and Directories
+  const fileAndDirResults = await dataStore.bulk({
+    docs: [...storeFileDocuments, ...storeDirectoryDocuments]
+  })
+  checkResultsForErrors(fileAndDirResults)
+
+  return repoModification
+}
+
+export const updateRepoDocument = async (
+  repoId: string,
+  repoModification: RepoModification
+): Promise<void> => {
+  const repoKey = `${repoId}:/`
+
   // Prepare Repo Document:
   const repoFetchResult = await dataStore.fetch({ keys: [repoKey] })
   const storeRepoDocuments: StoreRepoDocument[] = []
@@ -272,19 +282,16 @@ export async function filesUpdateRoutine(
     }
   })
 
-  // Writes:
-  // Write Files and Directories
-  const fileAndDirResults = await dataStore.bulk({
-    docs: [...storeFileDocuments, ...storeDirectoryDocuments]
-  })
-  checkResultsForErrors(fileAndDirResults)
-
   // Write Repos
   const repoResults = await dataStore.bulk({
     docs: storeRepoDocuments
   })
   checkResultsForErrors(repoResults)
 }
+
+// ---------------------------------------------------------------------
+// Private
+// ---------------------------------------------------------------------
 
 // This checks for conflicts and errors in the datastore write results
 const checkResultsForErrors = (results: DocumentBulkResponse[]): void =>

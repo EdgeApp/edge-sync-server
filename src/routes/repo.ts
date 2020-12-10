@@ -1,4 +1,4 @@
-import { asNumber, asObject, asOptional, asString } from 'cleaners'
+import { asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../api/repo'
@@ -12,9 +12,7 @@ interface RepoPutResponseData {
 }
 
 const asPutRepoBody = asObject({
-  repoId: asNonEmptyString,
-  lastGitHash: asOptional(asString),
-  lastGitTime: asOptional(asNumber)
+  repoId: asNonEmptyString
 })
 
 export const repoRouter = Router()
@@ -29,19 +27,15 @@ repoRouter.put('/repo', async (req, res) => {
     throw makeApiClientError(400, error.message)
   }
 
-  const repoKey: string = `${body.repoId}:/`
-
-  if (await checkRepoExists(repoKey)) {
+  if (await checkRepoExists(body.repoId)) {
     throw makeApiClientError(409, 'Datastore already exists')
   }
 
   // Create new repo
   const timestamp = Date.now()
 
-  await createRepoDocument(repoKey, {
-    timestamp,
-    lastGitHash: body.lastGitHash,
-    lastGitTime: body.lastGitTime
+  await createRepoDocument(body.repoId, {
+    timestamp
   })
 
   // Send response

@@ -1,7 +1,7 @@
 import { asNumber, asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
-import { updateFiles, validateRepoTimestamp } from '../api/updateFiles'
+import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
 import { asChangeSet, asNonEmptyString, asPath } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
@@ -39,15 +39,15 @@ updateFilesRouter.post('/updateFiles', async (req, res) => {
   await validateRepoTimestamp(body.repoId, body.timestamp)
 
   // Update files
-  const requestTimestamp = await updateFiles(body.repoId, body.paths)
+  const updateTimestamp = await updateDocuments(body.repoId, body.paths)
 
   // Response:
 
   res.status(200).json(
     makeApiResponse<UpdateFilesResponseData>({
-      timestamp: requestTimestamp,
+      timestamp: updateTimestamp,
       paths: paths.reduce((paths, path) => {
-        paths[path] = requestTimestamp
+        paths[path] = updateTimestamp
         return paths
       }, {})
     })
