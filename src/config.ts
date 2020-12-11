@@ -3,11 +3,13 @@ import { join as joinPath } from 'path'
 
 import { asConfig } from './config.schema'
 
+const configPath = joinPath(__dirname, process.env.CONFIG ?? '/../config.json')
+
 let config: ReturnType<typeof asConfig>
 
 // Read JSON file
 try {
-  const filePath = joinPath(`${__dirname}/../config.json`)
+  const filePath = joinPath(configPath)
   const configJson = readFileSync(filePath, 'utf8')
   config = JSON.parse(configJson)
 } catch (error) {
