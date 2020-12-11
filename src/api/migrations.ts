@@ -82,54 +82,57 @@ export const getRepoFilePathsRecursively = async (
 }
 
 export const migrateRepo = async (repoId: string): Promise<void> => {
-  const changeSet: ChangeSet = {}
-
   const repoDir = await cloneRepo(repoId)
-  const filePaths = await getRepoFilePathsRecursively(repoDir)
-  const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
-  // Create the change set
-  for (const filePath of filePaths) {
-    const fileContent = await readFile(filePath, {
-      encoding: 'utf-8'
-    })
-    const box = JSON.parse(fileContent)
-    const fileChange = asFileChange({
-      box
-    })
+  try {
+    const filePaths = await getRepoFilePathsRecursively(repoDir)
+    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
-    const relativePath = filePath.substr(repoDir.length)
+    // Create the change set by reading files in temporary migration dir
+    const changeSet: ChangeSet = {}
+    for (const filePath of filePaths) {
+      const fileContent = await readFile(filePath, {
+        encoding: 'utf-8'
+      })
+      const box = JSON.parse(fileContent)
+      const fileChange = asFileChange({
+        box
+      })
 
-    changeSet[relativePath] = fileChange
-  }
+      const relativePath = filePath.substr(repoDir.length)
 
-  await withRetries(
-    async (): Promise<void> => {
-      // Update files and directories
-      const repoModification = await updateFilesAndDirectories(
-        repoId,
-        changeSet,
-        lastGitTime
-      )
+      changeSet[relativePath] = fileChange
+    }
 
-      // Create Repo Document (last db operation)
-      try {
-        await createRepoDocument(repoId, {
-          paths: repoModification.paths,
-          timestamp: lastGitTime,
-          lastGitHash,
-          lastGitTime: lastGitTime
-        })
-      } catch (err) {
-        // Silence conflict errors
-        if (err.error !== 'conflict') {
-          throw err
+    // Update database
+    await withRetries(
+      async (): Promise<void> => {
+        // Update files and directories
+        const repoModification = await updateFilesAndDirectories(
+          repoId,
+          changeSet,
+          lastGitTime
+        )
+
+        // Create Repo Document (last db operation)
+        try {
+          await createRepoDocument(repoId, {
+            paths: repoModification.paths,
+            timestamp: lastGitTime,
+            lastGitHash,
+            lastGitTime: lastGitTime
+          })
+        } catch (err) {
+          // Silence conflict errors
+          if (err.error !== 'conflict') {
+            throw err
+          }
         }
-      }
-
-      // Migration cleanup
-      await cleanupRepoDir(repoDir)
-    },
-    err => err.message === 'conflict'
-  )
+      },
+      err => err.message === 'conflict'
+    )
+  } finally {
+    // Cleanup temp migration dir
+    await cleanupRepoDir(repoDir)
+  }
 }
