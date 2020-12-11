@@ -4,6 +4,7 @@ import Router from 'express-promise-router'
 import { fetchGetFilesMap, GetFilesMap } from '../api/getFiles'
 import { migrateRepo } from '../api/migrations'
 import { checkRepoExists } from '../api/repo'
+import { config } from '../config'
 import { asNonEmptyString } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
@@ -32,6 +33,15 @@ getFilesRouter.post('/getFiles', async (req, res) => {
   }
 
   const { repoId, paths, ignoreTimestamps = false } = body
+
+  // Use max page size config to limit the paths processed
+  if (paths.length > config.maxPageSize) {
+    throw makeApiClientError(
+      422,
+      `Too many paths. ` +
+        `Total of ${paths.length} paths requested with maxPageSize of ${config.maxPageSize}`
+    )
+  }
 
   // Deprecate after migrations
   if (!(await checkRepoExists(repoId))) {

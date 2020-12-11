@@ -1,6 +1,5 @@
 import { asMaybe, asNumber, asObject } from 'cleaners'
 
-import { config } from '../config'
 import { dataStore } from '../db'
 import {
   asStoreDirectoryDocument,
@@ -15,8 +14,6 @@ import {
   getParentPathsOfPath,
   makeApiClientError
 } from '../utils'
-
-const { maxPageSize } = config
 
 export interface GetFilesMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
@@ -41,14 +38,6 @@ export async function fetchGetFilesMap(
   const paths = Object.keys(requestPaths)
 
   if (paths.length === 0) return {}
-
-  // Use max page size config to limit the paths processed
-  if (paths.length > maxPageSize) {
-    throw makeApiClientError(
-      422,
-      `Too many paths. maxPageSize is ${maxPageSize}`
-    )
-  }
 
   interface ChildKeyToParentKeyMap {
     [childKey: string]: string
