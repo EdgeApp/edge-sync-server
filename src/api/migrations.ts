@@ -145,12 +145,19 @@ export const migrateRepo = async (repoId: string): Promise<void> => {
       )
 
       // Create Repo Document (last db operation)
-      await createRepoDocument(repoId, {
-        paths: repoModification.paths,
-        timestamp: lastGitTime,
-        lastGitHash,
-        lastGitTime: lastGitTime
-      })
+      try {
+        await createRepoDocument(repoId, {
+          paths: repoModification.paths,
+          timestamp: lastGitTime,
+          lastGitHash,
+          lastGitTime: lastGitTime
+        })
+      } catch (err) {
+        // Silence conflict errors
+        if (err.error !== 'conflict') {
+          throw err
+        }
+      }
 
       // Migration cleanup
       await cleanupRepoDir(repoDir)
