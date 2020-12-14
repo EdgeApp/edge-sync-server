@@ -39,7 +39,7 @@ getUpdatesRouter.post('/getUpdates', async (req, res) => {
 
   if (clientTimestamp < repoDocument.timestamp) {
     const { paths, deleted } = await getDirectoryUpdates(
-      repoKey.slice(0, -1),
+      repoKey,
       repoDocument,
       clientTimestamp
     )
