@@ -1,5 +1,5 @@
 import { exec as execOriginal } from 'child_process'
-import { access, readdir, readFile } from 'fs/promises'
+import { access, readFile } from 'fs/promises'
 import { join } from 'path'
 import { promisify } from 'util'
 
@@ -8,8 +8,6 @@ import { asFileChange, ChangeSet } from '../types'
 import { withRetries } from '../utils'
 import { createRepoDocument } from './repo'
 import { updateFilesAndDirectories } from './updateFiles'
-
-const omittedEntryNames = ['.', '..', '.git']
 
 const exec = promisify(execOriginal)
 
@@ -77,84 +75,64 @@ export const getRepoLastCommitInfo = async (
 }
 
 export const getRepoFilePathsRecursively = async (
-  repoDir: string,
-  parentDir: string = '/'
+  repoDir: string
 ): Promise<string[]> => {
-  let fileNames: string[] = []
-
-  const entries = await readdir(join(repoDir, parentDir), {
-    withFileTypes: true
-  })
-
-  for (const entry of entries) {
-    const entryName = entry.name
-
-    // Don't include from the omitted list
-    if (omittedEntryNames.includes(entryName)) {
-      continue
-    }
-
-    // Use recursion on directory entries
-    if (entry.isDirectory() === true) {
-      const subDirectory = join(parentDir, entryName)
-      const subDirectoryFileNames = await getRepoFilePathsRecursively(
-        repoDir,
-        join(parentDir, entryName)
-      ).then(fileNames =>
-        fileNames.map(fileName => join(subDirectory, fileName))
-      )
-
-      fileNames = [...fileNames, ...subDirectoryFileNames]
-      continue
-    }
-
-    // Add entry name because it's a file (prefix with /)
-    fileNames.push('/' + entryName)
-  }
-
-  return fileNames
+  const { stdout } = await exec(`find ${repoDir} -not -type d | grep -v '.git'`)
+  return stdout.split('\n').filter(path => path !== '')
 }
 
 export const migrateRepo = async (repoId: string): Promise<void> => {
-  const changeSet: ChangeSet = {}
-
   const repoDir = await cloneRepo(repoId)
-  const filePaths = await getRepoFilePathsRecursively(repoDir)
-  const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
-  // Create the change set
-  for (const filePath of filePaths) {
-    const fileContent = await readFile(join(repoDir, filePath), {
-      encoding: 'utf-8'
-    })
-    const box = JSON.parse(fileContent)
-    const fileChange = asFileChange({
-      box
-    })
+  try {
+    const filePaths = await getRepoFilePathsRecursively(repoDir)
+    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
-    changeSet[filePath] = fileChange
-  }
-
-  await withRetries(
-    async (): Promise<void> => {
-      // Update files and directories
-      const repoModification = await updateFilesAndDirectories(
-        repoId,
-        changeSet,
-        lastGitTime
-      )
-
-      // Create Repo Document (last db operation)
-      await createRepoDocument(repoId, {
-        paths: repoModification.paths,
-        timestamp: lastGitTime,
-        lastGitHash,
-        lastGitTime: lastGitTime
+    // Create the change set by reading files in temporary migration dir
+    const changeSet: ChangeSet = {}
+    for (const filePath of filePaths) {
+      const fileContent = await readFile(filePath, {
+        encoding: 'utf-8'
+      })
+      const box = JSON.parse(fileContent)
+      const fileChange = asFileChange({
+        box
       })
 
-      // Migration cleanup
-      await cleanupRepoDir(repoDir)
-    },
-    err => err.message === 'conflict'
-  )
+      const relativePath = filePath.substr(repoDir.length)
+
+      changeSet[relativePath] = fileChange
+    }
+
+    // Update database
+    await withRetries(
+      async (): Promise<void> => {
+        // Update files and directories
+        const repoModification = await updateFilesAndDirectories(
+          repoId,
+          changeSet,
+          lastGitTime
+        )
+
+        // Create Repo Document (last db operation)
+        try {
+          await createRepoDocument(repoId, {
+            paths: repoModification.paths,
+            timestamp: lastGitTime,
+            lastGitHash,
+            lastGitTime: lastGitTime
+          })
+        } catch (err) {
+          // Silence conflict errors
+          if (err.error !== 'conflict') {
+            throw err
+          }
+        }
+      },
+      err => err.message === 'conflict'
+    )
+  } finally {
+    // Cleanup temp migration dir
+    await cleanupRepoDir(repoDir)
+  }
 }
