@@ -14,8 +14,8 @@ import {
 apiSuite('GET /api/v2/store', () => {
   const agent = supertest.agent(app)
 
-  const repoId = 'test'
-  const otherRepoId = 'other'
+  const repoId = '0000000000000000000000000000000000000000'
+  const otherRepoId = '1111111111111111111111111111111111111111'
   let repoTimestamp: number = 0
   let oldestTs: number = 0
   let deletionTs: number = 0
@@ -124,9 +124,10 @@ apiSuite('GET /api/v2/store', () => {
   // Tests:
 
   it('will return 404 for non-existing repos', async () => {
+    const unknownRepoId = 'e7707e7707e7707e7707e7707e7707e7707e7707'
     await agent
-      .get(`/api/v2/store/abc/0`)
-      .expect(isErrorResponse(404, `Repo 'abc' not found`))
+      .get(`/api/v2/store/${unknownRepoId}/0`)
+      .expect(isErrorResponse(404, `Repo '${unknownRepoId}' not found`))
   })
 
   it('can get updates with 0 timestamp parameter', async () => {

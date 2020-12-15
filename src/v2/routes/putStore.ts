@@ -2,7 +2,7 @@ import { asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
-import { asNonEmptyString } from '../../types'
+import { asRepoId } from '../../types'
 import { makeApiClientError, makeApiResponse } from '../../utils'
 
 type PutStoreParams = ReturnType<typeof asPutStoreParams>
@@ -12,7 +12,7 @@ interface PutStoreResponseData {
 }
 
 const asPutStoreParams = asObject({
-  storeId: asNonEmptyString
+  storeId: asRepoId
 })
 
 export const putStoreRouter = Router()

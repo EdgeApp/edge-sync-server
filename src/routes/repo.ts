@@ -2,18 +2,17 @@ import { asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../api/repo'
-import { asNonEmptyString } from '../types'
+import { asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
 type PutRepoBody = ReturnType<typeof asPutRepoBody>
+const asPutRepoBody = asObject({
+  repoId: asRepoId
+})
 
 interface RepoPutResponseData {
   timestamp: number
 }
-
-const asPutRepoBody = asObject({
-  repoId: asNonEmptyString
-})
 
 export const repoRouter = Router()
 

@@ -11,6 +11,7 @@ import * as Nano from 'nano'
 
 // Regexes:
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
+export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
 
 // Types:
 
@@ -128,4 +129,14 @@ export function asPath(raw: any): string {
   }
 
   return path
+}
+
+export function asRepoId(raw: any): string {
+  const repoId = asString(raw)
+
+  if (!VALID_REPO_ID_REGEX.test(repoId)) {
+    throw new Error(`Invalid repo ID '${repoId}'`)
+  }
+
+  return repoId
 }

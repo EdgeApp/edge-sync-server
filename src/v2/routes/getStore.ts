@@ -4,14 +4,14 @@ import Router from 'express-promise-router'
 import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
-import { asNonEmptyString } from '../../types'
+import { asNonEmptyString, asRepoId } from '../../types'
 import { makeApiClientError } from '../../utils'
 import { ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
 
 type GetStoreParams = ReturnType<typeof asGetStoreParams>
 const asGetStoreParams = asObject({
-  storeId: asNonEmptyString,
+  storeId: asRepoId,
   hash: asOptional(asNonEmptyString)
 })
 
