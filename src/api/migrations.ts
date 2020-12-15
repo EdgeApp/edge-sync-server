@@ -124,7 +124,12 @@ export const migrateRepo = async (repoId: string): Promise<void> => {
           })
         } catch (err) {
           // Silence conflict errors
-          if (err.error !== 'conflict') {
+          if (err.error === 'conflict') {
+            console.log(
+              `Conflict migrating repo ID ${repoId}. ` +
+                `Migration was already completed by another process.`
+            )
+          } else {
             throw err
           }
         }
