@@ -1,5 +1,6 @@
 import { dataStore } from '../db'
-import { StoreRepo } from '../types'
+import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
+import { makeApiClientError } from '../utils'
 
 export async function checkRepoExists(repoId: string): Promise<boolean> {
   const repoKey = `${repoId}:/`
@@ -37,4 +38,27 @@ export async function createRepoDocument(
     },
     repoKey
   )
+}
+
+export async function getRepoDocument(
+  repoId: string
+): Promise<StoreRepoDocument> {
+  const repoKey = `${repoId}:/`
+
+  // Validate request body timestamp
+  let repoDoc: StoreRepoDocument
+  try {
+    const repoQuery = await dataStore.get(repoKey)
+    repoDoc = asStoreRepoDocument(repoQuery)
+  } catch (err) {
+    if (err.error === 'not_found') {
+      throw makeApiClientError(404, `Repo '${repoId}' not found`)
+    } else if (err instanceof TypeError) {
+      throw new Error(`'${repoId}' is not a repo document`)
+    } else {
+      throw err
+    }
+  }
+
+  return repoDoc
 }

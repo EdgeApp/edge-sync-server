@@ -75,6 +75,11 @@ export async function getDirectoryUpdates(
     deleted: {}
   }
 
+  // For repo keys, trim the trailing slash; dirs don't have trailing slashes
+  if (dirKey[dirKey.length - 1] === '/') {
+    dirKey = dirKey.substr(0, dirKey.length - 1)
+  }
+
   const pathsKeys = Object.keys(dir.paths).map(path => [dirKey, path].join('/'))
   const deletedKeys = Object.keys(dir.deleted).map(path =>
     [dirKey, path].join('/')

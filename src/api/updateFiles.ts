@@ -21,6 +21,7 @@ import {
   validateModification,
   withRetries
 } from '../utils'
+import { getRepoDocument } from './repo'
 
 type RepoModification = Pick<
   StoreRepoDocument,
@@ -28,17 +29,9 @@ type RepoModification = Pick<
 >
 
 export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
-  const repoKey = `${repoId}:/`
+  const repoDoc = await getRepoDocument(repoId)
 
   // Validate request body timestamp
-  let repoDoc: StoreRepoDocument
-  try {
-    const repoQuery = await dataStore.get(repoKey)
-    repoDoc = asStoreRepoDocument(repoQuery)
-  } catch (err) {
-    throw new Error(`Failed to validate repo: ${err.message}`)
-  }
-
   if (repoDoc.timestamp !== timestamp) {
     throw makeApiClientError(422, `Failed due to out-of-date timestamp`)
   }

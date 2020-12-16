@@ -1,14 +1,10 @@
-import { asMaybe, asObject, asOptional } from 'cleaners'
+import { asObject, asOptional } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
-import { updateDocuments, validateRepoTimestamp } from '../../api/updateFiles'
-import {
-  asApiClientError,
-  asNonEmptyString,
-  asPath,
-  ChangeSet
-} from '../../types'
+import { getRepoDocument } from '../../api/repo'
+import { updateDocuments } from '../../api/updateFiles'
+import { asNonEmptyString, asPath, ChangeSet } from '../../types'
 import { makeApiClientError } from '../../utils'
 import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
@@ -34,7 +30,6 @@ interface PostStoreResponseData {
 postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
   let body: PostStoreBody
   let params: PostStoreParams
-  // let paths: string[]
 
   // Validate request
   try {
@@ -48,9 +43,12 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
   }
 
   const repoId = params.storeId
-  let clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
-  const changesPaths = Object.keys(body.changes)
+  const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
 
+  // Check if repo document exists and is a valid document using getRepoDocument
+  await getRepoDocument(repoId)
+
+  // Prepare changes for updateDocuments
   const changes: ChangeSet = Object.entries(body.changes).reduce(
     (changes: ChangeSet, [path, box]) => {
       const compatiblePath = '/' + path
@@ -59,40 +57,22 @@ postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
     },
     {}
   )
-
-  let repoUpdates: RepoUpdates | undefined
-
-  try {
-    // Validate request body timestamp
-    await validateRepoTimestamp(repoId, clientTimestamp)
-  } catch (error) {
-    if (asMaybe(asApiClientError)(error) != null) {
-      repoUpdates = await getRepoUpdates(repoId, clientTimestamp)
-      clientTimestamp = repoUpdates.timestamp
-    } else {
-      throw error
-    }
-  }
-
-  // Update files
+  // Update documents using changes (files, directories, and repo)
   const updateTimestamp = await updateDocuments(repoId, changes)
 
-  // Get diff of updates given and updates to send
-  const changesDelta: ChangeSetV2 = {}
-  if (repoUpdates != null) {
-    const changes = await getChangesFromRepoUpdates(repoId, repoUpdates)
+  // Get updates using the client timestamp from request body
+  const repoUpdates: RepoUpdates = await getRepoUpdates(repoId, clientTimestamp)
+  // Convert updates into a V2 change set to send as response changes
+  const responseChanges: ChangeSetV2 = await getChangesFromRepoUpdates(
+    repoId,
+    repoUpdates
+  )
 
-    Object.entries(changes).forEach(([path, change]) => {
-      if (!changesPaths.includes(path)) {
-        changesDelta[path] = change
-      }
-    })
-  }
+  // Response:
 
   const responseData: PostStoreResponseData = {
     hash: updateTimestamp.toString(),
-    changes: changesDelta
+    changes: responseChanges
   }
-
   res.status(200).json(responseData)
 })

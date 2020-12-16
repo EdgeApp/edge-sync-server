@@ -3,6 +3,7 @@ import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
 import { app } from '../../src/server'
+import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import {
   isErrorResponse,
@@ -27,11 +28,23 @@ apiSuite('POST /api/v2/store', () => {
     repoTimestamp = res.body.data.timestamp
   })
 
-  const isPostStoreResponse = (res: Response): void => {
-    isSuccessfulResponse(res)
+  const isPostStoreResponse = (
+    changes: ChangeSetV2
+  ): ((res: Response) => void) => {
+    try {
+      changes = asChangeSetV2(changes)
+    } catch (error) {
+      throw new Error(
+        `Invalid changes arg for isPostStoreResponse: ${error.message}`
+      )
+    }
 
-    expect(res.body.hash, 'res.body.hash').to.be.a('string')
-    expect(res.body.changes, 'res.body.changes').to.be.an('object')
+    return (res: Response): void => {
+      isSuccessfulResponse(res)
+
+      expect(res.body.hash, 'res.body.hash').to.be.a('string')
+      expect(res.body.changes, 'res.body.changes').deep.equals(changes)
+    }
   }
 
   const updateRepoTimestamp = (res: Response): void => {
@@ -68,67 +81,72 @@ apiSuite('POST /api/v2/store', () => {
 
   it('Can write file', async () => {
     const filePath = `file${Math.random()}`
+    const changes = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changes))
       .expect(updateRepoTimestamp)
   })
 
   it('Can update file', async () => {
     const filePath = `file${Math.random()}`
+    const changesA = {
+      [filePath]: makeMockStoreFile({ text: 'content A' }).box
+    }
+    const changesB = {
+      [filePath]: makeMockStoreFile({ text: 'content B' }).box
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes: changesA
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesA))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes: changesB
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesB))
       .expect(updateRepoTimestamp)
   })
 
   it('Can write file with directory', async () => {
     const filePath = `dir/file${Math.random()}`
+    const changes = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changes))
       .expect(updateRepoTimestamp)
   })
 
   it('Cannot write file where there is a directory', async () => {
     const dirPath = 'dir'
     const filePath = `dir/file${Math.random()}`
+    const changes = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changes))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
@@ -149,15 +167,16 @@ apiSuite('POST /api/v2/store', () => {
   it('Cannot write file where the directory is a file', async () => {
     const filePath = `file${Math.random()}`
     const badFilePath = `${filePath}/file'`
+    const changes = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changes))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
@@ -177,24 +196,26 @@ apiSuite('POST /api/v2/store', () => {
 
   it('Can delete file', async () => {
     const filePath = `file${Math.random()}`
+    const changesA = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
+    const changesB = {
+      [filePath]: null
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes: changesA
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesA))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: null
-        }
+        changes: changesB
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesB))
       .expect(updateRepoTimestamp)
   })
 
@@ -218,24 +239,26 @@ apiSuite('POST /api/v2/store', () => {
 
   it('Cannot delete a file that was previously deleted', async () => {
     const filePath = `file${Math.random()}`
+    const changesA = {
+      [filePath]: makeMockStoreFile({ text: 'content' }).box
+    }
+    const changesB = {
+      [filePath]: null
+    }
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: makeMockStoreFile({ text: 'content' }).box
-        }
+        changes: changesA
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesA))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [filePath]: null
-        }
+        changes: changesB
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesB))
       .expect(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
@@ -254,85 +277,83 @@ apiSuite('POST /api/v2/store', () => {
 
   it('Can write files with out-of-date timestamp', async () => {
     const file1Path = `file1 ${Math.random()}`
-    const file1Content = makeMockStoreFile({ text: file1Path }).box
     const file2Path = `file2 ${Math.random()}`
-    const file2Content = makeMockStoreFile({ text: file2Path }).box
     const file3Path = `file3 ${Math.random()}`
-    const file3Content = makeMockStoreFile({ text: file3Path }).box
     const file4Path = `file4 ${Math.random()}`
-    const file4Content = makeMockStoreFile({ text: file4Path }).box
     const file5Path = `file5 ${Math.random()}`
-    const file5Content = makeMockStoreFile({ text: file5Path }).box
-    let file2Timestamp: number = 0
+
+    const changesA = {
+      [file1Path]: makeMockStoreFile({ text: file1Path }).box
+    }
+    const changesB = {
+      [file2Path]: makeMockStoreFile({ text: file2Path }).box
+    }
+    const changesC = {
+      [file3Path]: makeMockStoreFile({ text: file3Path }).box
+    }
+    const changesD = {
+      [file4Path]: makeMockStoreFile({ text: file4Path }).box
+    }
+    const changesE = {
+      [file5Path]: makeMockStoreFile({ text: file5Path }).box
+    }
+
+    let changesBTimestamp: number = 0
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [file1Path]: file1Content
-        }
+        changes: changesA
       })
-      .expect(isPostStoreResponse)
+      .expect(isPostStoreResponse(changesA))
+
+    await agent
+      .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
+      .send({
+        changes: changesB
+      })
+      .expect(
+        isPostStoreResponse({
+          ...changesA,
+          ...changesB
+        })
+      )
       .expect(res => {
-        expect(res.body.changes).deep.equals({})
+        changesBTimestamp = parseInt(res.body.hash)
       })
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [file2Path]: file2Content
-        }
+        changes: changesC
       })
-      .expect(isPostStoreResponse)
-      .expect(res => {
-        file2Timestamp = parseInt(res.body.hash)
-        expect(res.body.changes).deep.equals({
-          [file1Path]: file1Content
+      .expect(
+        isPostStoreResponse({
+          ...changesA,
+          ...changesB,
+          ...changesC
         })
-      })
+      )
 
     await agent
-      .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
+      .post(`/api/v2/store/${repoId}/${changesBTimestamp}`)
       .send({
-        changes: {
-          [file3Path]: file3Content
-        }
+        changes: changesD
       })
-      .expect(isPostStoreResponse)
-      .expect(res => {
-        expect(res.body.changes).deep.equals({
-          [file1Path]: file1Content,
-          [file2Path]: file2Content
+      .expect(
+        isPostStoreResponse({
+          ...changesC,
+          ...changesD
         })
-      })
-
-    await agent
-      .post(`/api/v2/store/${repoId}/${file2Timestamp}`)
-      .send({
-        changes: {
-          [file4Path]: file4Content
-        }
-      })
-      .expect(isPostStoreResponse)
-      .expect(res => {
-        expect(res.body.changes).deep.equals({
-          [file3Path]: file3Content
-        })
-      })
+      )
       .expect(updateRepoTimestamp)
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
-        changes: {
-          [file5Path]: file5Content
-        }
+        changes: changesE
       })
-      .expect(isPostStoreResponse)
-      .expect(res => {
-        expect(res.body.changes).deep.equals({})
-      })
+      .expect(isPostStoreResponse(changesE))
       .expect(updateRepoTimestamp)
   })
 })
