@@ -4,7 +4,7 @@ import Router from 'express-promise-router'
 import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
 import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
-import { asNonEmptyString, asPath, ChangeSet } from '../../types'
+import { asNonEmptyString, asPath, asRepoId, ChangeSet } from '../../types'
 import { makeApiClientError } from '../../utils'
 import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
@@ -13,7 +13,7 @@ export const postStoreRouter = Router()
 
 type PostStoreParams = ReturnType<typeof asPostStoreParams>
 const asPostStoreParams = asObject({
-  storeId: asNonEmptyString,
+  storeId: asRepoId,
   hash: asOptional(asNonEmptyString)
 })
 

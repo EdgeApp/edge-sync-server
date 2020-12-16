@@ -9,13 +9,26 @@ import { isErrorResponse, isSuccessfulResponse } from './utils'
 apiSuite('PUT /api/v3/repo', () => {
   const agent = supertest.agent(app)
 
-  const repoId = 'test'
+  const repoId = '0000000000000000000000000000000000000000'
 
   it('Can validate request body', async () => {
     await agent
       .put('/api/v3/repo')
       .send()
       .expect(isErrorResponse(400, 'Expected a string at .repoId'))
+  })
+
+  it('Can validate repo ID', async () => {
+    const invalidRepoId = 'invalid'
+
+    await agent
+      .put('/api/v3/repo')
+      .send({
+        repoId: invalidRepoId
+      })
+      .expect(
+        isErrorResponse(400, `Invalid repo ID '${invalidRepoId}' at .repoId`)
+      )
   })
 
   it('Can create new repo', async () => {

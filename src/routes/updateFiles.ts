@@ -2,12 +2,12 @@ import { asNumber, asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
-import { asChangeSet, asNonEmptyString, asPath } from '../types'
+import { asChangeSet, asPath, asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
 type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
 const asUpdateFilesBody = asObject({
-  repoId: asNonEmptyString,
+  repoId: asRepoId,
   timestamp: asNumber,
   paths: asChangeSet
 })

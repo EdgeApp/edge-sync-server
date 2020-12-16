@@ -13,7 +13,7 @@ import {
 apiSuite('POST /api/v3/updateFiles', () => {
   const agent = supertest.agent(app)
 
-  const repoId = 'test'
+  const repoId = '0000000000000000000000000000000000000000'
   let repoTimestamp = 0
 
   before(async () => {
@@ -63,7 +63,7 @@ apiSuite('POST /api/v3/updateFiles', () => {
           '/file': null
         }
       })
-      .expect(isErrorResponse(400, 'Expected non empty string at .repoId'))
+      .expect(isErrorResponse(400, `Invalid repo ID '' at .repoId`))
   })
 
   it('Can validate paths', async () => {

@@ -9,8 +9,8 @@ import { delay, isSuccessfulResponse, makeMockStoreFile } from './utils'
 apiSuite('/api/v3/getFiles', () => {
   const agent = supertest.agent(app)
 
-  const repoId = 'test'
-  const otherRepoId = 'other'
+  const repoId = '0000000000000000000000000000000000000000'
+  const otherRepoId = '1111111111111111111111111111111111111111'
   let repoTimestamp: number = 0
   let oldestTs: number = 0
   let latestTs: number = 0

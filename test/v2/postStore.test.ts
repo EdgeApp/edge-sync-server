@@ -14,7 +14,7 @@ import {
 apiSuite('POST /api/v2/store', () => {
   const agent = supertest.agent(app)
 
-  const repoId = 'test'
+  const repoId = '0000000000000000000000000000000000000000'
   let repoTimestamp = 0
 
   // Fixtures:
@@ -52,6 +52,15 @@ apiSuite('POST /api/v2/store', () => {
   }
 
   // Tests:
+
+  it('Can validate repoId body', async () => {
+    const invalidRepoId = 'invalid'
+    await agent
+      .post(`/api/v2/store/${invalidRepoId}/${repoTimestamp}`)
+      .expect(
+        isErrorResponse(400, `Invalid repo ID '${invalidRepoId}' at .storeId`)
+      )
+  })
 
   it('Can validate request body', async () => {
     await agent

@@ -9,6 +9,8 @@ import { isErrorResponse, isSuccessfulResponse } from '../utils'
 apiSuite('PUT /api/v2/store', () => {
   const agent = supertest.agent(app)
 
+  const repoId = '0000000000000000000000000000000000000000'
+
   it('Missing request parameter', async () => {
     await agent
       .put('/api/v2/store/')
@@ -18,7 +20,7 @@ apiSuite('PUT /api/v2/store', () => {
 
   it('Can create new repo', async () => {
     await agent
-      .put('/api/v2/store/test')
+      .put(`/api/v2/store/${repoId}`)
       .expect(isSuccessfulResponse)
       .expect(201)
       .expect(res => {
@@ -29,6 +31,6 @@ apiSuite('PUT /api/v2/store', () => {
   })
 
   it('Will error for existing repo', async () => {
-    await agent.put('/api/v2/store/test').expect(isErrorResponse(409))
+    await agent.put(`/api/v2/store/${repoId}`).expect(isErrorResponse(409))
   })
 })

@@ -1,16 +1,16 @@
-import { asNumber, asObject, asString } from 'cleaners'
+import { asNumber, asObject } from 'cleaners'
 import Router from 'express-promise-router'
 
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
-import { StoreFileTimestampMap } from '../types'
+import { asRepoId, StoreFileTimestampMap } from '../types'
 import { makeApiClientError } from '../utils'
 
 export const getUpdatesRouter = Router()
 
 type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
 const asGetUpdatesBody = asObject({
-  repoId: asString,
+  repoId: asRepoId,
   timestamp: asNumber
 })
 

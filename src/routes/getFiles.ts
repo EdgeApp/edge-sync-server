@@ -5,12 +5,12 @@ import { fetchGetFilesMap, GetFilesMap } from '../api/getFiles'
 import { migrateRepo } from '../api/migrations'
 import { checkRepoExists } from '../api/repo'
 import { config } from '../config'
-import { asNonEmptyString } from '../types'
+import { asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
 
 type GetFilesBody = ReturnType<typeof asGetFilesBody>
 const asGetFilesBody = asObject({
-  repoId: asNonEmptyString,
+  repoId: asRepoId,
   ignoreTimestamps: asOptional(asBoolean),
   paths: asMap(asNumber)
 })
