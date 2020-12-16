@@ -1,4 +1,5 @@
 import {
+  asBoolean,
   asEither,
   asMap,
   asNull,
@@ -30,6 +31,19 @@ export const asEdgeBox = asObject({
 
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
 export const asStoreFileTimestampMap = asMap(asNumber)
+
+// Settings Document
+
+export type StoreSettings = ReturnType<typeof asStoreSettings>
+export type StoreSettingsDocument = ReturnType<typeof asStoreSettingsDocument>
+export const asStoreSettings = asObject({
+  ipWhitelist: asMap(asBoolean),
+  apiKeyWhitelist: asMap(asBoolean)
+})
+export const asStoreSettingsDocument = asObject({
+  ...asNanoMaybeDocument.shape,
+  ...asStoreSettings.shape
+})
 
 // Directory
 
@@ -90,7 +104,11 @@ export type ChangeSet = ReturnType<typeof asChangeSet>
 export const asChangeSet = asMap(asFileChange)
 
 // Union of all document types
-export type StoreDocument = StoreRepo | StoreDirectory | StoreFile
+export type StoreDocument =
+  | StoreSettingsDocument
+  | StoreRepo
+  | StoreDirectory
+  | StoreFile
 
 // API Responses
 
