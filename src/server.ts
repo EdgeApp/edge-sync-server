@@ -9,6 +9,9 @@ import { v3Router } from './v3Router'
 
 export const app = express()
 
+// Settings
+app.set('trust proxy', 'loopback')
+
 // Middleware
 app.use(bodyParser.json({ limit: '1mb' }))
 app.use(cors())

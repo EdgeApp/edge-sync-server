@@ -4,6 +4,7 @@ import Router from 'express-promise-router'
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { asRepoId } from '../../types'
 import { makeApiClientError, makeApiResponse } from '../../utils'
+import { whitelistIps } from '../../whitelisting'
 
 type PutStoreParams = ReturnType<typeof asPutStoreParams>
 
@@ -17,7 +18,7 @@ const asPutStoreParams = asObject({
 
 export const putStoreRouter = Router()
 
-putStoreRouter.put('/store/:storeId', async (req, res) => {
+putStoreRouter.put('/store/:storeId', whitelistIps, async (req, res) => {
   let params: PutStoreParams
 
   // Request body validation
