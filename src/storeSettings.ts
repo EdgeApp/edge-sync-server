@@ -26,3 +26,21 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     throw new Error(`Failed to load settings document. ${error.message}`)
   }
 }
+
+export async function initStoreSettings(): Promise<void> {
+  let storeSettings: StoreSettings
+  try {
+    const doc = await dataStore.get(settingsDocumentKey)
+    storeSettings = asStoreSettings(doc)
+  } catch (error) {
+    if (error.error !== 'not_found') {
+      throw new Error(`Failed to load settings document. ${error.message}`)
+    }
+
+    storeSettings = {
+      ipWhitelist: {},
+      apiKeyWhitelist: {}
+    }
+    await dataStore.insert(storeSettings, settingsDocumentKey)
+  }
+}

@@ -1,7 +1,6 @@
 import { config } from '../src/config'
-import { dataStore, nano } from '../src/db'
-import { settingsDocumentKey } from '../src/storeSettings'
-import { StoreSettings } from '../src/types'
+import { nano } from '../src/db'
+import { initStoreSettings } from '../src/storeSettings'
 
 export const apiSuite = (name: string, test: () => void): void => {
   describe(name, () => {
@@ -9,12 +8,8 @@ export const apiSuite = (name: string, test: () => void): void => {
       try {
         await nano.db.create(config.couchDatabase)
 
-        const storeSettings: StoreSettings = {
-          ipWhitelist: {},
-          apiKeyWhitelist: {}
-        }
-
-        await dataStore.insert(storeSettings, settingsDocumentKey)
+        // Initialize store settings
+        await initStoreSettings()
       } catch (error) {
         if (error.error !== 'file_exists') {
           throw error
