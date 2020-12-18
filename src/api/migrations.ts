@@ -4,7 +4,7 @@ import { join } from 'path'
 import { promisify } from 'util'
 
 import { config } from '../config'
-import { asFileChange, ChangeSet } from '../types'
+import { asFileChange, ChangeSet, StoreFileTimestampMap } from '../types'
 import { withRetries } from '../utils'
 import { createRepoDocument } from './repo'
 import { updateFilesAndDirectories } from './updateFiles'
@@ -61,7 +61,18 @@ const cleanupRepoDir = async (repoDir: string): Promise<void> => {
 
 export const getRepoLastCommitInfo = async (
   repoDir: string
-): Promise<{ lastGitHash: string; lastGitTime: number }> => {
+): Promise<{ lastGitHash?: string; lastGitTime?: number }> => {
+  const { stdout: commitCountStdout } = await exec(
+    `git rev-list --all --count`,
+    { encoding: 'utf-8', cwd: repoDir }
+  )
+
+  const commitCount = parseInt(commitCountStdout.trim())
+
+  if (commitCount === 0) {
+    return { lastGitHash: undefined, lastGitTime: undefined }
+  }
+
   const { stdout } = await exec(`git show -s --format=%H,%ct`, {
     encoding: 'utf-8',
     cwd: repoDir
@@ -77,7 +88,9 @@ export const getRepoLastCommitInfo = async (
 export const getRepoFilePathsRecursively = async (
   repoDir: string
 ): Promise<string[]> => {
-  const { stdout } = await exec(`find ${repoDir} -not -type d | grep -v '.git'`)
+  const { stdout } = await exec(
+    `find ${repoDir} -not -type d | { grep -v '.git' || true; }`
+  )
   return stdout.split('\n').filter(path => path !== '')
 }
 
@@ -107,20 +120,27 @@ export const migrateRepo = async (repoId: string): Promise<void> => {
     // Update database
     await withRetries(
       async (): Promise<void> => {
+        const timestamp = lastGitTime ?? Date.now()
+
+        let paths: StoreFileTimestampMap = {}
+
         // Update files and directories
-        const repoModification = await updateFilesAndDirectories(
-          repoId,
-          changeSet,
-          lastGitTime
-        )
+        if (filePaths.length > 0) {
+          const repoModification = await updateFilesAndDirectories(
+            repoId,
+            changeSet,
+            timestamp
+          )
+          paths = repoModification.paths
+        }
 
         // Create Repo Document (last db operation)
         try {
           await createRepoDocument(repoId, {
-            paths: repoModification.paths,
-            timestamp: lastGitTime,
+            paths,
+            timestamp,
             lastGitHash,
-            lastGitTime: lastGitTime
+            lastGitTime
           })
         } catch (err) {
           // Silence conflict errors
