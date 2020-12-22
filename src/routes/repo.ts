@@ -4,6 +4,7 @@ import Router from 'express-promise-router'
 import { checkRepoExists, createRepoDocument } from '../api/repo'
 import { asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../utils'
+import { whitelistAll } from '../whitelisting'
 
 type PutRepoBody = ReturnType<typeof asPutRepoBody>
 const asPutRepoBody = asObject({
@@ -16,7 +17,7 @@ interface RepoPutResponseData {
 
 export const repoRouter = Router()
 
-repoRouter.put('/repo', async (req, res) => {
+repoRouter.put('/repo', whitelistAll, async (req, res) => {
   let body: PutRepoBody
 
   // Request body validation
