@@ -1,7 +1,7 @@
 import Router from 'express-promise-router'
 
 import { config } from '../config'
-import { makeApiResponse } from '../utils'
+import { makeApiResponse } from '../util/utils'
 
 interface ConfigGetResponseData {
   maxPageSize: number

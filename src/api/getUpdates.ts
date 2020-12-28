@@ -8,7 +8,7 @@ import {
   StoreDocument,
   StoreFileTimestampMap
 } from '../types'
-import { getNameFromPath, makeApiClientError } from '../utils'
+import { getNameFromPath, makeApiClientError } from '../util/utils'
 
 export interface FilePointers {
   paths: StoreFileTimestampMap

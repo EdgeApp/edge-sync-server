@@ -5,7 +5,7 @@ import { promisify } from 'util'
 
 import { config } from '../config'
 import { asFileChange, ChangeSet, StoreFileTimestampMap } from '../types'
-import { withRetries } from '../utils'
+import { withRetries } from '../util/utils'
 import { createRepoDocument } from './repo'
 import { updateFilesAndDirectories } from './updateFiles'
 

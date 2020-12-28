@@ -1,6 +1,6 @@
 import { dataStore } from '../db'
 import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
-import { makeApiClientError } from '../utils'
+import { makeApiClientError } from '../util/utils'
 
 export async function checkRepoExists(repoId: string): Promise<boolean> {
   const repoKey = `${repoId}:/`

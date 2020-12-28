@@ -3,7 +3,7 @@ import Router from 'express-promise-router'
 
 import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
 import { asChangeSet, asPath, asRepoId } from '../types'
-import { makeApiClientError, makeApiResponse } from '../utils'
+import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
 const asUpdateFilesBody = asObject({

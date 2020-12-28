@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 
 import { getStoreSettings } from './storeSettings'
-import { makeApiClientError } from './utils'
+import { makeApiClientError } from './util/utils'
 
 export async function whitelistIps(
   req: Request,
