@@ -141,15 +141,18 @@ apiSuite('/api/v3/getUpdates', () => {
       .expect(isSuccessfulResponse)
       .expect(res => {
         expect(res.body).deep.equals({
-          paths: {
-            '/file1': oldestTs,
-            '/dir/file1': oldestTs,
-            '/dir/file2': latestTs,
-            '/file2': latestTs
-          },
-          deleted: {
-            '/deletedFile': deletionTs,
-            '/dirDeletedFile': deletionTs
+          success: true,
+          data: {
+            paths: {
+              '/file1': oldestTs,
+              '/dir/file1': oldestTs,
+              '/dir/file2': latestTs,
+              '/file2': latestTs
+            },
+            deleted: {
+              '/deletedFile': deletionTs,
+              '/dirDeletedFile': deletionTs
+            }
           }
         })
       })
@@ -162,13 +165,16 @@ apiSuite('/api/v3/getUpdates', () => {
       .expect(isSuccessfulResponse)
       .expect(res => {
         expect(res.body).deep.equals({
-          paths: {
-            '/dir/file2': latestTs,
-            '/file2': latestTs
-          },
-          deleted: {
-            '/deletedFile': deletionTs,
-            '/dirDeletedFile': deletionTs
+          success: true,
+          data: {
+            paths: {
+              '/dir/file2': latestTs,
+              '/file2': latestTs
+            },
+            deleted: {
+              '/deletedFile': deletionTs,
+              '/dirDeletedFile': deletionTs
+            }
           }
         })
       })
@@ -178,11 +184,14 @@ apiSuite('/api/v3/getUpdates', () => {
       .expect(isSuccessfulResponse)
       .expect(res => {
         expect(res.body).deep.equals({
-          paths: {
-            '/dir/file2': latestTs,
-            '/file2': latestTs
-          },
-          deleted: {}
+          success: true,
+          data: {
+            paths: {
+              '/dir/file2': latestTs,
+              '/file2': latestTs
+            },
+            deleted: {}
+          }
         })
       })
     await agent
@@ -191,8 +200,11 @@ apiSuite('/api/v3/getUpdates', () => {
       .expect(isSuccessfulResponse)
       .expect(res => {
         expect(res.body).deep.equals({
-          paths: {},
-          deleted: {}
+          success: true,
+          data: {
+            paths: {},
+            deleted: {}
+          }
         })
       })
   })

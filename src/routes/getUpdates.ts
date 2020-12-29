@@ -4,7 +4,7 @@ import Router from 'express-promise-router'
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
 import { asRepoId, StoreFileTimestampMap } from '../types'
-import { makeApiClientError } from '../util/utils'
+import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 export const getUpdatesRouter = Router()
 
@@ -46,9 +46,7 @@ getUpdatesRouter.post('/getUpdates', async (req, res) => {
 
     responseData.paths = paths
     responseData.deleted = deleted
-
-    res.status(200).json(responseData)
-  } else {
-    res.status(200).json(responseData)
   }
+
+  res.status(200).json(makeApiResponse<GetUpdatesResponseData>(responseData))
 })
