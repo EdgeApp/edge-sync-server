@@ -140,20 +140,15 @@ apiSuite('/api/v3/getUpdates', () => {
       .send({ repoId, timestamp: 0 })
       .expect(isSuccessfulResponse)
       .expect(res => {
-        expect(res.body).deep.equals({
-          success: true,
-          data: {
-            paths: {
-              '/file1': oldestTs,
-              '/dir/file1': oldestTs,
-              '/dir/file2': latestTs,
-              '/file2': latestTs
-            },
-            deleted: {
-              '/deletedFile': deletionTs,
-              '/dirDeletedFile': deletionTs
-            }
-          }
+        expect(res.body.data.paths).deep.equals({
+          '/file1': oldestTs,
+          '/dir/file1': oldestTs,
+          '/dir/file2': latestTs,
+          '/file2': latestTs
+        })
+        expect(res.body.data.deleted).deep.equals({
+          '/deletedFile': deletionTs,
+          '/dirDeletedFile': deletionTs
         })
       })
   })
@@ -164,18 +159,13 @@ apiSuite('/api/v3/getUpdates', () => {
       .send({ repoId, timestamp: oldestTs })
       .expect(isSuccessfulResponse)
       .expect(res => {
-        expect(res.body).deep.equals({
-          success: true,
-          data: {
-            paths: {
-              '/dir/file2': latestTs,
-              '/file2': latestTs
-            },
-            deleted: {
-              '/deletedFile': deletionTs,
-              '/dirDeletedFile': deletionTs
-            }
-          }
+        expect(res.body.data.paths).deep.equals({
+          '/dir/file2': latestTs,
+          '/file2': latestTs
+        })
+        expect(res.body.data.deleted).deep.equals({
+          '/deletedFile': deletionTs,
+          '/dirDeletedFile': deletionTs
         })
       })
     await agent
@@ -183,29 +173,19 @@ apiSuite('/api/v3/getUpdates', () => {
       .send({ repoId, timestamp: deletionTs })
       .expect(isSuccessfulResponse)
       .expect(res => {
-        expect(res.body).deep.equals({
-          success: true,
-          data: {
-            paths: {
-              '/dir/file2': latestTs,
-              '/file2': latestTs
-            },
-            deleted: {}
-          }
+        expect(res.body.data.paths).deep.equals({
+          '/dir/file2': latestTs,
+          '/file2': latestTs
         })
+        expect(res.body.data.deleted).deep.equals({})
       })
     await agent
       .post('/api/v3/getUpdates')
       .send({ repoId, timestamp: latestTs })
       .expect(isSuccessfulResponse)
       .expect(res => {
-        expect(res.body).deep.equals({
-          success: true,
-          data: {
-            paths: {},
-            deleted: {}
-          }
-        })
+        expect(res.body.data.paths).deep.equals({})
+        expect(res.body.data.deleted).deep.equals({})
       })
   })
 })

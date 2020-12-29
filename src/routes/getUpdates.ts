@@ -15,6 +15,7 @@ const asGetUpdatesBody = asObject({
 })
 
 interface GetUpdatesResponseData {
+  timestamp: number
   paths: StoreFileTimestampMap
   deleted: StoreFileTimestampMap
 }
@@ -33,6 +34,7 @@ getUpdatesRouter.post('/getUpdates', async (req, res) => {
   const repoDocument = await getRepoDocument(repoId)
 
   const responseData: GetUpdatesResponseData = {
+    timestamp: repoDocument.timestamp,
     paths: {},
     deleted: {}
   }
