@@ -1,12 +1,16 @@
+import nano from 'nano'
+
 import { config } from '../src/config'
-import { nano } from '../src/db'
+import { couchUri, initDataStore } from '../src/db'
 import { initStoreSettings } from '../src/storeSettings'
 
 export const apiSuite = (name: string, test: () => void): void => {
   describe(name, () => {
     before(async () => {
       try {
-        await nano.db.create(config.couchDatabase)
+        await nano(couchUri).db.create(config.couchDatabase)
+
+        initDataStore(config.couchDatabase)
 
         // Initialize store settings
         await initStoreSettings()
@@ -19,7 +23,7 @@ export const apiSuite = (name: string, test: () => void): void => {
     test()
     after(async () => {
       try {
-        await nano.db.destroy(config.couchDatabase)
+        await nano(couchUri).db.destroy(config.couchDatabase)
       } catch (error) {
         if (error.error !== 'not_found') {
           throw error

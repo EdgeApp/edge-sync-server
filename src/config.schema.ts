@@ -1,7 +1,8 @@
 import { asNumber, asObject, asString } from 'cleaners'
 
 export const asConfig = asObject({
-  couchDatabase: asString, // sync_datastore
+  // sync_datastore
+  couchDatabase: asString,
   couchAdminPassword: asString,
   // localhost
   couchHost: asString,
