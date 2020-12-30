@@ -4,7 +4,12 @@
 /lib/
 /.nyc_output
 /coverage
-/config*.json
+
+# Config
+/config.json
+/config.*.json
+!/config.sample.json
+!/config.*.sample.json
 
 # Package managers:
 node_modules/
