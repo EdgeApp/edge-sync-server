@@ -37,6 +37,7 @@ export const makeMockStoreFile = (data: object): StoreFile => {
   const dataBase64 = JSON.stringify(data)
 
   return {
+    timestamp: Date.now(),
     box: {
       iv_hex: '',
       encryptionType: 0,

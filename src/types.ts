@@ -50,6 +50,7 @@ export const asStoreSettingsDocument = asObject({
 export type StoreDirectory = ReturnType<typeof asStoreDirectory>
 export type StoreDirectoryDocument = ReturnType<typeof asStoreDirectoryDocument>
 export const asStoreDirectory = asObject({
+  timestamp: asNumber,
   deleted: asStoreFileTimestampMap,
   paths: asStoreFileTimestampMap
 })
@@ -71,7 +72,6 @@ export interface StoreRepo extends StoreDirectory {
 export type StoreRepoDocument = ReturnType<typeof asStoreRepoDocument>
 export const asStoreRepo = asObject<StoreRepo>({
   ...asStoreDirectory.shape,
-  timestamp: asNumber,
   lastGitHash: asOptional(asString),
   lastGitTime: asOptional(asNumber),
   size: asNumber,
@@ -88,6 +88,7 @@ export const asStoreRepoDocument = asObject({
 export type StoreFile = ReturnType<typeof asStoreFile>
 export type StoreFileDocument = ReturnType<typeof asStoreFileDocument>
 export const asStoreFile = asObject({
+  timestamp: asNumber,
   box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({
@@ -98,7 +99,7 @@ export const asStoreFileDocument = asObject({
 // Change Set
 
 export type FileChange = ReturnType<typeof asFileChange>
-export const asFileChange = asEither(asStoreFile, asNull)
+export const asFileChange = asEither(asObject({ box: asEdgeBox }), asNull)
 
 export type ChangeSet = ReturnType<typeof asChangeSet>
 export const asChangeSet = asMap(asFileChange)
