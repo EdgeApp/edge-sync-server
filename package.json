@@ -9,6 +9,7 @@
   "main": "lib/types.js",
   "types": "lib/types.d.ts",
   "bin": {
+    "migration": "./src/bin/background-migration/index.ts",
     "mon.database": "./src/bin/database-mon/index.ts",
     "mon.network": "./src/bin/network-mon/index.ts"
   },
@@ -22,6 +23,7 @@
     "dev": "nodemon",
     "fix": "npm run lint -- --fix",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx .",
+    "migration": "node -r sucrase/register src/bin/background-migration/index.ts",
     "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts",
     "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
     "precommit": "lint-staged && yarn test && yarn prepare",
@@ -51,6 +53,7 @@
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "express-promise-router": "^4.0.1",
+    "mkdirp": "^1.0.4",
     "nano": "^9.0.1",
     "supertest": "^6.0.1"
   },
@@ -58,6 +61,7 @@
     "@babel/core": "^7.8.4",
     "@types/chai": "^4.2.9",
     "@types/log-update": "^3.1.0",
+    "@types/mkdirp": "^1.0.1",
     "@types/mocha": "^7.0.1",
     "@types/node": "^14.14.10",
     "@types/node-fetch": "^2.5.8",
