@@ -5,15 +5,11 @@ import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
   asStoreRepoDocument,
+  FilePointers,
   StoreDocument,
   StoreFileTimestampMap
 } from '../types'
 import { getNameFromPath, makeApiClientError } from '../util/utils'
-
-export interface FilePointers {
-  paths: StoreFileTimestampMap
-  deleted: StoreFileTimestampMap
-}
 
 export interface RepoUpdates {
   timestamp: number
