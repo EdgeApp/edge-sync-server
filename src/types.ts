@@ -31,6 +31,11 @@ export const asEdgeBox = asObject({
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
 export const asStoreFileTimestampMap = asMap(asNumber)
 
+export interface FilePointers {
+  paths: StoreFileTimestampMap
+  deleted: StoreFileTimestampMap
+}
+
 // Settings Document
 
 export type StoreSettings = ReturnType<typeof asStoreSettings>
