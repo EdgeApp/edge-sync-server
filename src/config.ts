@@ -3,7 +3,11 @@ import { join as joinPath } from 'path'
 
 import { asConfig } from './config.schema'
 
-const configPath = joinPath(__dirname, process.env.CONFIG ?? '/../config.json')
+const configPath = joinPath(
+  __dirname,
+  '../',
+  process.env.CONFIG ?? 'config.json'
+)
 
 let config: ReturnType<typeof asConfig>
 
