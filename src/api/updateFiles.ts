@@ -9,6 +9,7 @@ import {
   FileChange,
   StoreDirectory,
   StoreDirectoryDocument,
+  StoreFile,
   StoreFileDocument,
   StoreRepoDocument
 } from '../types'
@@ -66,7 +67,7 @@ export async function updateFilesAndDirectories(
 
   // Prepare Files Documents:
   const fileRevsResult = await dataStore.fetch({ keys: fileKeys })
-  const storeFileDocuments: StoreFileDocument[] = []
+  const storeFileDocuments: Array<StoreFileDocument | StoreFile> = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
   let repoModification: RepoModification = {
     paths: {},
@@ -176,7 +177,9 @@ export async function updateFilesAndDirectories(
   // Prepare Directories Documents:
   // Fetch existing documents to merge new document
   const directoryKeys = Array.from(directoryModifications.keys())
-  const storeDirectoryDocuments: StoreDirectoryDocument[] = []
+  const storeDirectoryDocuments: Array<
+    StoreDirectoryDocument | StoreDirectory
+  > = []
   if (directoryKeys.length > 0) {
     const directoryFetchResult = await dataStore.fetch({ keys: directoryKeys })
 

@@ -8,7 +8,7 @@ import {
   asOptional,
   asString
 } from 'cleaners'
-import * as Nano from 'nano'
+import nano from 'nano'
 
 // Regexes:
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
@@ -16,10 +16,9 @@ export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
 
 // Types:
 
-// Is there a better way to make optional properties for this type?
-const asNanoMaybeDocument = asObject<Nano.MaybeDocument>({
-  _id: asOptional(asString),
-  _rev: asOptional(asString)
+const asNanoDocument = asObject<nano.Document>({
+  _id: asString,
+  _rev: asString
 })
 
 export type EdgeBox = ReturnType<typeof asEdgeBox>
@@ -41,7 +40,7 @@ export const asStoreSettings = asObject({
   apiKeyWhitelist: asMap(asBoolean)
 })
 export const asStoreSettingsDocument = asObject({
-  ...asNanoMaybeDocument.shape,
+  ...asNanoDocument.shape,
   ...asStoreSettings.shape
 })
 
@@ -55,7 +54,7 @@ export const asStoreDirectory = asObject({
   paths: asStoreFileTimestampMap
 })
 export const asStoreDirectoryDocument = asObject({
-  ...asNanoMaybeDocument.shape,
+  ...asNanoDocument.shape,
   ...asStoreDirectory.shape
 })
 
@@ -79,7 +78,7 @@ export const asStoreRepo = asObject<StoreRepo>({
   maxSize: asNumber
 })
 export const asStoreRepoDocument = asObject({
-  ...asNanoMaybeDocument.shape,
+  ...asNanoDocument.shape,
   ...asStoreRepo.shape
 })
 
@@ -92,7 +91,7 @@ export const asStoreFile = asObject({
   box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({
-  ...asNanoMaybeDocument.shape,
+  ...asNanoDocument.shape,
   ...asStoreFile.shape
 })
 
@@ -104,12 +103,14 @@ export const asFileChange = asEither(asObject({ box: asEdgeBox }), asNull)
 export type ChangeSet = ReturnType<typeof asChangeSet>
 export const asChangeSet = asMap(asFileChange)
 
+// Union of all store data types
+export type StoreData = StoreSettings | StoreRepo | StoreDirectory | StoreFile
 // Union of all document types
 export type StoreDocument =
   | StoreSettingsDocument
-  | StoreRepo
-  | StoreDirectory
-  | StoreFile
+  | StoreRepoDocument
+  | StoreDirectoryDocument
+  | StoreFileDocument
 
 // API Responses
 
