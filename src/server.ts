@@ -47,7 +47,9 @@ app.use((err, _req, res, next) => {
 // Server Error Route
 app.use((err, _req, res, _next) => {
   // logging
-  console.error(err)
+  if (process.env.NODE_ENV !== 'test') {
+    console.error(err)
+  }
 
   // response
   const response: ApiErrorResponse = {
