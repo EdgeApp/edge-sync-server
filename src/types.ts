@@ -126,13 +126,17 @@ export interface ApiResponse<Data> {
 export interface ApiErrorResponse {
   success: false
   message: string
+  error?: string
 }
 
-export type ApiClientError = ReturnType<typeof asApiClientError>
-export const asApiClientError = asObject({
-  status: asNumber,
-  message: asString
-})
+export class ApiClientError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
 
 // General Purpose Cleaner Types
 

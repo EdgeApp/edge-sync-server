@@ -2,7 +2,7 @@ import bodyParser from 'body-parser'
 import cors from 'cors'
 import express from 'express'
 
-import { ApiErrorResponse, asApiClientError } from './types'
+import { ApiClientError, ApiErrorResponse } from './types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
 import { v3Router } from './v3Router'
@@ -28,21 +28,16 @@ app.use((_req, _res, next) => {
 
 // Client Error Route
 app.use((err, _req, res, next) => {
-  if (err instanceof Error) {
+  if (!(err instanceof ApiClientError)) {
     return next(err)
   }
 
-  try {
-    const error = asApiClientError(err)
-    const status = error.status
-    const response: ApiErrorResponse = {
-      success: false,
-      message: error.message
-    }
-    res.status(status).json(response)
-  } catch (error) {
-    return next(err)
+  const response: ApiErrorResponse = {
+    success: false,
+    message: err.message,
+    error: err.stack
   }
+  res.status(err.status).json(response)
 })
 // Server Error Route
 app.use((err, _req, res, _next) => {
