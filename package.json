@@ -18,7 +18,7 @@
     "prepare": "npm-run-all clean -p build.*",
     "start": "node -r sucrase/register src/index.ts",
     "posttest": "nyc report --reporter=cobertura --reporter=html",
-    "test": "mocha 'test/**/*.test.ts'",
+    "test": "NODE_ENV=test mocha 'test/**/*.test.ts'",
     "test.report": "yarn test.with-report && yarn test.post-report",
     "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
