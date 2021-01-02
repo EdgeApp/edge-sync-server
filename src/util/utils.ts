@@ -4,10 +4,7 @@ export const makeApiClientError = (
   status: number,
   message: string
 ): ApiClientError => {
-  return {
-    status,
-    message
-  }
+  return new ApiClientError(status, message)
 }
 
 export const makeApiResponse = <T>(data: T): ApiResponse<T> => {
