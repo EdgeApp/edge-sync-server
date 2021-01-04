@@ -46,7 +46,7 @@ apiSuite('/api/v3/getFiles', () => {
           '/file1': CONTENT.file1,
           '/deletedFile': CONTENT.deletedFile,
           '/dir/file1': CONTENT.dirFile1,
-          '/dirDeletedFile': CONTENT.dirDeletedFile
+          '/dir/deletedFile': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -61,7 +61,7 @@ apiSuite('/api/v3/getFiles', () => {
         timestamp: repoTimestamp,
         paths: {
           '/deletedFile': null,
-          '/dirDeletedFile': null
+          '/dir/deletedFile': null
         }
       })
       .expect(isSuccessfulResponse)
@@ -99,7 +99,7 @@ apiSuite('/api/v3/getFiles', () => {
           '/file1.ignore': CONTENT.file1,
           '/deletedFile.ignore': CONTENT.deletedFile,
           '/dir/file1.ignore': CONTENT.dirFile1,
-          '/dirDeletedFile.ignore': CONTENT.dirDeletedFile
+          '/dir/deletedFile.ignore': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -110,7 +110,7 @@ apiSuite('/api/v3/getFiles', () => {
         timestamp: res.body.data.timestamp,
         paths: {
           '/deletedFile.ignore': null,
-          '/dirDeletedFile.ignore': null
+          '/dir/deletedFile.ignore': null
         }
       })
       .expect(isSuccessfulResponse)
