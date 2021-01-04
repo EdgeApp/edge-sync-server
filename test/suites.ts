@@ -8,14 +8,14 @@ export const apiSuite = (name: string, test: () => void): void => {
   const databaseSuffix = Math.random()
     .toString()
     .replace('.', '')
-  const database = `${config.couchDatabase}_${databaseSuffix}`
+  config.couchDatabase = `${config.couchDatabase}_${databaseSuffix}`
 
   describe(name, () => {
     before(async () => {
       try {
-        await nano(couchUri).db.create(database)
+        await nano(couchUri).db.create(config.couchDatabase)
 
-        initDataStore(database)
+        initDataStore(config.couchDatabase)
 
         // Initialize store settings
         await initStoreSettings()
@@ -28,7 +28,7 @@ export const apiSuite = (name: string, test: () => void): void => {
     test()
     after(async () => {
       try {
-        await nano(couchUri).db.destroy(database)
+        await nano(couchUri).db.destroy(config.couchDatabase)
       } catch (error) {
         if (error.error !== 'not_found') {
           throw error
