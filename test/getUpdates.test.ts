@@ -51,7 +51,7 @@ apiSuite('/api/v3/getUpdates', () => {
           '/file1': CONTENT.file1,
           '/deletedFile': CONTENT.deletedFile,
           '/dir/file1': CONTENT.dirFile1,
-          '/dirDeletedFile': CONTENT.dirDeletedFile
+          '/dir/deletedFile': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -66,7 +66,7 @@ apiSuite('/api/v3/getUpdates', () => {
         timestamp: repoTimestamp,
         paths: {
           '/deletedFile': null,
-          '/dirDeletedFile': null
+          '/dir/deletedFile': null
         }
       })
       .expect(isSuccessfulResponse)
@@ -104,7 +104,7 @@ apiSuite('/api/v3/getUpdates', () => {
           '/file1.ignore': CONTENT.file1,
           '/deletedFile.ignore': CONTENT.deletedFile,
           '/dir/file1.ignore': CONTENT.dirFile1,
-          '/dirDeletedFile.ignore': CONTENT.dirDeletedFile
+          '/dir/deletedFile.ignore': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -115,7 +115,7 @@ apiSuite('/api/v3/getUpdates', () => {
         timestamp: res.body.data.timestamp,
         paths: {
           '/deletedFile.ignore': null,
-          '/dirDeletedFile.ignore': null
+          '/dir/deletedFile.ignore': null
         }
       })
       .expect(isSuccessfulResponse)
@@ -148,7 +148,7 @@ apiSuite('/api/v3/getUpdates', () => {
         })
         expect(res.body.data.deleted).deep.equals({
           '/deletedFile': deletionTs,
-          '/dirDeletedFile': deletionTs
+          '/dir/deletedFile': deletionTs
         })
       })
   })
@@ -165,7 +165,7 @@ apiSuite('/api/v3/getUpdates', () => {
         })
         expect(res.body.data.deleted).deep.equals({
           '/deletedFile': deletionTs,
-          '/dirDeletedFile': deletionTs
+          '/dir/deletedFile': deletionTs
         })
       })
     await agent
