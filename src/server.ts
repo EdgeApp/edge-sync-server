@@ -3,7 +3,7 @@ import cors from 'cors'
 import express from 'express'
 
 import { ApiErrorResponse, asApiClientError } from './types'
-import { makeApiClientError } from './utils'
+import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
 import { v3Router } from './v3Router'
 

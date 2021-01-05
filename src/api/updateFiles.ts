@@ -20,7 +20,7 @@ import {
   updateDirectoryFilePointers,
   validateModification,
   withRetries
-} from '../utils'
+} from '../util/utils'
 import { getRepoDocument } from './repo'
 
 type RepoModification = Pick<

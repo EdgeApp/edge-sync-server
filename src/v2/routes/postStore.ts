@@ -5,7 +5,7 @@ import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
 import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
 import { asNonEmptyString, asPath, asRepoId, ChangeSet } from '../../types'
-import { makeApiClientError } from '../../utils'
+import { makeApiClientError } from '../../util/utils'
 import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
 

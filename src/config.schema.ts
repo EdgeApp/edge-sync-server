@@ -1,10 +1,20 @@
 import { asNumber, asObject, asString } from 'cleaners'
 
 export const asConfig = asObject({
-  couchDatabase: asString, // sync_datastore
+  // sync_datastore
+  couchDatabase: asString,
   couchAdminPassword: asString,
-  couchHost: asString, // localhost
-  couchPort: asString, // 5984
+  // localhost
+  couchHost: asString,
+  // 5984
+  couchPort: asString,
+  // CouchDB sharding parmeters
+  couchSharding: asObject({
+    // Number of shards (24)
+    q: asNumber,
+    // Number of shard replicas (1)
+    n: asNumber
+  }),
   httpPort: asNumber, // 8000
   maxPageSize: asNumber, // 100
   // Git URL of the server from which to migrate repos.

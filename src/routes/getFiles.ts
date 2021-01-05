@@ -6,7 +6,7 @@ import { migrateRepo } from '../api/migrations'
 import { checkRepoExists } from '../api/repo'
 import { config } from '../config'
 import { asRepoId } from '../types'
-import { makeApiClientError, makeApiResponse } from '../utils'
+import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 type GetFilesBody = ReturnType<typeof asGetFilesBody>
 const asGetFilesBody = asObject({

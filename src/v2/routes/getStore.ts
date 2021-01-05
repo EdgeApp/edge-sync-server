@@ -5,7 +5,7 @@ import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
 import { asNonEmptyString, asRepoId } from '../../types'
-import { makeApiClientError } from '../../utils'
+import { makeApiClientError } from '../../util/utils'
 import { ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
 

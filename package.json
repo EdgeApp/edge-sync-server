@@ -18,12 +18,11 @@
     "prepare": "npm-run-all clean -p build.*",
     "start": "node -r sucrase/register src/index.ts",
     "posttest": "nyc report --reporter=cobertura --reporter=html",
-    "test": "CONFIG=../config.test.json yarn test.base",
-    "test.base": "mocha 'test/**/*.test.ts'",
+    "test": "mocha 'test/**/*.test.ts'",
     "test.report": "yarn test.with-report && yarn test.post-report",
-    "test.with-report": "CONFIG=../config.test.json nyc yarn test.base --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
+    "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
-    "test.watch": "CONFIG=../config.test-watch.json yarn test.base --watch --watch-files 'src/**/*, test/**/*'"
+    "test.watch": "yarn test --watch --watch-files 'src/**/*, test/**/*'"
   },
   "husky": {
     "hooks": {

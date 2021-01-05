@@ -4,7 +4,7 @@ import Router from 'express-promise-router'
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
 import { asRepoId, StoreFileTimestampMap } from '../types'
-import { makeApiClientError } from '../utils'
+import { makeApiClientError } from '../util/utils'
 
 export const getUpdatesRouter = Router()
 

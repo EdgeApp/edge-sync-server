@@ -3,7 +3,7 @@ import Router from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../api/repo'
 import { asRepoId } from '../types'
-import { makeApiClientError, makeApiResponse } from '../utils'
+import { makeApiClientError, makeApiResponse } from '../util/utils'
 import { whitelistAll } from '../whitelisting'
 
 type PutRepoBody = ReturnType<typeof asPutRepoBody>

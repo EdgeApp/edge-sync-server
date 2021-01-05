@@ -13,7 +13,7 @@ import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError
-} from '../utils'
+} from '../util/utils'
 
 export interface GetFilesMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp

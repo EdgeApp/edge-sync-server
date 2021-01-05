@@ -1,0 +1,14 @@
+{
+  "couchDatabase": "sync_datastore",
+  "couchAdminPassword": "password123",
+  "couchHost": "localhost",
+  "couchPort": "5984",
+  "couchSharding": {
+    "q": 24,
+    "n": 1
+  },
+  "httpPort": 8000,
+  "maxPageSize": 100,
+  "migrationOriginServer": "https://...",
+  "migrationTmpDir": "/tmp/edge-sync-server/"
+}
