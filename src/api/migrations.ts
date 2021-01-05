@@ -3,7 +3,7 @@ import { access, readFile } from 'fs/promises'
 import { join } from 'path'
 import { promisify } from 'util'
 
-import { config } from '../config'
+import { AppState } from '../server'
 import { asFileChange, ChangeSet, StoreFileTimestampMap } from '../types'
 import { withRetries } from '../util/utils'
 import { createRepoDocument } from './repo'
@@ -28,7 +28,9 @@ const validateRepoId = (repoId: string): void => {
   }
 }
 
-export const cloneRepo = async (repoId: string): Promise<string> => {
+const cloneRepo = ({ config }: AppState) => async (
+  repoId: string
+): Promise<string> => {
   validateRepoId(repoId)
 
   const repoUrl = `${config.migrationOriginServer}${repoId}/`
@@ -59,7 +61,7 @@ const cleanupRepoDir = async (repoDir: string): Promise<void> => {
   }
 }
 
-export const getRepoLastCommitInfo = async (
+const getRepoLastCommitInfo = async (
   repoDir: string
 ): Promise<{ lastGitHash?: string; lastGitTime?: number }> => {
   const { stdout: commitCountStdout } = await exec(
@@ -85,7 +87,7 @@ export const getRepoLastCommitInfo = async (
   return { lastGitHash, lastGitTime }
 }
 
-export const getRepoFilePathsRecursively = async (
+const getRepoFilePathsRecursively = async (
   repoDir: string
 ): Promise<string[]> => {
   const { stdout } = await exec(
@@ -94,8 +96,10 @@ export const getRepoFilePathsRecursively = async (
   return stdout.split('\n').filter(path => path !== '')
 }
 
-export const migrateRepo = async (repoId: string): Promise<void> => {
-  const repoDir = await cloneRepo(repoId)
+export const migrateRepo = (appState: AppState) => async (
+  repoId: string
+): Promise<void> => {
+  const repoDir = await cloneRepo(appState)(repoId)
 
   try {
     const filePaths = await getRepoFilePathsRecursively(repoDir)
@@ -126,7 +130,7 @@ export const migrateRepo = async (repoId: string): Promise<void> => {
 
         // Update files and directories
         if (filePaths.length > 0) {
-          const repoModification = await updateFilesAndDirectories(
+          const repoModification = await updateFilesAndDirectories(appState)(
             repoId,
             changeSet,
             timestamp
@@ -136,7 +140,7 @@ export const migrateRepo = async (repoId: string): Promise<void> => {
 
         // Create Repo Document (last db operation)
         try {
-          await createRepoDocument(repoId, {
+          await createRepoDocument(appState)(repoId, {
             paths,
             timestamp,
             lastGitHash,

@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
-import { app } from '../../src/server'
+import { AppState, makeServer } from '../../src/server'
 import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import {
@@ -11,7 +11,8 @@ import {
   makeMockStoreFile
 } from '../utils'
 
-apiSuite('POST /api/v2/store', () => {
+apiSuite('POST /api/v2/store', (appState: AppState) => {
+  const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   const repoId = '0000000000000000000000000000000000000000'

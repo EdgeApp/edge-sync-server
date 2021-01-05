@@ -1,9 +1,11 @@
 import { asObject, asOptional } from 'cleaners'
-import Router from 'express-promise-router'
+import { Router } from 'express'
+import PromiseRouter from 'express-promise-router'
 
 import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
+import { AppState } from '../../server'
 import { asNonEmptyString, asRepoId } from '../../types'
 import { makeApiClientError } from '../../util/utils'
 import { ChangeSetV2 } from '../types'
@@ -20,46 +22,50 @@ interface GetStoreResponseData {
   changes: ChangeSetV2
 }
 
-export const getStoreRouter = Router()
+export const getStoreRouter = (appState: AppState): Router => {
+  const router = PromiseRouter()
 
-getStoreRouter.get('/store/:storeId/:hash?', async (req, res) => {
-  let params: GetStoreParams
+  router.get('/store/:storeId/:hash?', async (req, res) => {
+    let params: GetStoreParams
 
-  // Request body validation
-  try {
-    params = asGetStoreParams(req.params)
-  } catch (error) {
-    throw makeApiClientError(400, error.message)
-  }
-
-  const repoId = params.storeId
-
-  // Deprecate after migrations
-  if (!(await checkRepoExists(repoId))) {
+    // Request body validation
     try {
-      await migrateRepo(repoId)
+      params = asGetStoreParams(req.params)
     } catch (error) {
-      if (error.message === 'Repo not found') {
-        throw makeApiClientError(404, `Repo '${repoId}' not found`)
-      }
-      throw error
+      throw makeApiClientError(400, error.message)
     }
-  }
 
-  const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
-  const repoChanges = await getRepoUpdates(repoId, clientTimestamp)
+    const repoId = params.storeId
 
-  const changes: ChangeSetV2 = await getChangesFromRepoUpdates(
-    repoId,
-    repoChanges
-  )
+    // Deprecate after migrations
+    if (!(await checkRepoExists(appState)(repoId))) {
+      try {
+        await migrateRepo(appState)(repoId)
+      } catch (error) {
+        if (error.message === 'Repo not found') {
+          throw makeApiClientError(404, `Repo '${repoId}' not found`)
+        }
+        throw error
+      }
+    }
 
-  const responseData: GetStoreResponseData = {
-    hash: repoChanges.timestamp.toString(),
-    changes
-  }
+    const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
+    const repoChanges = await getRepoUpdates(appState)(repoId, clientTimestamp)
 
-  // Response:
+    const changes: ChangeSetV2 = await getChangesFromRepoUpdates(appState)(
+      repoId,
+      repoChanges
+    )
 
-  res.status(201).json(responseData)
-})
+    const responseData: GetStoreResponseData = {
+      hash: repoChanges.timestamp.toString(),
+      changes
+    }
+
+    // Response:
+
+    res.status(201).json(responseData)
+  })
+
+  return router
+}

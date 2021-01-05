@@ -1,6 +1,6 @@
 import { asMaybe, asNumber, asObject } from 'cleaners'
 
-import { dataStore } from '../db'
+import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFile,
@@ -30,11 +30,11 @@ export interface StoreDirectoryPathWithTimestamp {
   timestamp: number
 }
 
-export async function fetchGetFilesMap(
+export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
   repoId: string,
   requestPaths: StoreFileTimestampMap,
   ignoreTimestamps: boolean
-): Promise<GetFilesMap> {
+): Promise<GetFilesMap> => {
   const paths = Object.keys(requestPaths)
 
   if (paths.length === 0) return {}
