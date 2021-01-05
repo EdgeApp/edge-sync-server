@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
 import { getStoreSettings } from './storeSettings'
+import { ApiClientError } from './types'
 import { makeApiClientError } from './util/utils'
 
 export const whitelistIps = (appState: AppState) => async (
@@ -46,10 +47,14 @@ export const whitelistAll = (appState: AppState) => async (
 ): Promise<void> => {
   try {
     await whitelistIps(appState)(req, res, next)
-  } catch (_error) {
+  } catch (ipError) {
+    if (!(ipError instanceof ApiClientError)) throw ipError
+
     try {
       await whitelistApiKeys(appState)(req, res, next)
-    } catch (error) {
+    } catch (apiKeyError) {
+      if (!(apiKeyError instanceof ApiClientError)) throw apiKeyError
+
       throw makeApiClientError(403, 'Forbidden IP and API Key')
     }
   }
