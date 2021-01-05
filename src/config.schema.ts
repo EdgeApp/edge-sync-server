@@ -1,5 +1,7 @@
 import { asNumber, asObject, asString } from 'cleaners'
 
+export type Config = ReturnType<typeof asConfig>
+
 export const asConfig = asObject({
   // sync_datastore
   couchDatabase: asString,

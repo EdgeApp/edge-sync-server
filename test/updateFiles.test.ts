@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
-import { app } from '../src/server'
+import { AppState, makeServer } from '../src/server'
 import { apiSuite } from './suites'
 import {
   isErrorResponse,
@@ -10,7 +10,8 @@ import {
   makeMockStoreFile
 } from './utils'
 
-apiSuite('POST /api/v3/updateFiles', () => {
+apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
+  const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   const repoId = '0000000000000000000000000000000000000000'

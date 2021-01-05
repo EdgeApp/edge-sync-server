@@ -1,55 +1,66 @@
 import bodyParser from 'body-parser'
 import cors from 'cors'
-import express from 'express'
+import express, { Express } from 'express'
+import nano from 'nano'
 
-import { ApiClientError, ApiErrorResponse } from './types'
+import { Config } from './config.schema'
+import { ApiClientError, ApiErrorResponse, StoreData } from './types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
 import { v3Router } from './v3Router'
 
-export const app = express()
+export interface AppState {
+  config: Config
+  dataStore: nano.DocumentScope<StoreData>
+}
 
-// Settings
-app.set('trust proxy', 'loopback')
+export function makeServer(appState: AppState): Express {
+  const app = express()
 
-// Middleware
-app.use(bodyParser.json({ limit: '1mb' }))
-app.use(cors())
-app.use('/', express.static('dist'))
+  // Settings
+  app.set('trust proxy', 'loopback')
 
-// Routes
-app.use('/api/v2', v2Router)
-app.use('/api/v3', v3Router)
+  // Middleware
+  app.use(bodyParser.json({ limit: '1mb' }))
+  app.use(cors())
+  app.use('/', express.static('dist'))
 
-// 404 Error Route
-app.use((_req, _res, next) => {
-  next(makeApiClientError(404, 'not found'))
-})
+  // Routes
+  app.use('/api/v2', v2Router(appState))
+  app.use('/api/v3', v3Router(appState))
 
-// Client Error Route
-app.use((err, _req, res, next) => {
-  if (!(err instanceof ApiClientError)) {
-    return next(err)
-  }
+  // 404 Error Route
+  app.use((_req, _res, next) => {
+    next(makeApiClientError(404, 'not found'))
+  })
 
-  const response: ApiErrorResponse = {
-    success: false,
-    message: err.message,
-    error: err.stack
-  }
-  res.status(err.status).json(response)
-})
-// Server Error Route
-app.use((err, _req, res, _next) => {
-  // logging
-  if (process.env.NODE_ENV !== 'test') {
-    console.error(err)
-  }
+  // Client Error Route
+  app.use((err, _req, res, next) => {
+    if (!(err instanceof ApiClientError)) {
+      return next(err)
+    }
 
-  // response
-  const response: ApiErrorResponse = {
-    success: false,
-    message: 'Internal server error'
-  }
-  res.status(500).json({ ...response, error: err.stack })
-})
+    const response: ApiErrorResponse = {
+      success: false,
+      message: err.message,
+      error: err.stack
+    }
+    res.status(err.status).json(response)
+  })
+  // Server Error Route
+  app.use((err, _req, res, _next) => {
+    // logging
+    if (process.env.NODE_ENV !== 'test') {
+      console.error(err)
+    }
+
+    // response
+    const response: ApiErrorResponse = {
+      success: false,
+      message: 'Internal server error'
+    }
+    res.status(500).json({ ...response, error: err.stack })
+  })
+
+  return app
+}

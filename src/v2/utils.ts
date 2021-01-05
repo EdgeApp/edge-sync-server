@@ -2,15 +2,20 @@ import { asMaybe } from 'cleaners'
 
 import { asStoreFileWithTimestamp, fetchGetFilesMap } from '../api/getFiles'
 import { RepoUpdates } from '../api/getUpdates'
+import { AppState } from '../server'
 import { ChangeSetV2 } from './types'
 
-export async function getChangesFromRepoUpdates(
+export const getChangesFromRepoUpdates = (appState: AppState) => async (
   repoId: string,
   repoUpdates: RepoUpdates
-): Promise<ChangeSetV2> {
+): Promise<ChangeSetV2> => {
   const { deleted, paths } = repoUpdates
 
-  const getFilesStoreFileMap = await fetchGetFilesMap(repoId, paths, true)
+  const getFilesStoreFileMap = await fetchGetFilesMap(appState)(
+    repoId,
+    paths,
+    true
+  )
 
   const changes: ChangeSetV2 = {}
 

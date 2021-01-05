@@ -1,19 +1,23 @@
 import { config } from './config'
-import { couchSchema, couchUri, initDataStore } from './db'
-import { app } from './server'
+import { getCouchSchema, getCouchUri, getDataStore } from './db'
+import { makeServer } from './server'
 import { initStoreSettings } from './storeSettings'
 import { setupCouchDatabase } from './util/couch'
 
+const couchUri = getCouchUri(config)
+const couchSchema = getCouchSchema(config)
+
 setupCouchDatabase(couchUri, [couchSchema])
   .then((): void => {
-    initDataStore(config.couchDatabase)
+    const dataStore = getDataStore(config)
+    const app = makeServer({ config, dataStore })
 
     // Instantiate server
     app.listen(config.httpPort, () => {
       console.log('Server is listening on:', config.httpPort)
 
       // Initialize store settings
-      initStoreSettings().catch(failStartup)
+      initStoreSettings(config).catch(failStartup)
     })
   })
   .catch(failStartup)

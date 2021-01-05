@@ -1,6 +1,6 @@
 import { asMaybe } from 'cleaners'
 
-import { dataStore } from '../db'
+import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
@@ -17,15 +17,15 @@ export interface RepoUpdates {
   deleted: StoreFileTimestampMap
 }
 
-export async function getRepoUpdates(
+export const getRepoUpdates = (appState: AppState) => async (
   repoId: string,
   timestamp: number
-): Promise<RepoUpdates> {
+): Promise<RepoUpdates> => {
   const repoKey = `${repoId}:/`
 
   let storeDocument: StoreDocument
   try {
-    storeDocument = await dataStore.get(repoKey)
+    storeDocument = await appState.dataStore.get(repoKey)
   } catch (err) {
     if (err.error === 'not_found') {
       throw makeApiClientError(404, `Repo '${repoId}' not found`)
@@ -44,7 +44,7 @@ export async function getRepoUpdates(
   let deleted: StoreFileTimestampMap = {}
 
   if (timestamp < repoDocument.timestamp) {
-    const filePointers = await getDirectoryUpdates(
+    const filePointers = await getDirectoryUpdates(appState)(
       repoKey.slice(0, -1),
       repoDocument,
       timestamp
@@ -61,11 +61,11 @@ export async function getRepoUpdates(
   }
 }
 
-export async function getDirectoryUpdates(
+export const getDirectoryUpdates = (appState: AppState) => async (
   dirKey: string,
   dir: FilePointers,
   timestamp: number
-): Promise<FilePointers> {
+): Promise<FilePointers> => {
   const rtn: FilePointers = {
     paths: {},
     deleted: {}
@@ -97,7 +97,7 @@ export async function getDirectoryUpdates(
     })
 
     if (keys.length > 0) {
-      const results = await dataStore.fetch({ keys })
+      const results = await appState.dataStore.fetch({ keys })
       for (const row of results.rows) {
         const documentKey = row.key
         const documentPath = documentKey.split(':')[1]
@@ -114,7 +114,7 @@ export async function getDirectoryUpdates(
             const {
               paths: subPaths,
               deleted: subDeleted
-            } = await getDirectoryUpdates(
+            } = await getDirectoryUpdates(appState)(
               documentKey,
               directoryDocument,
               timestamp
