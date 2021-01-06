@@ -77,6 +77,7 @@ export const updateDirectoryFilePointers = (
     deleted: isDeletion ? { [path]: timestamp } : {}
   }
   return {
+    timestamp,
     paths: {
       ...directory?.paths,
       ...directoryMutations.paths

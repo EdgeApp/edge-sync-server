@@ -96,6 +96,7 @@ export async function updateFilesAndDirectories(
         // Document will be overwritten
         storeFileDocuments.push({
           ...fileChange,
+          timestamp: updateTimestamp,
           _id: fileKey,
           _rev: row.value.rev
         })
@@ -105,7 +106,11 @@ export async function updateFilesAndDirectories(
       // doesn't exist.
       if (fileChange !== null) {
         // Document will be inserted
-        storeFileDocuments.push({ ...fileChange, _id: fileKey })
+        storeFileDocuments.push({
+          ...fileChange,
+          timestamp: updateTimestamp,
+          _id: fileKey
+        })
       } else {
         throw makeApiClientError(
           422,
