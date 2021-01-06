@@ -14,6 +14,7 @@ import {
   getParentPathsOfPath,
   makeApiClientError
 } from '../util/utils'
+import { getConflictFreeDocuments } from './conflictResolution'
 
 export interface GetFilesMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
@@ -30,7 +31,7 @@ export interface StoreDirectoryPathWithTimestamp {
   timestamp: number
 }
 
-export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
+export const fetchGetFilesMap = (appState: AppState) => async (
   repoId: string,
   requestPaths: StoreFileTimestampMap,
   ignoreTimestamps: boolean
@@ -68,37 +69,45 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
     [documentKey: string]: StoreDirectoryDocument
   }
 
-  const [parentDocumentResult, childDocumentResult] = await Promise.all([
-    dataStore.fetch({ keys: parentKeys }),
-    dataStore.fetch({ keys: childKeys })
+  const [parentDocumentResults, childDocumentResults] = await Promise.all([
+    getConflictFreeDocuments(appState)(parentKeys),
+    getConflictFreeDocuments(appState)(childKeys)
   ])
 
-  const parentDocumentMap = parentDocumentResult.rows.reduce(
-    (map: StoreDirectoryDocumentMap, row) => {
-      if (row.error === 'not_found') {
-        throw makeApiClientError(404, `Path '${row.key}' not found.`)
+  const parentDocumentMap = parentDocumentResults.reduce(
+    (map: StoreDirectoryDocumentMap, result) => {
+      if ('error' in result) {
+        if (result.error.error === 'not_found') {
+          throw makeApiClientError(404, `Path '${result.key}' not found.`)
+        }
+        throw new Error(
+          `Failed to get document: ${JSON.stringify(result.error)}`
+        )
       }
 
-      if (!('doc' in row)) throw new Error(row.error)
+      const doc = asMaybe(asStoreDirectoryDocument)(result.doc)
 
-      const doc = asMaybe(asStoreDirectoryDocument)(row.doc)
+      if (doc == null) {
+        throw new Error(`File '${result.key}' is not a directory.`)
+      }
 
-      if (doc == null) throw new Error(`File '${row.key}' is not a directory.`)
-
-      return Object.assign(map, { [row.key]: doc })
+      return Object.assign(map, { [result.key]: doc })
     },
     {}
   )
 
-  const responsePaths = childDocumentResult.rows.reduce(
-    (map: GetFilesMap, row) => {
-      if (row.error === 'not_found') {
-        throw makeApiClientError(404, `Path '${row.key}' not found.`)
+  const responsePaths = childDocumentResults.reduce(
+    (map: GetFilesMap, result) => {
+      if ('error' in result) {
+        if (result.error.error === 'not_found') {
+          throw makeApiClientError(404, `Path '${result.key}' not found.`)
+        }
+        throw new Error(
+          `Failed to get document: ${JSON.stringify(result.error)}`
+        )
       }
 
-      if (!('doc' in row)) throw new Error(row.error)
-
-      const documentKey = row.key
+      const documentKey = result.key
       const documentPath = documentKey.split(':')[1]
       const documentFileName = getNameFromPath(documentPath)
 
@@ -107,9 +116,9 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
 
       const sentTimestamp = requestPaths[documentPath]
 
-      const fileDocument = asMaybe(asStoreFileDocument)(row.doc)
-      const repoDocument = asMaybe(asStoreRepoDocument)(row.doc)
-      const directoryDocument = asMaybe(asStoreDirectoryDocument)(row.doc)
+      const fileDocument = asMaybe(asStoreFileDocument)(result.doc)
+      const repoDocument = asMaybe(asStoreRepoDocument)(result.doc)
+      const directoryDocument = asMaybe(asStoreDirectoryDocument)(result.doc)
       const directoryLikeDocument = repoDocument ?? directoryDocument
 
       // Because the repo's timestamp is included in the repo document
@@ -152,7 +161,7 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
         })
       }
 
-      throw new Error(`File '${row.key}' is not a file or directory.`)
+      throw new Error(`File '${result.key}' is not a file or directory.`)
     },
     {}
   )

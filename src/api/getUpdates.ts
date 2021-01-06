@@ -4,12 +4,13 @@ import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
-  asStoreRepoDocument,
   FilePointers,
-  StoreDocument,
-  StoreFileTimestampMap
+  StoreFileTimestampMap,
+  StoreRepoDocument
 } from '../types'
 import { getNameFromPath, makeApiClientError } from '../util/utils'
+import { getConflictFreeDocuments } from './conflictResolution'
+import { getRepoDocument } from './repo'
 
 export interface RepoUpdates {
   timestamp: number
@@ -23,21 +24,15 @@ export const getRepoUpdates = (appState: AppState) => async (
 ): Promise<RepoUpdates> => {
   const repoKey = `${repoId}:/`
 
-  let storeDocument: StoreDocument
+  let repoDocument: StoreRepoDocument
   try {
-    storeDocument = await appState.dataStore.get(repoKey)
+    repoDocument = await getRepoDocument(appState)(repoId)
   } catch (err) {
     if (err.error === 'not_found') {
       throw makeApiClientError(404, `Repo '${repoId}' not found`)
     } else {
       throw err
     }
-  }
-
-  const repoDocument = asMaybe(asStoreRepoDocument)(storeDocument)
-
-  if (repoDocument == null) {
-    throw new Error(`'${repoKey}' is not a repo document`)
   }
 
   let paths: StoreFileTimestampMap = {}
@@ -96,8 +91,9 @@ export const getDirectoryUpdates = (appState: AppState) => async (
     const keys = keysMap[prop]
 
     if (keys.length > 0) {
-      const results = await appState.dataStore.fetch({ keys })
-      for (const row of results.rows) {
+      const results = await getConflictFreeDocuments(appState)(keys)
+
+      for (const row of results) {
         const documentKey = row.key
         const documentPath = documentKey.split(':')[1]
         const documentName = getNameFromPath(documentPath)

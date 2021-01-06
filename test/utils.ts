@@ -1,6 +1,7 @@
 import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
+import { AppState } from '../src/server'
 import { StoreFile } from '../src/types'
 
 export const delay = (ms: number): Promise<void> => {
@@ -41,5 +42,23 @@ export const makeMockStoreFile = (data: object): StoreFile => {
       encryptionType: 0,
       data_base64: dataBase64
     }
+  }
+}
+
+export const synchronizeServers = async (
+  appStateSource: AppState,
+  appStateTarget: AppState
+): Promise<void> => {
+  try {
+    await appStateTarget.dbServer.request({
+      method: 'post',
+      path: '_replicate',
+      body: {
+        source: appStateSource.config.couchDatabase,
+        target: appStateTarget.config.couchDatabase
+      }
+    })
+  } catch (error) {
+    throw new Error([`Failed to synchronize servers:`, error].join(' '))
   }
 }

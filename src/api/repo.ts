@@ -1,6 +1,7 @@
 import { AppState } from '../server'
 import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
 import { makeApiClientError } from '../util/utils'
+import { getConflictFreeDocuments } from './conflictResolution'
 
 export const checkRepoExists = (appState: AppState) => async (
   repoId: string
@@ -48,19 +49,23 @@ export const getRepoDocument = (appState: AppState) => async (
   const repoKey = `${repoId}:/`
 
   // Validate request body timestamp
-  let repoDoc: StoreRepoDocument
   try {
-    const repoQuery = await appState.dataStore.get(repoKey)
-    repoDoc = asStoreRepoDocument(repoQuery)
+    const repoResults = await getConflictFreeDocuments(appState)([repoKey])
+    const repoResult = repoResults[0]
+
+    if ('doc' in repoResult) {
+      return asStoreRepoDocument(repoResult.doc)
+    } else {
+      const { error } = repoResult
+      throw error
+    }
   } catch (err) {
     if (err.error === 'not_found') {
       throw makeApiClientError(404, `Repo '${repoId}' not found`)
     } else if (err instanceof TypeError) {
-      throw new Error(`'${repoId}' is not a repo document`)
+      throw new TypeError(`'${repoId}' is not a repo document`)
     } else {
       throw err
     }
   }
-
-  return repoDoc
 }

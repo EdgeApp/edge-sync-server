@@ -4,7 +4,6 @@ import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
-  asStoreRepoDocument,
   ChangeSet,
   FileChange,
   StoreDirectory,
@@ -22,6 +21,7 @@ import {
   validateModification,
   withRetries
 } from '../util/utils'
+import { getConflictFreeDocuments } from './conflictResolution'
 import { getRepoDocument } from './repo'
 
 type RepoModification = Pick<
@@ -68,7 +68,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
   // Prepare Files Documents:
-  const fileRevsResult = await appState.dataStore.fetch({ keys: fileKeys })
+  const fileResults = await getConflictFreeDocuments(appState)(fileKeys)
   const storeFileDocuments: Array<StoreFileDocument | StoreFile> = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
   let repoModification: RepoModification = {
@@ -78,7 +78,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   }
 
   // Prepare file documents:
-  fileRevsResult.rows.forEach(row => {
+  fileResults.forEach(row => {
     const fileKey = row.key
     const [repoId, filePath] = fileKey.split(':')
     const fileChange: FileChange = changeSet[filePath]
@@ -101,7 +101,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
           ...fileChange,
           timestamp: updateTimestamp,
           _id: fileKey,
-          _rev: row.value.rev
+          _rev: row.doc._rev
         })
       }
     } else {
@@ -183,12 +183,12 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
     StoreDirectoryDocument | StoreDirectory
   > = []
   if (directoryKeys.length > 0) {
-    const directoryFetchResult = await appState.dataStore.fetch({
-      keys: directoryKeys
-    })
+    const directoryResults = await getConflictFreeDocuments(appState)(
+      directoryKeys
+    )
 
     // Prepare directory documents
-    directoryFetchResult.rows.forEach(row => {
+    directoryResults.forEach(row => {
       const directoryKey = row.key
       const directoryPath = directoryKey.split(':')[1]
       const directoryModification = directoryModifications.get(directoryKey)
@@ -248,46 +248,32 @@ export const updateRepoDocument = (appState: AppState) => async (
 ): Promise<void> => {
   const repoKey = `${repoId}:/`
 
-  // Prepare Repo Document:
-  const repoFetchResult = await appState.dataStore.fetch({ keys: [repoKey] })
   const storeRepoDocuments: StoreRepoDocument[] = []
 
-  // Prepare repo documents
-  repoFetchResult.rows.forEach(row => {
-    const repoKey = row.key
+  try {
+    const existingRepo: StoreRepoDocument = await getRepoDocument(appState)(
+      repoId
+    )
 
-    if ('doc' in row) {
-      let existingRepo: StoreRepoDocument
+    // Validate modificaiton
+    validateModification(repoModification, existingRepo, '')
 
-      try {
-        existingRepo = asStoreRepoDocument(row.doc)
-      } catch (err) {
-        throw makeApiClientError(
-          422,
-          `Unable to write files under '${repoKey}'. ` +
-            `Document is not a repo.`
-        )
-      }
+    const repoDocument: StoreRepoDocument = {
+      ...existingRepo,
+      ...repoModification,
+      ...mergeFilePointers(existingRepo, repoModification)
+    }
 
-      // Validate modificaiton
-      validateModification(repoModification, existingRepo, '')
-
-      const repoDocument: StoreRepoDocument = {
-        ...existingRepo,
-        ...repoModification,
-        ...mergeFilePointers(existingRepo, repoModification)
-      }
-
-      storeRepoDocuments.push(repoDocument)
-    } else {
-      // If no existing StoreRootDocument, then we should throw a client error
+    storeRepoDocuments.push(repoDocument)
+  } catch (error) {
+    if (error instanceof TypeError) {
       throw makeApiClientError(
         422,
-        `Unable to write files under '${repoKey}'. ` +
-          `Document does not exist.`
+        `Unable to write files under '${repoKey}'. ` + `Document is not a repo.`
       )
     }
-  })
+    throw error
+  }
 
   // Write Repos
   const repoResults = await appState.dataStore.bulk({

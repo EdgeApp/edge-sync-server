@@ -12,6 +12,7 @@ import { v3Router } from './v3Router'
 export interface AppState {
   config: Config
   dataStore: nano.DocumentScope<StoreData>
+  dbServer: nano.ServerScope
 }
 
 export function makeServer(appState: AppState): Express {

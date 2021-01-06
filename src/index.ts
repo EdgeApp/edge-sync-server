@@ -1,5 +1,5 @@
 import { config } from './config'
-import { getCouchSchema, getCouchUri, getDataStore } from './db'
+import { getCouchSchema, getCouchUri, getDataStore, getDbServer } from './db'
 import { makeServer } from './server'
 import { initStoreSettings } from './storeSettings'
 import { setupCouchDatabase } from './util/couch'
@@ -9,8 +9,9 @@ const couchSchema = getCouchSchema(config)
 
 setupCouchDatabase(couchUri, [couchSchema])
   .then((): void => {
+    const dbServer = getDbServer(config)
     const dataStore = getDataStore(config)
-    const app = makeServer({ config, dataStore })
+    const app = makeServer({ config, dataStore, dbServer })
 
     // Instantiate server
     app.listen(config.httpPort, () => {
