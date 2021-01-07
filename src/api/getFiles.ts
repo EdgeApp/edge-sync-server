@@ -132,7 +132,7 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
       }
 
       // Handle directory like document (repo or directory)
-      if (directoryLikeDocument != null && ignoreTimestamps === true) {
+      if (directoryLikeDocument != null && ignoreTimestamps) {
         return Object.assign(map, {
           [documentPath]: { paths: directoryLikeDocument.paths, timestamp }
         })

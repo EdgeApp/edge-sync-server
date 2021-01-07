@@ -12,20 +12,30 @@ export const isErrorResponse = (status: number, message?: string) => (
 ): void => {
   assert(
     res.status === status && (message === res.body.message || message == null),
-    `Error ${res.status} (${res.body.message}); ` +
-      `Expected ${status}${message != null ? ` (${message})` : ''};`
+    [
+      `Error`,
+      res.status,
+      `(`,
+      res.body.message,
+      `);`,
+      `Expected`,
+      status,
+      message != null ? [`(`, message, `)`].join(' ') : '',
+      `;`
+    ].join(' ')
   )
-  expect(res.body)
-    .property('message')
-    .a('string')
+  expect(res.body).property('message').a('string')
 }
 
 export const isSuccessfulResponse = (res): void => {
   if (res.body.success === false || res.body.message !== undefined) {
     throw new Error(
-      `Not expecting error response: ${res.status} ${res.body.message}${
-        res.body.error != null ? `:\n${res.body.error}` : ''
-      }`
+      [
+        `Not expecting error response:`,
+        res.status,
+        res.body.message,
+        res.body.error != null ? [`:\n`, res.body.error].join(' ') : ''
+      ].join(' ')
     )
   }
   expect(res.body.error, 'res.body.error').to.be.a('undefined')

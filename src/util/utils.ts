@@ -1,4 +1,9 @@
-import { ApiClientError, ApiResponse, StoreDirectory } from '../types'
+import {
+  ApiClientError,
+  ApiResponse,
+  FilePointers,
+  StoreDirectory
+} from '../types'
 
 export const makeApiClientError = (
   status: number,
@@ -39,28 +44,33 @@ export const getParentPathsOfPath = (path: string): string[] => {
   return Array.from(pathsSet)
 }
 
-export const mergeDirectoryFilePointers = <T extends StoreDirectory>(
-  leftDir: T,
-  rightDir: StoreDirectory
-): T => {
-  const deleted = { ...leftDir.deleted, ...rightDir.deleted }
-  const paths = { ...leftDir.paths, ...rightDir.paths }
+export const mergeFilePointers = (
+  left: FilePointers,
+  right: FilePointers
+): FilePointers => {
+  const allKeys = new Set([
+    ...Object.keys(left.paths),
+    ...Object.keys(left.deleted),
+    ...Object.keys(right.paths),
+    ...Object.keys(right.deleted)
+  ])
+  const filePointers = { paths: {}, deleted: {} }
 
-  // In order to successfully merge changes into document, we must remove
-  // keys present in deleted that have moved to paths, or visa versa.
-  Object.keys(rightDir.deleted).forEach(path => {
-    delete paths[path]
-  })
-  Object.keys(rightDir.paths).forEach(path => {
-    delete deleted[path]
-  })
+  for (const key of allKeys) {
+    const filePointerMap = {
+      [left.paths[key] ?? -1]: filePointers.paths,
+      [left.deleted[key] ?? -1]: filePointers.deleted,
+      [right.paths[key] ?? -1]: filePointers.paths,
+      [right.deleted[key] ?? -1]: filePointers.deleted
+    }
 
-  return {
-    ...leftDir,
-    ...rightDir,
-    deleted,
-    paths
+    const greatestTimestamp = Math.max(
+      ...Object.keys(filePointerMap).map(key => parseInt(key))
+    )
+    filePointerMap[greatestTimestamp][key] = greatestTimestamp
   }
+
+  return filePointers
 }
 
 export const updateDirectoryFilePointers = (

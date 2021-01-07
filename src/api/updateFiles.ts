@@ -17,7 +17,7 @@ import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError,
-  mergeDirectoryFilePointers,
+  mergeFilePointers,
   updateDirectoryFilePointers,
   validateModification,
   withRetries
@@ -45,7 +45,7 @@ export const updateDocuments = (appState: AppState) => async (
   repoId: string,
   changeSet: ChangeSet
 ): Promise<number> => {
-  return withRetries(
+  return await withRetries(
     async (): Promise<number> => {
       const updateTimestamp = Date.now()
       const repoModification = await updateFilesAndDirectories(appState)(
@@ -215,10 +215,11 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
             directoryPath
           )
 
-          const directoryDocument: StoreDirectoryDocument = mergeDirectoryFilePointers(
-            existingDirectory,
-            directoryModification
-          )
+          const directoryDocument: StoreDirectoryDocument = {
+            ...existingDirectory,
+            ...directoryModification,
+            ...mergeFilePointers(existingDirectory, directoryModification)
+          }
 
           // Update directory
           storeDirectoryDocuments.push(directoryDocument)
@@ -272,10 +273,11 @@ export const updateRepoDocument = (appState: AppState) => async (
       // Validate modificaiton
       validateModification(repoModification, existingRepo, '')
 
-      const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
-        existingRepo,
-        repoModification
-      )
+      const repoDocument: StoreRepoDocument = {
+        ...existingRepo,
+        ...repoModification,
+        ...mergeFilePointers(existingRepo, repoModification)
+      }
 
       storeRepoDocuments.push(repoDocument)
     } else {
