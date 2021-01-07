@@ -9,9 +9,7 @@ export const apiSuite = (
   name: string,
   test: (appState: AppState) => void
 ): void => {
-  const databaseSuffix = Math.random()
-    .toString()
-    .replace('.', '')
+  const databaseSuffix = Math.random().toString().replace('.', '')
 
   const config = {
     ...baseConfig,

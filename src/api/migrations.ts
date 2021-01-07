@@ -36,11 +36,7 @@ const cloneRepo = ({ config }: AppState) => async (
   const repoUrl = `${config.migrationOriginServer}${repoId}/`
   const repoDir = join(
     config.migrationTmpDir,
-    `${repoId}-${
-      Math.random()
-        .toString()
-        .split('.')[1]
-    }`
+    `${repoId}-${Math.random().toString().split('.')[1]}`
   )
 
   try {

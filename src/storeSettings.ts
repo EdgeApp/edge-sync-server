@@ -27,7 +27,9 @@ export const getStoreSettings = async (
     }
     return cachedStoreSettings
   } catch (error) {
-    throw new Error(`Failed to load settings document. ${error.message}`)
+    throw new Error(
+      `Failed to load settings document. ${JSON.stringify(error.message)}`
+    )
   }
 }
 
@@ -39,7 +41,9 @@ export const initStoreSettings = async (config: Config): Promise<void> => {
     storeSettings = asStoreSettings(doc)
   } catch (error) {
     if (error.error !== 'not_found') {
-      throw new Error(`Failed to load settings document. ${error.message}`)
+      throw new Error(
+        `Failed to load settings document. ${JSON.stringify(error.message)}`
+      )
     }
 
     storeSettings = {

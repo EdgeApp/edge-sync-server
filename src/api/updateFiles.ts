@@ -17,7 +17,7 @@ import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError,
-  mergeDirectoryFilePointers,
+  mergeFilePointers,
   updateDirectoryFilePointers,
   validateModification,
   withRetries
@@ -41,11 +41,11 @@ export const validateRepoTimestamp = (appState: AppState) => async (
   }
 }
 
-export const updateDocuments = (appState: AppState) => async (
+export const updateDocuments = (appState: AppState) => (
   repoId: string,
   changeSet: ChangeSet
-): Promise<number> => {
-  return withRetries(
+): Promise<number> =>
+  withRetries(
     async (): Promise<number> => {
       const updateTimestamp = Date.now()
       const repoModification = await updateFilesAndDirectories(appState)(
@@ -59,7 +59,6 @@ export const updateDocuments = (appState: AppState) => async (
     },
     err => err.message === 'conflict'
   )
-}
 
 export const updateFilesAndDirectories = (appState: AppState) => async (
   repoId: string,
@@ -215,10 +214,11 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
             directoryPath
           )
 
-          const directoryDocument: StoreDirectoryDocument = mergeDirectoryFilePointers(
-            existingDirectory,
-            directoryModification
-          )
+          const directoryDocument: StoreDirectoryDocument = {
+            ...existingDirectory,
+            ...directoryModification,
+            ...mergeFilePointers(existingDirectory, directoryModification)
+          }
 
           // Update directory
           storeDirectoryDocuments.push(directoryDocument)
@@ -272,10 +272,11 @@ export const updateRepoDocument = (appState: AppState) => async (
       // Validate modificaiton
       validateModification(repoModification, existingRepo, '')
 
-      const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
-        existingRepo,
-        repoModification
-      )
+      const repoDocument: StoreRepoDocument = {
+        ...existingRepo,
+        ...repoModification,
+        ...mergeFilePointers(existingRepo, repoModification)
+      }
 
       storeRepoDocuments.push(repoDocument)
     } else {
