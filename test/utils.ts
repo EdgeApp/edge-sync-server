@@ -2,7 +2,7 @@ import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
 import { AppState } from '../src/server'
-import { StoreFile } from '../src/types'
+import { asTimestampRev, StoreFile } from '../src/types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -36,7 +36,7 @@ export const makeMockStoreFile = (data: object): StoreFile => {
   const dataBase64 = JSON.stringify(data)
 
   return {
-    timestamp: Date.now(),
+    timestamp: asTimestampRev(Date.now()),
     box: {
       iv_hex: '',
       encryptionType: 0,

@@ -3,6 +3,7 @@ import { it } from 'mocha'
 import supertest from 'supertest'
 
 import { makeServer } from '../src/server'
+import { asTimestampRev, TimestampRev } from '../src/types'
 import { replicationSuite } from './suites'
 import {
   isSuccessfulResponse,
@@ -14,11 +15,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
   const agentA = supertest.agent(makeServer(appStateA))
   const agentB = supertest.agent(makeServer(appStateB))
 
-  let winningUpdateTimestamp: number
+  let winningUpdateTimestamp: TimestampRev
 
-  const repoTimestamps = {
-    A: 0,
-    B: 0
+  const repoTimestamps: { [K: string]: TimestampRev } = {
+    A: asTimestampRev(0),
+    B: asTimestampRev(0)
   }
 
   const repoId = '0000000000000000000000000000000000000000'
@@ -27,10 +28,12 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     fileB: makeMockStoreFile({ text: 'fileB content' })
   } as const
 
-  const getRepoTimestamp = (res: supertest.Response): number =>
+  const getRepoTimestamp = (res: supertest.Response): TimestampRev =>
     res.body.data.timestamp
-  const setRepoTimestamp = (key: string, timestamp: number): number =>
-    (repoTimestamps[key] = timestamp)
+  const setRepoTimestamp = (
+    key: string,
+    timestamp: TimestampRev
+  ): TimestampRev => (repoTimestamps[key] = timestamp)
 
   // Fixtures:
 
@@ -40,7 +43,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
       .put('/api/v3/repo')
       .send({ repoId })
       .expect(res => isSuccessfulResponse(res))
-      .expect(res => expect(res.body.data.timestamp).to.be.a('number'))
+      .expect(res => expect(res.body.data.timestamp).to.be.a('string'))
       .expect(res => setRepoTimestamp('A', getRepoTimestamp(res)))
 
     await synchronizeServers(appStateA, appStateB)

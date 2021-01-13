@@ -1,4 +1,4 @@
-import { asBoolean, asMap, asNumber, asObject, asOptional } from 'cleaners'
+import { asBoolean, asObject, asOptional } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
@@ -7,14 +7,14 @@ import { migrateRepo } from '../api/migrations'
 import { checkRepoExists } from '../api/repo'
 import { config } from '../config'
 import { AppState } from '../server'
-import { asRepoId } from '../types'
+import { asRepoId, asStoreFileTimestampMap } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 type GetFilesBody = ReturnType<typeof asGetFilesBody>
 const asGetFilesBody = asObject({
   repoId: asRepoId,
   ignoreTimestamps: asOptional(asBoolean),
-  paths: asMap(asNumber)
+  paths: asStoreFileTimestampMap
 })
 
 interface GetFilesResponseData {
@@ -38,7 +38,7 @@ export const getFilesRouter = (appState: AppState): Router => {
     const { repoId, paths, ignoreTimestamps = false } = body
 
     // Use max page size config to limit the paths processed
-    if (paths.length > config.maxPageSize) {
+    if (Object.keys(paths).length > config.maxPageSize) {
       throw makeApiClientError(
         422,
         `Too many paths. ` +

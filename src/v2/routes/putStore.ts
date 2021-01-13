@@ -4,14 +4,14 @@ import PromiseRouter from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { AppState } from '../../server'
-import { asRepoId } from '../../types'
+import { asRepoId, asTimestampRev, TimestampRev } from '../../types'
 import { makeApiClientError, makeApiResponse } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'
 
 type PutStoreParams = ReturnType<typeof asPutStoreParams>
 
 interface PutStoreResponseData {
-  timestamp: number
+  timestamp: TimestampRev
 }
 
 const asPutStoreParams = asObject({
@@ -36,7 +36,7 @@ export const putStoreRouter = (appState: AppState): Router => {
     }
 
     // Create new repo
-    const timestamp = Date.now()
+    const timestamp = asTimestampRev(Date.now())
 
     await createRepoDocument(appState)(params.storeId, {
       timestamp

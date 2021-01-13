@@ -1,21 +1,27 @@
-import { asNumber, asObject } from 'cleaners'
+import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromsieRouter from 'express-promise-router'
 
 import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
 import { AppState } from '../server'
-import { asChangeSet, asPath, asRepoId } from '../types'
+import {
+  asChangeSet,
+  asPath,
+  asRepoId,
+  asTimestampRev,
+  TimestampRev
+} from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
 const asUpdateFilesBody = asObject({
   repoId: asRepoId,
-  timestamp: asNumber,
+  timestamp: asTimestampRev,
   paths: asChangeSet
 })
 
 interface UpdateFilesResponseData {
-  timestamp: number
+  timestamp: TimestampRev
   paths: {
     [path: string]: number
   }

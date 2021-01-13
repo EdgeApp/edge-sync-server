@@ -1,4 +1,4 @@
-import { asObject, asOptional } from 'cleaners'
+import { asMaybe, asObject, asOptional } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
@@ -6,7 +6,13 @@ import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
 import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
 import { AppState } from '../../server'
-import { asNonEmptyString, asPath, asRepoId, ChangeSet } from '../../types'
+import {
+  asNonEmptyString,
+  asPath,
+  asRepoId,
+  asTimestampRev,
+  ChangeSet
+} from '../../types'
 import { makeApiClientError } from '../../util/utils'
 import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
@@ -46,7 +52,8 @@ export const postStoreRouter = (appState: AppState): Router => {
     }
 
     const repoId = params.storeId
-    const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
+    const clientTimestamp =
+      asMaybe(asTimestampRev)(params.hash) ?? asTimestampRev(0)
 
     // Check if repo document exists and is a valid document using getRepoDocument
     await getRepoDocument(appState)(repoId)

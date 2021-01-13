@@ -4,7 +4,12 @@ import { join } from 'path'
 import { promisify } from 'util'
 
 import { AppState } from '../server'
-import { asFileChange, ChangeSet, StoreFileTimestampMap } from '../types'
+import {
+  asFileChange,
+  asTimestampRev,
+  ChangeSet,
+  StoreFileTimestampMap
+} from '../types'
 import { withRetries } from '../util/utils'
 import { createRepoDocument } from './repo'
 import { updateFilesAndDirectories } from './updateFiles'
@@ -120,7 +125,7 @@ export const migrateRepo = (appState: AppState) => async (
     // Update database
     await withRetries(
       async (): Promise<void> => {
-        const timestamp = lastGitTime ?? Date.now()
+        const timestamp = asTimestampRev(lastGitTime ?? Date.now())
 
         let paths: StoreFileTimestampMap = {}
 

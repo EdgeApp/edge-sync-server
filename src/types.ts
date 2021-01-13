@@ -21,6 +21,18 @@ const asNanoDocument = asObject<nano.Document>({
   _rev: asString
 })
 
+export type TimestampRev = string
+export const asTimestampRev = (ts: string | number): TimestampRev => {
+  if (typeof ts === 'string' && /^\d{1,15}(\.\d+)?$/.test(ts)) {
+    return ts
+  }
+  if (typeof ts === 'number') {
+    return ts.toString()
+  }
+
+  throw new TypeError(`Invalid timestamp rev '${String(ts)}'`)
+}
+
 export type EdgeBox = ReturnType<typeof asEdgeBox>
 export const asEdgeBox = asObject({
   iv_hex: asString,
@@ -29,7 +41,7 @@ export const asEdgeBox = asObject({
 })
 
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
-export const asStoreFileTimestampMap = asMap(asNumber)
+export const asStoreFileTimestampMap = asMap(asTimestampRev)
 
 export interface FilePointers {
   paths: StoreFileTimestampMap
@@ -54,7 +66,7 @@ export const asStoreSettingsDocument = asObject({
 export type StoreDirectory = ReturnType<typeof asStoreDirectory>
 export type StoreDirectoryDocument = ReturnType<typeof asStoreDirectoryDocument>
 export const asStoreDirectory = asObject({
-  timestamp: asNumber,
+  timestamp: asTimestampRev,
   deleted: asStoreFileTimestampMap,
   paths: asStoreFileTimestampMap
 })
@@ -66,7 +78,7 @@ export const asStoreDirectoryDocument = asObject({
 // Repo
 
 export interface StoreRepo extends StoreDirectory {
-  timestamp: number
+  timestamp: TimestampRev
   lastGitHash?: string
   lastGitTime?: number
   size: number
@@ -92,7 +104,7 @@ export const asStoreRepoDocument = asObject({
 export type StoreFile = ReturnType<typeof asStoreFile>
 export type StoreFileDocument = ReturnType<typeof asStoreFileDocument>
 export const asStoreFile = asObject({
-  timestamp: asNumber,
+  timestamp: asTimestampRev,
   box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({

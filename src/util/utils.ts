@@ -2,8 +2,10 @@ import {
   ApiClientError,
   ApiResponse,
   FilePointers,
-  StoreDirectory
+  StoreDirectory,
+  TimestampRev
 } from '../types'
+import { maxAll } from './math'
 
 export const makeApiClientError = (
   status: number,
@@ -64,9 +66,7 @@ export const mergeFilePointers = (
       [right.deleted[key] ?? -1]: filePointers.deleted
     }
 
-    const greatestTimestamp = Math.max(
-      ...Object.keys(filePointerMap).map(key => parseInt(key))
-    )
+    const greatestTimestamp = maxAll(...Object.keys(filePointerMap))
     filePointerMap[greatestTimestamp][key] = greatestTimestamp
   }
 
@@ -76,7 +76,7 @@ export const mergeFilePointers = (
 export const updateDirectoryFilePointers = (
   directory: StoreDirectory | undefined,
   path: string,
-  timestamp: number,
+  timestamp: TimestampRev,
   isDeletion: boolean
 ): StoreDirectory => {
   const directoryMutations = {

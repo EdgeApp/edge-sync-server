@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@types/express": "^4.17.2",
-    "biggystring": "^3.0.2",
+    "biggystring": "^4.0.0",
     "cleaners": "^0.3.2",
     "cors": "^2.8.5",
     "express": "^4.17.1",

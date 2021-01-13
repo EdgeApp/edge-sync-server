@@ -1,3 +1,4 @@
+import { gt } from 'biggystring'
 import { asMaybe } from 'cleaners'
 import nano from 'nano'
 
@@ -7,7 +8,8 @@ import {
   asStoreFileDocument,
   asStoreRepoDocument,
   StoreDirectoryDocument,
-  StoreDocument
+  StoreDocument,
+  TimestampRev
 } from '../types'
 import { mergeFilePointers } from '../util/utils'
 
@@ -131,17 +133,17 @@ export const mergeDirectoryLikeDoc = <T extends StoreDirectoryDocument>(
 }
 
 export const sortTimestampedDoc = <
-  A extends { timestamp: number } & nano.Document,
-  B extends { timestamp: number } & nano.Document
+  A extends { timestamp: TimestampRev } & nano.Document,
+  B extends { timestamp: TimestampRev } & nano.Document
 >(
   left: A,
   right: B
 ): Array<A | B> => {
-  if (left.timestamp > right.timestamp) {
+  if (gt(left.timestamp, right.timestamp)) {
     return [right, left]
-  } else if (right.timestamp > left.timestamp) {
+  } else if (gt(right.timestamp, left.timestamp)) {
     return [left, right]
-  } else if (left._rev > right._rev) {
+  } else if (gt(left._rev, right._rev)) {
     return [right, left]
   } else {
     return [left, right]

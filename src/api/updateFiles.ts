@@ -1,16 +1,19 @@
+import { eq } from 'biggystring'
 import { DocumentBulkResponse } from 'nano'
 
 import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
+  asTimestampRev,
   ChangeSet,
   FileChange,
   StoreDirectory,
   StoreDirectoryDocument,
   StoreFile,
   StoreFileDocument,
-  StoreRepoDocument
+  StoreRepoDocument,
+  TimestampRev
 } from '../types'
 import {
   getNameFromPath,
@@ -30,13 +33,13 @@ type RepoModification = Pick<
 >
 
 export const validateRepoTimestamp = (appState: AppState) => async (
-  repoId,
-  timestamp
+  repoId: string,
+  timestamp: TimestampRev
 ): Promise<void> => {
   const repoDoc = await getRepoDocument(appState)(repoId)
 
   // Validate request body timestamp
-  if (repoDoc.timestamp !== timestamp) {
+  if (!eq(repoDoc.timestamp, timestamp)) {
     throw makeApiClientError(422, `Failed due to out-of-date timestamp`)
   }
 }
@@ -44,10 +47,10 @@ export const validateRepoTimestamp = (appState: AppState) => async (
 export const updateDocuments = (appState: AppState) => (
   repoId: string,
   changeSet: ChangeSet
-): Promise<number> =>
+): Promise<TimestampRev> =>
   withRetries(
-    async (): Promise<number> => {
-      const updateTimestamp = Date.now()
+    async (): Promise<TimestampRev> => {
+      const updateTimestamp = asTimestampRev(Date.now())
       const repoModification = await updateFilesAndDirectories(appState)(
         repoId,
         changeSet,
@@ -63,7 +66,7 @@ export const updateDocuments = (appState: AppState) => (
 export const updateFilesAndDirectories = (appState: AppState) => async (
   repoId: string,
   changeSet: ChangeSet,
-  updateTimestamp: number
+  updateTimestamp: TimestampRev
 ): Promise<RepoModification> => {
   const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
@@ -74,7 +77,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   let repoModification: RepoModification = {
     paths: {},
     deleted: {},
-    timestamp: 0
+    timestamp: asTimestampRev(0)
   }
 
   // Prepare file documents:

@@ -1,3 +1,4 @@
+import { eq, gt, lt } from 'biggystring'
 import { asMaybe } from 'cleaners'
 
 import { AppState } from '../server'
@@ -6,21 +7,22 @@ import {
   asStoreFileDocument,
   FilePointers,
   StoreFileTimestampMap,
-  StoreRepoDocument
+  StoreRepoDocument,
+  TimestampRev
 } from '../types'
 import { getNameFromPath, makeApiClientError } from '../util/utils'
 import { getConflictFreeDocuments } from './conflictResolution'
 import { getRepoDocument } from './repo'
 
 export interface RepoUpdates {
-  timestamp: number
+  timestamp: TimestampRev
   paths: StoreFileTimestampMap
   deleted: StoreFileTimestampMap
 }
 
 export const getRepoUpdates = (appState: AppState) => async (
   repoId: string,
-  timestamp: number
+  timestamp: TimestampRev
 ): Promise<RepoUpdates> => {
   const repoKey = `${repoId}:/`
 
@@ -38,7 +40,7 @@ export const getRepoUpdates = (appState: AppState) => async (
   let paths: StoreFileTimestampMap = {}
   let deleted: StoreFileTimestampMap = {}
 
-  if (timestamp < repoDocument.timestamp) {
+  if (lt(timestamp, repoDocument.timestamp)) {
     const filePointers = await getDirectoryUpdates(appState)(
       repoKey.slice(0, -1),
       repoDocument,
@@ -59,7 +61,7 @@ export const getRepoUpdates = (appState: AppState) => async (
 export const getDirectoryUpdates = (appState: AppState) => async (
   dirKey: string,
   dir: FilePointers,
-  timestamp: number,
+  timestamp: TimestampRev,
   isConsistent: boolean = true
 ): Promise<FilePointers & { isConsistent: boolean }> => {
   const rtn: FilePointers & { isConsistent: boolean } = {
@@ -75,11 +77,11 @@ export const getDirectoryUpdates = (appState: AppState) => async (
 
   // Filter out keys based on timestamp
   const pathsKeys = Object.entries(dir.paths)
-    .filter(([_, documentTimestamp]) => documentTimestamp > timestamp)
+    .filter(([_, documentTimestamp]) => gt(documentTimestamp, timestamp))
     .map(([path]) => [dirKey, path].join('/'))
 
   const deletedKeys = Object.entries(dir.deleted)
-    .filter(([_, documentTimestamp]) => documentTimestamp > timestamp)
+    .filter(([_, documentTimestamp]) => gt(documentTimestamp, timestamp))
     .map(([path]) => [dirKey, path].join('/'))
 
   const keysMap = {
@@ -107,7 +109,7 @@ export const getDirectoryUpdates = (appState: AppState) => async (
           if (fileDocument !== undefined) {
             if (
               prop !== 'deleted' &&
-              fileDocument.timestamp !== documentTimestamp
+              !eq(fileDocument.timestamp, documentTimestamp)
             ) {
               rtn.isConsistent = false
             }
@@ -116,7 +118,7 @@ export const getDirectoryUpdates = (appState: AppState) => async (
           } else if (directoryDocument !== undefined) {
             if (
               prop !== 'deleted' &&
-              directoryDocument.timestamp !== documentTimestamp
+              !eq(directoryDocument.timestamp, documentTimestamp)
             ) {
               rtn.isConsistent = false
             }

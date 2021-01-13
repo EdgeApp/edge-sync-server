@@ -1,4 +1,5 @@
-import { asMaybe, asNumber, asObject } from 'cleaners'
+import { gt, lte } from 'biggystring'
+import { asMaybe, asObject } from 'cleaners'
 
 import { AppState } from '../server'
 import {
@@ -6,8 +7,10 @@ import {
   asStoreFile,
   asStoreFileDocument,
   asStoreRepoDocument,
+  asTimestampRev,
   StoreDirectoryDocument,
-  StoreFileTimestampMap
+  StoreFileTimestampMap,
+  TimestampRev
 } from '../types'
 import {
   getNameFromPath,
@@ -23,12 +26,12 @@ export interface GetFilesMap {
 export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
 export const asStoreFileWithTimestamp = asObject({
   ...asStoreFile.shape,
-  timestamp: asNumber
+  timestamp: asTimestampRev
 })
 
 export interface StoreDirectoryPathWithTimestamp {
   paths: StoreFileTimestampMap
-  timestamp: number
+  timestamp: TimestampRev
 }
 
 export const fetchGetFilesMap = (appState: AppState) => async (
@@ -128,7 +131,7 @@ export const fetchGetFilesMap = (appState: AppState) => async (
           ? parentDocument.paths[documentFileName]
           : repoDocument.timestamp
 
-      if (!ignoreTimestamps && timestamp <= sentTimestamp) return map
+      if (!ignoreTimestamps && lte(timestamp, sentTimestamp)) return map
 
       // Handle file document
       if (fileDocument != null) {
@@ -150,7 +153,7 @@ export const fetchGetFilesMap = (appState: AppState) => async (
         // Remove files after timestamp check
         const paths = Object.entries(directoryLikeDocument.paths).reduce(
           (paths: StoreFileTimestampMap, [fileName, fileTimestamp]) =>
-            fileTimestamp > sentTimestamp
+            gt(fileTimestamp, sentTimestamp)
               ? { ...paths, [fileName]: fileTimestamp }
               : paths,
           {}
