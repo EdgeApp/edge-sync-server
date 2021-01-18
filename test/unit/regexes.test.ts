@@ -1,8 +1,8 @@
 import { expect } from 'chai'
 
-import { VALID_PATH_REGEX, VALID_REPO_ID_REGEX } from '../src/types'
+import { VALID_PATH_REGEX, VALID_REPO_ID_REGEX } from '../../src/types'
 
-describe('Regexes', () => {
+describe('Unit: Regexes', () => {
   it('VALID_PATH_REGEX', () => {
     const validPaths = [
       '/file',

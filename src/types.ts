@@ -8,7 +8,6 @@ import {
   asOptional,
   asString
 } from 'cleaners'
-import nano from 'nano'
 
 // Regexes:
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
@@ -16,10 +15,14 @@ export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
 
 // Types:
 
-const asNanoDocument = asObject<nano.Document>({
+const nanoDocumentShape = {
   _id: asString,
   _rev: asString
-})
+}
+const storeMergeDocumentShape = {
+  ...nanoDocumentShape,
+  mergeBaseTimestamp: asOptional(asString)
+}
 
 export type TimestampRev = string
 export const asTimestampRev = (ts: string | number): TimestampRev => {
@@ -40,6 +43,7 @@ export const asEdgeBox = asObject({
   data_base64: asString
 })
 
+// Also known as a "file pointer map"
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
 export const asStoreFileTimestampMap = asMap(asTimestampRev)
 
@@ -57,7 +61,7 @@ export const asStoreSettings = asObject({
   apiKeyWhitelist: asMap(asBoolean)
 })
 export const asStoreSettingsDocument = asObject({
-  ...asNanoDocument.shape,
+  ...nanoDocumentShape,
   ...asStoreSettings.shape
 })
 
@@ -71,7 +75,7 @@ export const asStoreDirectory = asObject({
   paths: asStoreFileTimestampMap
 })
 export const asStoreDirectoryDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreDirectory.shape
 })
 
@@ -95,7 +99,7 @@ export const asStoreRepo = asObject<StoreRepo>({
   maxSize: asNumber
 })
 export const asStoreRepoDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreRepo.shape
 })
 
@@ -108,7 +112,7 @@ export const asStoreFile = asObject({
   box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreFile.shape
 })
 

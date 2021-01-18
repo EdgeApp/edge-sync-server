@@ -1,4 +1,4 @@
-import { eq, gt, lt } from 'biggystring'
+import { eq, gt, lt, min } from 'biggystring'
 import { asMaybe } from 'cleaners'
 
 import { AppState } from '../server'
@@ -61,7 +61,7 @@ export const getRepoUpdates = (appState: AppState) => async (
 export const getDirectoryUpdates = (appState: AppState) => async (
   dirKey: string,
   dir: FilePointers,
-  timestamp: TimestampRev,
+  searchTimestamp: TimestampRev,
   isConsistent: boolean = true
 ): Promise<FilePointers & { isConsistent: boolean }> => {
   const rtn: FilePointers & { isConsistent: boolean } = {
@@ -77,11 +77,11 @@ export const getDirectoryUpdates = (appState: AppState) => async (
 
   // Filter out keys based on timestamp
   const pathsKeys = Object.entries(dir.paths)
-    .filter(([_, documentTimestamp]) => gt(documentTimestamp, timestamp))
+    .filter(([_, documentTimestamp]) => gt(documentTimestamp, searchTimestamp))
     .map(([path]) => [dirKey, path].join('/'))
 
   const deletedKeys = Object.entries(dir.deleted)
-    .filter(([_, documentTimestamp]) => gt(documentTimestamp, timestamp))
+    .filter(([_, documentTimestamp]) => gt(documentTimestamp, searchTimestamp))
     .map(([path]) => [dirKey, path].join('/'))
 
   const keysMap = {
@@ -106,6 +106,14 @@ export const getDirectoryUpdates = (appState: AppState) => async (
           const fileDocument = asMaybe(asStoreFileDocument)(row.doc)
           const directoryDocument = asMaybe(asStoreDirectoryDocument)(row.doc)
 
+          const mergeBaseTimestamp =
+            fileDocument?.mergeBaseTimestamp ??
+            directoryDocument?.mergeBaseTimestamp
+
+          if (mergeBaseTimestamp != null) {
+            searchTimestamp = min(mergeBaseTimestamp, searchTimestamp)
+          }
+
           if (fileDocument !== undefined) {
             if (
               prop !== 'deleted' &&
@@ -114,7 +122,16 @@ export const getDirectoryUpdates = (appState: AppState) => async (
               rtn.isConsistent = false
             }
 
-            rtn[prop][documentPath] = documentTimestamp
+            /*
+            Return the timestamp from the parent pointer if the file is
+            deleted otherwise return the timestamp from the file document.
+            This is because when a file is deleted, the file document wont
+            have the most up-to-date timestamp.
+            */
+            rtn[prop][documentPath] =
+              prop === 'deleted'
+                ? dir[prop][documentName]
+                : fileDocument.timestamp
           } else if (directoryDocument !== undefined) {
             if (
               prop !== 'deleted' &&
@@ -130,7 +147,7 @@ export const getDirectoryUpdates = (appState: AppState) => async (
             } = await getDirectoryUpdates(appState)(
               documentKey,
               directoryDocument,
-              timestamp,
+              searchTimestamp,
               rtn.isConsistent
             )
 

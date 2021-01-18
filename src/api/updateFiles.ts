@@ -1,4 +1,4 @@
-import { eq } from 'biggystring'
+import { lt } from 'biggystring'
 import { DocumentBulkResponse } from 'nano'
 
 import { AppState } from '../server'
@@ -24,7 +24,10 @@ import {
   validateModification,
   withRetries
 } from '../util/utils'
-import { getConflictFreeDocuments } from './conflictResolution'
+import {
+  deleteLosingConflictingDocuments,
+  getConflictFreeDocuments
+} from './conflictResolution'
 import { getRepoDocument } from './repo'
 
 type RepoModification = Pick<
@@ -38,8 +41,8 @@ export const validateRepoTimestamp = (appState: AppState) => async (
 ): Promise<void> => {
   const repoDoc = await getRepoDocument(appState)(repoId)
 
-  // Validate request body timestamp
-  if (!eq(repoDoc.timestamp, timestamp)) {
+  // Validate request body timestamp (timestamp >= repo timestamp is valid)
+  if (lt(timestamp, repoDoc.timestamp)) {
     throw makeApiClientError(422, `Failed due to out-of-date timestamp`)
   }
 }
@@ -242,6 +245,11 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   })
   checkResultsForErrors(fileAndDirResults)
 
+  // Delete any document conflicts
+  await deleteLosingConflictingDocuments(appState)(
+    fileAndDirResults.map(result => result.id)
+  )
+
   return repoModification
 }
 
@@ -283,6 +291,11 @@ export const updateRepoDocument = (appState: AppState) => async (
     docs: storeRepoDocuments
   })
   checkResultsForErrors(repoResults)
+
+  // Delete any document conflicts
+  await deleteLosingConflictingDocuments(appState)(
+    repoResults.map(result => result.id)
+  )
 }
 
 // ---------------------------------------------------------------------

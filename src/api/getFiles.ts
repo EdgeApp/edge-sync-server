@@ -124,40 +124,38 @@ export const fetchGetFilesMap = (appState: AppState) => async (
       const directoryDocument = asMaybe(asStoreDirectoryDocument)(result.doc)
       const directoryLikeDocument = repoDocument ?? directoryDocument
 
-      // Because the repo's timestamp is included in the repo document
-      // we have to get the timestamp from the repo document
-      const timestamp =
+      // For repo document, the pointer timestamp is the repo's timestamp
+      const pointerTimestamp =
         repoDocument == null
           ? parentDocument.paths[documentFileName]
           : repoDocument.timestamp
 
-      if (!ignoreTimestamps && lte(timestamp, sentTimestamp)) return map
+      // Skip map entry if document's pointer is lte to the timestamp
+      // sent by the client for this document.
+      if (!ignoreTimestamps && lte(pointerTimestamp, sentTimestamp)) return map
 
       // Handle file document
       if (fileDocument != null) {
         return Object.assign(map, {
           [documentPath]: asStoreFileWithTimestamp({
-            ...fileDocument,
-            timestamp
+            ...fileDocument
           })
         })
       }
 
       // Handle directory like document (repo or directory)
-      if (directoryLikeDocument != null && ignoreTimestamps) {
-        return Object.assign(map, {
-          [documentPath]: { paths: directoryLikeDocument.paths, timestamp }
-        })
-      }
       if (directoryLikeDocument != null) {
-        // Remove files after timestamp check
-        const paths = Object.entries(directoryLikeDocument.paths).reduce(
-          (paths: StoreFileTimestampMap, [fileName, fileTimestamp]) =>
-            gt(fileTimestamp, sentTimestamp)
-              ? { ...paths, [fileName]: fileTimestamp }
-              : paths,
-          {}
-        )
+        const timestamp = directoryLikeDocument.timestamp
+        // Remove paths that don't pass timestamp check
+        const paths = ignoreTimestamps
+          ? directoryLikeDocument.paths
+          : Object.entries(directoryLikeDocument.paths).reduce(
+              (paths: StoreFileTimestampMap, [fileName, fileTimestamp]) =>
+                gt(fileTimestamp, sentTimestamp)
+                  ? { ...paths, [fileName]: fileTimestamp }
+                  : paths,
+              {}
+            )
 
         return Object.assign(map, {
           [documentPath]: { paths, timestamp }

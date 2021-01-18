@@ -1,8 +1,12 @@
+import { add, eq, gt } from 'biggystring'
+
+import { timestampSubVersion } from '../api/conflictResolution'
 import {
   ApiClientError,
   ApiResponse,
   FilePointers,
   StoreDirectory,
+  StoreFileTimestampMap,
   TimestampRev
 } from '../types'
 import { maxAll } from './math'
@@ -48,7 +52,8 @@ export const getParentPathsOfPath = (path: string): string[] => {
 
 export const mergeFilePointers = (
   left: FilePointers,
-  right: FilePointers
+  right: FilePointers,
+  mergeBaseTimestamp?: TimestampRev
 ): FilePointers => {
   const allKeys = new Set([
     ...Object.keys(left.paths),
@@ -59,15 +64,38 @@ export const mergeFilePointers = (
   const filePointers = { paths: {}, deleted: {} }
 
   for (const key of allKeys) {
-    const filePointerMap = {
+    const filePointerMap: { [timestamp: string]: StoreFileTimestampMap } = {
       [left.paths[key] ?? -1]: filePointers.paths,
       [left.deleted[key] ?? -1]: filePointers.deleted,
       [right.paths[key] ?? -1]: filePointers.paths,
       [right.deleted[key] ?? -1]: filePointers.deleted
     }
 
-    const greatestTimestamp = maxAll(...Object.keys(filePointerMap))
-    filePointerMap[greatestTimestamp][key] = greatestTimestamp
+    const allTimestamps = Object.keys(filePointerMap)
+
+    // Winning timestamp is the greatest of all timestamps
+    const winningTimestamp = maxAll(...allTimestamps)
+    const storeFileTimestampMap = filePointerMap[winningTimestamp]
+    let timestampRev: TimestampRev = winningTimestamp
+
+    // Include a sub-version if mergeBaseTimestamp parameter was given
+    if (mergeBaseTimestamp != null) {
+      // Get all conflicting timestamps. These are all non-winning timestamps
+      // and that are greater than the mergeBaseTimestamp
+      const conflictingTimestamps = allTimestamps.filter(
+        timestamp =>
+          !eq(timestamp, winningTimestamp) && gt(timestamp, mergeBaseTimestamp)
+      )
+
+      // Use conficting timestamps to generate a timestamp sub-version
+      const subVersion = timestampSubVersion(conflictingTimestamps)
+
+      // Add sub-version to the timestamp rev
+      timestampRev = add(timestampRev, subVersion)
+    }
+
+    // Update the file pointer
+    storeFileTimestampMap[key] = timestampRev
   }
 
   return filePointers

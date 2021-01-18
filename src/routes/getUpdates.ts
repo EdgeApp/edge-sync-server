@@ -1,4 +1,4 @@
-import { lt } from 'biggystring'
+import { lt, min } from 'biggystring'
 import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
@@ -48,9 +48,15 @@ export const getUpdatesRouter = (appState: any): Router => {
     }
 
     if (lt(clientTimestamp, repoDocument.timestamp)) {
+      const mergeBaseTimestamp = repoDocument.mergeBaseTimestamp
+      const searchTimestamp =
+        mergeBaseTimestamp != null
+          ? min(mergeBaseTimestamp, clientTimestamp)
+          : clientTimestamp
+
       const { paths, deleted, isConsistent } = await getDirectoryUpdates(
         appState
-      )(repoKey, repoDocument, clientTimestamp)
+      )(repoKey, repoDocument, searchTimestamp)
 
       if (isConsistent) {
         responseData.timestamp = repoDocument.timestamp
