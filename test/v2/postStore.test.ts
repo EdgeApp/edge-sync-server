@@ -36,9 +36,9 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       changes = asChangeSetV2(changes)
     } catch (error) {
       throw new Error(
-        [`Invalid changes arg for isPostStoreResponse:`, error.message].join(
-          ' '
-        )
+        `Invalid changes arg for isPostStoreResponse: ${JSON.stringify(
+          error.message
+        )}`
       )
     }
 
