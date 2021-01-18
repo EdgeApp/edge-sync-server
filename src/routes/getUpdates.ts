@@ -36,17 +36,19 @@ export const getUpdatesRouter = (appState: any): Router => {
     const repoDocument = await getRepoDocument(appState)(repoId)
 
     const responseData: GetUpdatesResponseData = {
-      timestamp: repoDocument.timestamp,
+      timestamp: clientTimestamp,
       paths: {},
       deleted: {}
     }
 
     if (clientTimestamp < repoDocument.timestamp) {
-      const { paths, deleted } = await getDirectoryUpdates(appState)(
-        repoKey,
-        repoDocument,
-        clientTimestamp
-      )
+      const { paths, deleted, isConsistent } = await getDirectoryUpdates(
+        appState
+      )(repoKey, repoDocument, clientTimestamp)
+
+      if (isConsistent) {
+        responseData.timestamp = repoDocument.timestamp
+      }
 
       responseData.paths = paths
       responseData.deleted = deleted

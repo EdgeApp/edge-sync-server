@@ -64,11 +64,13 @@ export const getRepoUpdates = (appState: AppState) => async (
 export const getDirectoryUpdates = (appState: AppState) => async (
   dirKey: string,
   dir: FilePointers,
-  timestamp: number
-): Promise<FilePointers> => {
-  const rtn: FilePointers = {
+  timestamp: number,
+  isConsistent: boolean = true
+): Promise<FilePointers & { isConsistent: boolean }> => {
+  const rtn: FilePointers & { isConsistent: boolean } = {
     paths: {},
-    deleted: {}
+    deleted: {},
+    isConsistent
   }
 
   // For repo keys, trim the trailing slash; dirs don't have trailing slashes
@@ -76,25 +78,22 @@ export const getDirectoryUpdates = (appState: AppState) => async (
     dirKey = dirKey.substr(0, dirKey.length - 1)
   }
 
-  const pathsKeys = Object.keys(dir.paths).map(path => [dirKey, path].join('/'))
-  const deletedKeys = Object.keys(dir.deleted).map(path =>
-    [dirKey, path].join('/')
-  )
+  // Filter out keys based on timestamp
+  const pathsKeys = Object.entries(dir.paths)
+    .filter(([_, documentTimestamp]) => documentTimestamp > timestamp)
+    .map(([path]) => [dirKey, path].join('/'))
 
-  const keysMapOfProp = {
+  const deletedKeys = Object.entries(dir.deleted)
+    .filter(([_, documentTimestamp]) => documentTimestamp > timestamp)
+    .map(([path]) => [dirKey, path].join('/'))
+
+  const keysMap = {
     paths: pathsKeys,
     deleted: deletedKeys
   }
 
-  for (const prop of Object.keys(keysMapOfProp)) {
-    // Filter out keys based on timestamp
-    const keys = keysMapOfProp[prop].filter(documentKey => {
-      const documentPath = documentKey.split(':')[1]
-      const documentName = getNameFromPath(documentPath)
-      const documentTimestamp = dir[prop][documentName]
-
-      return documentTimestamp > timestamp
-    })
+  for (const prop of Object.keys(keysMap)) {
+    const keys = keysMap[prop]
 
     if (keys.length > 0) {
       const results = await appState.dataStore.fetch({ keys })
@@ -102,6 +101,7 @@ export const getDirectoryUpdates = (appState: AppState) => async (
         const documentKey = row.key
         const documentPath = documentKey.split(':')[1]
         const documentName = getNameFromPath(documentPath)
+        // The timestamp for the document from the indexing document
         const documentTimestamp = dir[prop][documentName]
 
         if ('doc' in row) {
@@ -109,24 +109,41 @@ export const getDirectoryUpdates = (appState: AppState) => async (
           const directoryDocument = asMaybe(asStoreDirectoryDocument)(row.doc)
 
           if (fileDocument !== undefined) {
+            if (
+              prop !== 'deleted' &&
+              fileDocument.timestamp !== documentTimestamp
+            ) {
+              rtn.isConsistent = false
+            }
+
             rtn[prop][documentPath] = documentTimestamp
           } else if (directoryDocument !== undefined) {
+            if (
+              prop !== 'deleted' &&
+              directoryDocument.timestamp !== documentTimestamp
+            ) {
+              rtn.isConsistent = false
+            }
+
             const {
               paths: subPaths,
-              deleted: subDeleted
+              deleted: subDeleted,
+              isConsistent
             } = await getDirectoryUpdates(appState)(
               documentKey,
               directoryDocument,
-              timestamp
+              timestamp,
+              rtn.isConsistent
             )
 
             rtn.paths = { ...rtn.paths, ...subPaths }
             rtn.deleted = { ...rtn.deleted, ...subDeleted }
+            rtn.isConsistent = isConsistent
           } else {
             throw new Error(`Unexpected document for '${documentKey}'`)
           }
         } else {
-          throw new Error(`Missing document ${documentKey}`)
+          throw new Error(`Missing document '${documentKey}'`)
         }
       }
     }
