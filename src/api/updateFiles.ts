@@ -41,11 +41,11 @@ export const validateRepoTimestamp = (appState: AppState) => async (
   }
 }
 
-export const updateDocuments = (appState: AppState) => async (
+export const updateDocuments = (appState: AppState) => (
   repoId: string,
   changeSet: ChangeSet
-): Promise<number> => {
-  return await withRetries(
+): Promise<number> =>
+  withRetries(
     async (): Promise<number> => {
       const updateTimestamp = Date.now()
       const repoModification = await updateFilesAndDirectories(appState)(
@@ -59,7 +59,6 @@ export const updateDocuments = (appState: AppState) => async (
     },
     err => err.message === 'conflict'
   )
-}
 
 export const updateFilesAndDirectories = (appState: AppState) => async (
   repoId: string,
