@@ -1,4 +1,5 @@
-import { dataStore } from './db'
+import { Config } from './config.schema'
+import { getDataStore } from './db'
 import { asStoreSettings, StoreSettings } from './types'
 
 export const settingsDocumentKey =
@@ -10,7 +11,10 @@ const cacheTTL: number = 1000 * 60 * 60
 let cachedStoreSettings: StoreSettings
 let cacheTimestamp: number = 0
 
-export async function getStoreSettings(): Promise<StoreSettings> {
+export const getStoreSettings = async (
+  config: Config
+): Promise<StoreSettings> => {
+  const dataStore = getDataStore(config)
   const currentTimestamp = Date.now()
   try {
     if (
@@ -23,18 +27,23 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     }
     return cachedStoreSettings
   } catch (error) {
-    throw new Error(`Failed to load settings document. ${error.message}`)
+    throw new Error(
+      `Failed to load settings document. ${JSON.stringify(error.message)}`
+    )
   }
 }
 
-export async function initStoreSettings(): Promise<void> {
+export const initStoreSettings = async (config: Config): Promise<void> => {
+  const dataStore = getDataStore(config)
   let storeSettings: StoreSettings
   try {
     const doc = await dataStore.get(settingsDocumentKey)
     storeSettings = asStoreSettings(doc)
   } catch (error) {
     if (error.error !== 'not_found') {
-      throw new Error(`Failed to load settings document. ${error.message}`)
+      throw new Error(
+        `Failed to load settings document. ${JSON.stringify(error.message)}`
+      )
     }
 
     storeSettings = {

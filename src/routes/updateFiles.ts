@@ -1,7 +1,9 @@
 import { asNumber, asObject } from 'cleaners'
-import Router from 'express-promise-router'
+import { Router } from 'express'
+import PromsieRouter from 'express-promise-router'
 
 import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
+import { AppState } from '../server'
 import { asChangeSet, asPath, asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
@@ -19,37 +21,43 @@ interface UpdateFilesResponseData {
   }
 }
 
-export const updateFilesRouter = Router()
+export const updateFilesRouter = (appState: AppState): Router => {
+  const router = PromsieRouter()
 
-updateFilesRouter.post('/updateFiles', async (req, res) => {
-  let body: UpdateFilesBody
-  let paths: string[]
+  router.post('/updateFiles', async (req, res) => {
+    let body: UpdateFilesBody
+    let paths: string[]
 
-  // Validate request body
-  try {
-    body = asUpdateFilesBody(req.body)
+    // Validate request body
+    try {
+      body = asUpdateFilesBody(req.body)
 
-    // Validate paths
-    paths = Object.keys(body.paths).map(asPath)
-  } catch (error) {
-    throw makeApiClientError(400, error.message)
-  }
+      // Validate paths
+      paths = Object.keys(body.paths).map(asPath)
+    } catch (error) {
+      throw makeApiClientError(400, error.message)
+    }
 
-  // Validate request body timestamp
-  await validateRepoTimestamp(body.repoId, body.timestamp)
+    // Validate request body timestamp
+    await validateRepoTimestamp(appState)(body.repoId, body.timestamp)
 
-  // Update files
-  const updateTimestamp = await updateDocuments(body.repoId, body.paths)
+    // Update files
+    const updateTimestamp = await updateDocuments(appState)(
+      body.repoId,
+      body.paths
+    )
 
-  // Response:
+    // Response:
 
-  res.status(200).json(
-    makeApiResponse<UpdateFilesResponseData>({
-      timestamp: updateTimestamp,
-      paths: paths.reduce((paths, path) => {
-        paths[path] = updateTimestamp
-        return paths
-      }, {})
-    })
-  )
-})
+    res.status(200).json(
+      makeApiResponse<UpdateFilesResponseData>({
+        timestamp: updateTimestamp,
+        paths: paths.reduce((paths, path) => {
+          paths[path] = updateTimestamp
+          return paths
+        }, {})
+      })
+    )
+  })
+  return router
+}

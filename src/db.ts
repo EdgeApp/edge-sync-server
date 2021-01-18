@@ -1,19 +1,19 @@
 import nano from 'nano'
 
-import { config } from './config'
-import { StoreDocument } from './types'
+import { Config } from './config.schema'
+import { StoreData } from './types'
 import { CouchDbInfo } from './util/couch'
 
-export const couchUri = `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`
-
-export let dataStore: nano.DocumentScope<StoreDocument>
-
-export function initDataStore(couchDatabase): void {
-  dataStore = nano(couchUri).use<StoreDocument>(couchDatabase)
-}
-
-export const couchSchema: CouchDbInfo = {
+export const getCouchSchema = (config: Config): CouchDbInfo => ({
   name: config.couchDatabase,
-  sharding: config.couchSharding,
-  partitioned: true
-}
+  sharding: config.couchSharding
+})
+
+export const getCouchUri = (config: Config): string =>
+  `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`
+
+export const getDbServer = (config: Config): nano.ServerScope =>
+  nano(getCouchUri(config))
+
+export const getDataStore = (config: Config): nano.DocumentScope<StoreData> =>
+  getDbServer(config).use<StoreData>(config.couchDatabase)

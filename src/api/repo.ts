@@ -1,11 +1,13 @@
-import { dataStore } from '../db'
+import { AppState } from '../server'
 import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
 import { makeApiClientError } from '../util/utils'
 
-export async function checkRepoExists(repoId: string): Promise<boolean> {
+export const checkRepoExists = (appState: AppState) => async (
+  repoId: string
+): Promise<boolean> => {
   const repoKey = `${repoId}:/`
   try {
-    await dataStore.head(repoKey)
+    await appState.dataStore.head(repoKey)
     return true
   } catch (error) {
     // Throw response errors other than 404
@@ -16,16 +18,16 @@ export async function checkRepoExists(repoId: string): Promise<boolean> {
   }
 }
 
-export async function createRepoDocument(
+export const createRepoDocument = (appState: AppState) => async (
   repoId: string,
   data: Pick<StoreRepo, 'timestamp' | 'lastGitHash' | 'lastGitTime'> &
     Partial<Pick<StoreRepo, 'paths' | 'deleted'>>
-): Promise<void> {
+): Promise<void> => {
   const repoKey = `${repoId}:/`
 
   const { paths = {}, deleted = {} } = data
 
-  await dataStore.insert(
+  await appState.dataStore.insert(
     {
       paths,
       deleted,
@@ -40,15 +42,15 @@ export async function createRepoDocument(
   )
 }
 
-export async function getRepoDocument(
+export const getRepoDocument = (appState: AppState) => async (
   repoId: string
-): Promise<StoreRepoDocument> {
+): Promise<StoreRepoDocument> => {
   const repoKey = `${repoId}:/`
 
   // Validate request body timestamp
   let repoDoc: StoreRepoDocument
   try {
-    const repoQuery = await dataStore.get(repoKey)
+    const repoQuery = await appState.dataStore.get(repoKey)
     repoDoc = asStoreRepoDocument(repoQuery)
   } catch (err) {
     if (err.error === 'not_found') {

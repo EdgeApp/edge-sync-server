@@ -1,6 +1,6 @@
 import { DocumentBulkResponse } from 'nano'
 
-import { dataStore } from '../db'
+import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
   asStoreFileDocument,
@@ -9,6 +9,7 @@ import {
   FileChange,
   StoreDirectory,
   StoreDirectoryDocument,
+  StoreFile,
   StoreFileDocument,
   StoreRepoDocument
 } from '../types'
@@ -16,7 +17,7 @@ import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError,
-  mergeDirectoryFilePointers,
+  mergeFilePointers,
   updateDirectoryFilePointers,
   validateModification,
   withRetries
@@ -28,8 +29,11 @@ type RepoModification = Pick<
   'paths' | 'deleted' | 'timestamp'
 >
 
-export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
-  const repoDoc = await getRepoDocument(repoId)
+export const validateRepoTimestamp = (appState: AppState) => async (
+  repoId,
+  timestamp
+): Promise<void> => {
+  const repoDoc = await getRepoDocument(appState)(repoId)
 
   // Validate request body timestamp
   if (repoDoc.timestamp !== timestamp) {
@@ -37,36 +41,35 @@ export async function validateRepoTimestamp(repoId, timestamp): Promise<void> {
   }
 }
 
-export function updateDocuments(
+export const updateDocuments = (appState: AppState) => (
   repoId: string,
   changeSet: ChangeSet
-): Promise<number> {
-  return withRetries(
+): Promise<number> =>
+  withRetries(
     async (): Promise<number> => {
       const updateTimestamp = Date.now()
-      const repoModification = await updateFilesAndDirectories(
+      const repoModification = await updateFilesAndDirectories(appState)(
         repoId,
         changeSet,
         updateTimestamp
       )
-      await updateRepoDocument(repoId, repoModification)
+      await updateRepoDocument(appState)(repoId, repoModification)
 
       return updateTimestamp
     },
     err => err.message === 'conflict'
   )
-}
 
-export async function updateFilesAndDirectories(
+export const updateFilesAndDirectories = (appState: AppState) => async (
   repoId: string,
   changeSet: ChangeSet,
   updateTimestamp: number
-): Promise<RepoModification> {
+): Promise<RepoModification> => {
   const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
   // Prepare Files Documents:
-  const fileRevsResult = await dataStore.fetch({ keys: fileKeys })
-  const storeFileDocuments: StoreFileDocument[] = []
+  const fileRevsResult = await appState.dataStore.fetch({ keys: fileKeys })
+  const storeFileDocuments: Array<StoreFileDocument | StoreFile> = []
   const directoryModifications: Map<string, StoreDirectory> = new Map()
   let repoModification: RepoModification = {
     paths: {},
@@ -176,9 +179,13 @@ export async function updateFilesAndDirectories(
   // Prepare Directories Documents:
   // Fetch existing documents to merge new document
   const directoryKeys = Array.from(directoryModifications.keys())
-  const storeDirectoryDocuments: StoreDirectoryDocument[] = []
+  const storeDirectoryDocuments: Array<
+    StoreDirectoryDocument | StoreDirectory
+  > = []
   if (directoryKeys.length > 0) {
-    const directoryFetchResult = await dataStore.fetch({ keys: directoryKeys })
+    const directoryFetchResult = await appState.dataStore.fetch({
+      keys: directoryKeys
+    })
 
     // Prepare directory documents
     directoryFetchResult.rows.forEach(row => {
@@ -207,10 +214,11 @@ export async function updateFilesAndDirectories(
             directoryPath
           )
 
-          const directoryDocument: StoreDirectoryDocument = mergeDirectoryFilePointers(
-            existingDirectory,
-            directoryModification
-          )
+          const directoryDocument: StoreDirectoryDocument = {
+            ...existingDirectory,
+            ...directoryModification,
+            ...mergeFilePointers(existingDirectory, directoryModification)
+          }
 
           // Update directory
           storeDirectoryDocuments.push(directoryDocument)
@@ -226,7 +234,7 @@ export async function updateFilesAndDirectories(
   }
 
   // Write Files and Directories
-  const fileAndDirResults = await dataStore.bulk({
+  const fileAndDirResults = await appState.dataStore.bulk({
     docs: [...storeFileDocuments, ...storeDirectoryDocuments]
   })
   checkResultsForErrors(fileAndDirResults)
@@ -234,14 +242,14 @@ export async function updateFilesAndDirectories(
   return repoModification
 }
 
-export const updateRepoDocument = async (
+export const updateRepoDocument = (appState: AppState) => async (
   repoId: string,
   repoModification: RepoModification
 ): Promise<void> => {
   const repoKey = `${repoId}:/`
 
   // Prepare Repo Document:
-  const repoFetchResult = await dataStore.fetch({ keys: [repoKey] })
+  const repoFetchResult = await appState.dataStore.fetch({ keys: [repoKey] })
   const storeRepoDocuments: StoreRepoDocument[] = []
 
   // Prepare repo documents
@@ -264,10 +272,11 @@ export const updateRepoDocument = async (
       // Validate modificaiton
       validateModification(repoModification, existingRepo, '')
 
-      const repoDocument: StoreRepoDocument = mergeDirectoryFilePointers(
-        existingRepo,
-        repoModification
-      )
+      const repoDocument: StoreRepoDocument = {
+        ...existingRepo,
+        ...repoModification,
+        ...mergeFilePointers(existingRepo, repoModification)
+      }
 
       storeRepoDocuments.push(repoDocument)
     } else {
@@ -281,7 +290,7 @@ export const updateRepoDocument = async (
   })
 
   // Write Repos
-  const repoResults = await dataStore.bulk({
+  const repoResults = await appState.dataStore.bulk({
     docs: storeRepoDocuments
   })
   checkResultsForErrors(repoResults)
@@ -292,8 +301,8 @@ export const updateRepoDocument = async (
 // ---------------------------------------------------------------------
 
 // This checks for conflicts and errors in the datastore write results
-const checkResultsForErrors = (results: DocumentBulkResponse[]): void =>
-  results.forEach(result => {
+const checkResultsForErrors = (results: DocumentBulkResponse[]): void => {
+  return results.forEach(result => {
     if (result.error !== '' && result.error !== undefined) {
       if (result.error === 'conflict') {
         // For conflict errors, throw specific error message
@@ -308,3 +317,4 @@ const checkResultsForErrors = (results: DocumentBulkResponse[]): void =>
       }
     }
   })
+}

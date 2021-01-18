@@ -61,7 +61,7 @@ export async function setupCouchDatabase(
       })
       console.log(
         `Created Database ${db.name}` +
-          (db.sharding != null ? ` with params q=${q} n=${n}` : '')
+          (q != null && n != null ? ` with params q=${q} n=${n}` : '')
       )
     }
     // create indexes/views

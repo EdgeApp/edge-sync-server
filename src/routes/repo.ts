@@ -1,7 +1,9 @@
 import { asObject } from 'cleaners'
-import Router from 'express-promise-router'
+import { Router } from 'express'
+import PromiseRouter from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../api/repo'
+import { AppState } from '../server'
 import { asRepoId } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 import { whitelistAll } from '../whitelisting'
@@ -15,31 +17,35 @@ interface RepoPutResponseData {
   timestamp: number
 }
 
-export const repoRouter = Router()
+export const repoRouter = (appState: AppState): Router => {
+  const router = PromiseRouter()
 
-repoRouter.put('/repo', whitelistAll, async (req, res) => {
-  let body: PutRepoBody
+  router.put('/repo', whitelistAll(appState), async (req, res) => {
+    let body: PutRepoBody
 
-  // Request body validation
-  try {
-    body = asPutRepoBody(req.body)
-  } catch (error) {
-    throw makeApiClientError(400, error.message)
-  }
+    // Request body validation
+    try {
+      body = asPutRepoBody(req.body)
+    } catch (error) {
+      throw makeApiClientError(400, error.message)
+    }
 
-  if (await checkRepoExists(body.repoId)) {
-    throw makeApiClientError(409, 'Datastore already exists')
-  }
+    if (await checkRepoExists(appState)(body.repoId)) {
+      throw makeApiClientError(409, 'Datastore already exists')
+    }
 
-  // Create new repo
-  const timestamp = Date.now()
+    // Create new repo
+    const timestamp = Date.now()
 
-  await createRepoDocument(body.repoId, {
-    timestamp
+    await createRepoDocument(appState)(body.repoId, {
+      timestamp
+    })
+
+    // Send response
+    res.status(201).json(
+      makeApiResponse<RepoPutResponseData>({ timestamp })
+    )
   })
 
-  // Send response
-  res.status(201).json(
-    makeApiResponse<RepoPutResponseData>({ timestamp })
-  )
-})
+  return router
+}

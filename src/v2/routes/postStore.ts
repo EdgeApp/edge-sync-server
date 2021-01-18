@@ -1,15 +1,15 @@
 import { asObject, asOptional } from 'cleaners'
-import Router from 'express-promise-router'
+import { Router } from 'express'
+import PromiseRouter from 'express-promise-router'
 
 import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
 import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
+import { AppState } from '../../server'
 import { asNonEmptyString, asPath, asRepoId, ChangeSet } from '../../types'
 import { makeApiClientError } from '../../util/utils'
 import { asChangeSetV2, ChangeSetV2 } from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
-
-export const postStoreRouter = Router()
 
 type PostStoreParams = ReturnType<typeof asPostStoreParams>
 const asPostStoreParams = asObject({
@@ -27,52 +27,60 @@ interface PostStoreResponseData {
   changes: ChangeSetV2
 }
 
-postStoreRouter.post('/store/:storeId/:hash?', async (req, res) => {
-  let body: PostStoreBody
-  let params: PostStoreParams
+export const postStoreRouter = (appState: AppState): Router => {
+  const router = PromiseRouter()
 
-  // Validate request
-  try {
-    params = asPostStoreParams(req.params)
-    body = asPostStoreBody(req.body)
+  router.post('/store/:storeId/:hash?', async (req, res) => {
+    let body: PostStoreBody
+    let params: PostStoreParams
 
-    // Validate paths
-    Object.keys(body.changes).map(path => asPath('/' + path))
-  } catch (error) {
-    throw makeApiClientError(400, error.message)
-  }
+    // Validate request
+    try {
+      params = asPostStoreParams(req.params)
+      body = asPostStoreBody(req.body)
 
-  const repoId = params.storeId
-  const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
+      // Validate paths
+      Object.keys(body.changes).map(path => asPath('/' + path))
+    } catch (error) {
+      throw makeApiClientError(400, error.message)
+    }
 
-  // Check if repo document exists and is a valid document using getRepoDocument
-  await getRepoDocument(repoId)
+    const repoId = params.storeId
+    const clientTimestamp = params.hash != null ? parseInt(params.hash) : 0
 
-  // Prepare changes for updateDocuments
-  const changes: ChangeSet = Object.entries(body.changes).reduce(
-    (changes: ChangeSet, [path, box]) => {
-      const compatiblePath = '/' + path
-      changes[compatiblePath] = box != null ? { box } : null
-      return changes
-    },
-    {}
-  )
-  // Update documents using changes (files, directories, and repo)
-  const updateTimestamp = await updateDocuments(repoId, changes)
+    // Check if repo document exists and is a valid document using getRepoDocument
+    await getRepoDocument(appState)(repoId)
 
-  // Get updates using the client timestamp from request body
-  const repoUpdates: RepoUpdates = await getRepoUpdates(repoId, clientTimestamp)
-  // Convert updates into a V2 change set to send as response changes
-  const responseChanges: ChangeSetV2 = await getChangesFromRepoUpdates(
-    repoId,
-    repoUpdates
-  )
+    // Prepare changes for updateDocuments
+    const changes: ChangeSet = Object.entries(body.changes).reduce(
+      (changes: ChangeSet, [path, box]) => {
+        const compatiblePath = '/' + path
+        changes[compatiblePath] = box != null ? { box } : null
+        return changes
+      },
+      {}
+    )
+    // Update documents using changes (files, directories, and repo)
+    const updateTimestamp = await updateDocuments(appState)(repoId, changes)
 
-  // Response:
+    // Get updates using the client timestamp from request body
+    const repoUpdates: RepoUpdates = await getRepoUpdates(appState)(
+      repoId,
+      clientTimestamp
+    )
+    // Convert updates into a V2 change set to send as response changes
+    const responseChanges: ChangeSetV2 = await getChangesFromRepoUpdates(
+      appState
+    )(repoId, repoUpdates)
 
-  const responseData: PostStoreResponseData = {
-    hash: updateTimestamp.toString(),
-    changes: responseChanges
-  }
-  res.status(200).json(responseData)
-})
+    // Response:
+
+    const responseData: PostStoreResponseData = {
+      hash: updateTimestamp.toString(),
+      changes: responseChanges
+    }
+    res.status(200).json(responseData)
+  })
+
+  return router
+}

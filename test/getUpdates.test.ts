@@ -2,7 +2,7 @@ import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest from 'supertest'
 
-import { app } from '../src/server'
+import { AppState, makeServer } from '../src/server'
 import { apiSuite } from './suites'
 import {
   delay,
@@ -11,7 +11,8 @@ import {
   makeMockStoreFile
 } from './utils'
 
-apiSuite('/api/v3/getUpdates', () => {
+apiSuite('/api/v3/getUpdates', (appState: AppState) => {
+  const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   const repoId = '0000000000000000000000000000000000000000'
@@ -51,7 +52,7 @@ apiSuite('/api/v3/getUpdates', () => {
           '/file1': CONTENT.file1,
           '/deletedFile': CONTENT.deletedFile,
           '/dir/file1': CONTENT.dirFile1,
-          '/dirDeletedFile': CONTENT.dirDeletedFile
+          '/dir/deletedFile': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -66,7 +67,7 @@ apiSuite('/api/v3/getUpdates', () => {
         timestamp: repoTimestamp,
         paths: {
           '/deletedFile': null,
-          '/dirDeletedFile': null
+          '/dir/deletedFile': null
         }
       })
       .expect(isSuccessfulResponse)
@@ -104,7 +105,7 @@ apiSuite('/api/v3/getUpdates', () => {
           '/file1.ignore': CONTENT.file1,
           '/deletedFile.ignore': CONTENT.deletedFile,
           '/dir/file1.ignore': CONTENT.dirFile1,
-          '/dirDeletedFile.ignore': CONTENT.dirDeletedFile
+          '/dir/deletedFile.ignore': CONTENT.dirDeletedFile
         }
       })
       .expect(isSuccessfulResponse)
@@ -115,7 +116,7 @@ apiSuite('/api/v3/getUpdates', () => {
         timestamp: res.body.data.timestamp,
         paths: {
           '/deletedFile.ignore': null,
-          '/dirDeletedFile.ignore': null
+          '/dir/deletedFile.ignore': null
         }
       })
       .expect(isSuccessfulResponse)
@@ -148,7 +149,7 @@ apiSuite('/api/v3/getUpdates', () => {
         })
         expect(res.body.data.deleted).deep.equals({
           '/deletedFile': deletionTs,
-          '/dirDeletedFile': deletionTs
+          '/dir/deletedFile': deletionTs
         })
       })
   })
@@ -165,7 +166,7 @@ apiSuite('/api/v3/getUpdates', () => {
         })
         expect(res.body.data.deleted).deep.equals({
           '/deletedFile': deletionTs,
-          '/dirDeletedFile': deletionTs
+          '/dir/deletedFile': deletionTs
         })
       })
     await agent

@@ -1,14 +1,16 @@
 import { NextFunction, Request, Response } from 'express'
 
+import { AppState } from './server'
 import { getStoreSettings } from './storeSettings'
+import { ApiClientError } from './types'
 import { makeApiClientError } from './util/utils'
 
-export async function whitelistIps(
+export const whitelistIps = (appState: AppState) => async (
   req: Request,
   _res: Response,
   next: NextFunction
-): Promise<void> {
-  const { ipWhitelist } = await getStoreSettings()
+): Promise<void> => {
+  const { ipWhitelist } = await getStoreSettings(appState.config)
 
   const clientIp = req.ip
 
@@ -19,12 +21,12 @@ export async function whitelistIps(
   next()
 }
 
-export async function whitelistApiKeys(
+export const whitelistApiKeys = (appState: AppState) => async (
   req: Request,
   _res: Response,
   next: NextFunction
-): Promise<void> {
-  const { apiKeyWhitelist } = await getStoreSettings()
+): Promise<void> => {
+  const { apiKeyWhitelist } = await getStoreSettings(appState.config)
 
   const clientApiKey = req.query.apiKey
 
@@ -38,17 +40,21 @@ export async function whitelistApiKeys(
   next()
 }
 
-export async function whitelistAll(
+export const whitelistAll = (appState: AppState) => async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> {
+): Promise<void> => {
   try {
-    await whitelistIps(req, res, next)
-  } catch (_error) {
+    await whitelistIps(appState)(req, res, next)
+  } catch (ipError) {
+    if (!(ipError instanceof ApiClientError)) throw ipError
+
     try {
-      await whitelistApiKeys(req, res, next)
-    } catch (error) {
+      await whitelistApiKeys(appState)(req, res, next)
+    } catch (apiKeyError) {
+      if (!(apiKeyError instanceof ApiClientError)) throw apiKeyError
+
       throw makeApiClientError(403, 'Forbidden IP and API Key')
     }
   }

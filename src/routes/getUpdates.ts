@@ -1,12 +1,11 @@
 import { asNumber, asObject } from 'cleaners'
-import Router from 'express-promise-router'
+import { Router } from 'express'
+import PromiseRouter from 'express-promise-router'
 
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
 import { asRepoId, StoreFileTimestampMap } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
-
-export const getUpdatesRouter = Router()
 
 type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
 const asGetUpdatesBody = asObject({
@@ -20,35 +19,41 @@ interface GetUpdatesResponseData {
   deleted: StoreFileTimestampMap
 }
 
-getUpdatesRouter.post('/getUpdates', async (req, res) => {
-  let body: GetUpdatesBody
+export const getUpdatesRouter = (appState: any): Router => {
+  const router = PromiseRouter()
 
-  try {
-    body = asGetUpdatesBody(req.body)
-  } catch (error) {
-    throw makeApiClientError(400, error.message)
-  }
+  router.post('/getUpdates', async (req, res) => {
+    let body: GetUpdatesBody
 
-  const { repoId, timestamp: clientTimestamp } = body
-  const repoKey = `${repoId}:/`
-  const repoDocument = await getRepoDocument(repoId)
+    try {
+      body = asGetUpdatesBody(req.body)
+    } catch (error) {
+      throw makeApiClientError(400, error.message)
+    }
 
-  const responseData: GetUpdatesResponseData = {
-    timestamp: repoDocument.timestamp,
-    paths: {},
-    deleted: {}
-  }
+    const { repoId, timestamp: clientTimestamp } = body
+    const repoKey = `${repoId}:/`
+    const repoDocument = await getRepoDocument(appState)(repoId)
 
-  if (clientTimestamp < repoDocument.timestamp) {
-    const { paths, deleted } = await getDirectoryUpdates(
-      repoKey,
-      repoDocument,
-      clientTimestamp
-    )
+    const responseData: GetUpdatesResponseData = {
+      timestamp: repoDocument.timestamp,
+      paths: {},
+      deleted: {}
+    }
 
-    responseData.paths = paths
-    responseData.deleted = deleted
-  }
+    if (clientTimestamp < repoDocument.timestamp) {
+      const { paths, deleted } = await getDirectoryUpdates(appState)(
+        repoKey,
+        repoDocument,
+        clientTimestamp
+      )
 
-  res.status(200).json(makeApiResponse<GetUpdatesResponseData>(responseData))
-})
+      responseData.paths = paths
+      responseData.deleted = deleted
+    }
+
+    res.status(200).json(makeApiResponse<GetUpdatesResponseData>(responseData))
+  })
+
+  return router
+}

@@ -1,11 +1,12 @@
 import { expect } from 'chai'
 import supertest from 'supertest'
 
-import { app } from '../src/server'
+import { AppState, makeServer } from '../src/server'
 import { apiSuite } from './suites'
 import { isErrorResponse, isSuccessfulResponse } from './utils'
 
-apiSuite('Basic server errors', () => {
+apiSuite('Basic server errors', (appState: AppState) => {
+  const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   it('Can send 404 errors', async () => {
@@ -16,7 +17,8 @@ apiSuite('Basic server errors', () => {
   })
 })
 
-apiSuite('/api/v3/config', () => {
+apiSuite('/api/v3/config', (appState: AppState) => {
+  const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   it('Can retrieve config', async () => {
