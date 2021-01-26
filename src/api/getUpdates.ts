@@ -89,7 +89,9 @@ export const getDirectoryUpdates = (appState: AppState) => async (
     deleted: deletedKeys
   }
 
-  for (const prop of Object.keys(keysMap)) {
+  const keys = Object.keys(keysMap) as Array<keyof typeof keysMap>
+
+  for (const prop of keys) {
     const keys = keysMap[prop]
 
     if (keys.length > 0) {

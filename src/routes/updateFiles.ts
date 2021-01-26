@@ -9,6 +9,7 @@ import {
   asPath,
   asRepoId,
   asTimestampRev,
+  StoreFileTimestampMap,
   TimestampRev
 } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
@@ -22,9 +23,7 @@ const asUpdateFilesBody = asObject({
 
 interface UpdateFilesResponseData {
   timestamp: TimestampRev
-  paths: {
-    [path: string]: number
-  }
+  paths: StoreFileTimestampMap
 }
 
 export const updateFilesRouter = (appState: AppState): Router => {
@@ -58,7 +57,7 @@ export const updateFilesRouter = (appState: AppState): Router => {
     res.status(200).json(
       makeApiResponse<UpdateFilesResponseData>({
         timestamp: updateTimestamp,
-        paths: paths.reduce((paths, path) => {
+        paths: paths.reduce<StoreFileTimestampMap>((paths, path) => {
           paths[path] = updateTimestamp
           return paths
         }, {})
