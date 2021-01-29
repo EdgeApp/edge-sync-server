@@ -23,10 +23,12 @@
     "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
     "test.watch": "yarn test --watch --watch-files 'src/**/*, test/**/*'",
-    "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts"
+    "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
+    "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts"
   },
   "bin": {
-    "mon.network": "./src/bin/network-mon/index.ts"
+    "mon.network": "./src/bin/network-mon/index.ts",
+    "mon.database": "./src/bin/database-mon/index.ts"
   },
   "husky": {
     "hooks": {
