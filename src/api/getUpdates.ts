@@ -143,7 +143,7 @@ export const getDirectoryUpdates = (appState: AppState) => async (
             throw new Error(`Unexpected document for '${documentKey}'`)
           }
         } else {
-          throw new Error(`Missing document '${documentKey}'`)
+          rtn.isConsistent = false
         }
       }
     }
