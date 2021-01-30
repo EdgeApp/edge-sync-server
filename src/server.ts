@@ -48,10 +48,17 @@ export function makeServer(appState: AppState): Express {
     res.status(err.status).json(response)
   })
   // Server Error Route
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
     // logging
     if (process.env.NODE_ENV !== 'test') {
-      console.error(err)
+      console.error({
+        err,
+        method: req.method,
+        url: req.url,
+        query: req.query,
+        params: req.params,
+        body: req.body
+      })
     }
 
     // response
