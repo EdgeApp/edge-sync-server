@@ -1,4 +1,4 @@
-import { asMaybe, asObject, asOptional } from 'cleaners'
+import { asMaybe } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
@@ -6,32 +6,17 @@ import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
 import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
 import { AppState } from '../../server'
-import {
-  asNonEmptyString,
-  asPath,
-  asRepoId,
-  asTimestampRev,
-  ChangeSet
-} from '../../types'
+import { asPath, asTimestampRev, ChangeSet } from '../../types'
 import { makeApiClientError } from '../../util/utils'
-import { asChangeSetV2, ChangeSetV2 } from '../types'
+import {
+  asPostStoreBody,
+  asPostStoreParams,
+  ChangeSetV2,
+  PostStoreBody,
+  PostStoreParams,
+  PostStoreResponse
+} from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
-
-type PostStoreParams = ReturnType<typeof asPostStoreParams>
-const asPostStoreParams = asObject({
-  storeId: asRepoId,
-  hash: asOptional(asNonEmptyString)
-})
-
-type PostStoreBody = ReturnType<typeof asPostStoreBody>
-const asPostStoreBody = asObject({
-  changes: asChangeSetV2
-})
-
-interface PostStoreResponseData {
-  hash: string
-  changes: ChangeSetV2
-}
 
 export const postStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -82,7 +67,7 @@ export const postStoreRouter = (appState: AppState): Router => {
 
     // Response:
 
-    const responseData: PostStoreResponseData = {
+    const responseData: PostStoreResponse = {
       hash: updateTimestamp.toString(),
       changes: responseChanges
     }

@@ -6,10 +6,14 @@
   "repository": "https://github.com/EdgeApp/edge-sync-server",
   "license": "MIT",
   "author": "Airbitz, Inc.",
-  "main": "lib/index.js",
+  "main": "lib/types.js",
+  "types": "lib/types.d.ts",
+  "files": [
+    "lib/*"
+  ],
   "scripts": {
     "build.lib": "sucrase -q -t typescript,imports,jsx -d ./lib ./src",
-    "build.types": "tsc",
+    "build.types": "tsc && cpr lib/src lib/ && rimraf lib/src",
     "clean": "rimraf dist lib",
     "dev": "nodemon",
     "fix": "npm run lint -- --fix",
@@ -48,6 +52,7 @@
     "@typescript-eslint/eslint-plugin": "^4.12.0",
     "@typescript-eslint/parser": "^4.12.0",
     "chai": "^4.2.0",
+    "cpr": "^3.0.1",
     "eslint": "^7.17.0",
     "eslint-config-standard-kit": "^0.15.1",
     "eslint-plugin-import": "^2.22.1",

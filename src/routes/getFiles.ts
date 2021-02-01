@@ -1,26 +1,13 @@
-import { asBoolean, asObject, asOptional } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
-import { fetchGetFilesMap, GetFilesMap } from '../api/getFiles'
+import { fetchGetFilesMap } from '../api/getFiles'
 import { migrateRepo } from '../api/migrations'
 import { checkRepoExists } from '../api/repo'
 import { config } from '../config'
 import { AppState } from '../server'
-import { asRepoId, asStoreFileTimestampMap } from '../types'
+import { asGetFilesBody, GetFilesBody, GetFilesResponse } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
-
-type GetFilesBody = ReturnType<typeof asGetFilesBody>
-const asGetFilesBody = asObject({
-  repoId: asRepoId,
-  ignoreTimestamps: asOptional(asBoolean),
-  paths: asStoreFileTimestampMap
-})
-
-interface GetFilesResponseData {
-  total: number
-  paths: GetFilesMap
-}
 
 export const getFilesRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -67,7 +54,7 @@ export const getFilesRouter = (appState: AppState): Router => {
     // Response:
 
     res.status(200).json(
-      makeApiResponse<GetFilesResponseData>({
+      makeApiResponse<GetFilesResponse>({
         total: Object.keys(getFilesStoreFileMap).length,
         paths: getFilesStoreFileMap
       })

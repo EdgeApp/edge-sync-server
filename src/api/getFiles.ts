@@ -1,16 +1,15 @@
 import { gt, lte } from 'biggystring'
-import { asMaybe, asObject } from 'cleaners'
+import { asMaybe } from 'cleaners'
 
 import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
-  asStoreFile,
   asStoreFileDocument,
+  asStoreFileWithTimestamp,
   asStoreRepoDocument,
-  asTimestampRev,
+  GetFilesMap,
   StoreDirectoryDocument,
-  StoreFileTimestampMap,
-  TimestampRev
+  StoreFileTimestampMap
 } from '../types'
 import {
   getNameFromPath,
@@ -18,21 +17,6 @@ import {
   makeApiClientError
 } from '../util/utils'
 import { getConflictFreeDocuments } from './conflictResolution'
-
-export interface GetFilesMap {
-  [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
-}
-
-export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
-export const asStoreFileWithTimestamp = asObject({
-  ...asStoreFile.shape,
-  timestamp: asTimestampRev
-})
-
-export interface StoreDirectoryPathWithTimestamp {
-  paths: StoreFileTimestampMap
-  timestamp: TimestampRev
-}
 
 export const fetchGetFilesMap = (appState: AppState) => async (
   repoId: string,

@@ -1,30 +1,16 @@
-import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromsieRouter from 'express-promise-router'
 
 import { updateDocuments, validateRepoTimestamp } from '../api/updateFiles'
 import { AppState } from '../server'
 import {
-  asChangeSet,
   asPath,
-  asRepoId,
-  asTimestampRev,
+  asUpdateFilesBody,
   StoreFileTimestampMap,
-  TimestampRev
+  UpdateFilesBody,
+  UpdateFilesResponse
 } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
-
-type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
-const asUpdateFilesBody = asObject({
-  repoId: asRepoId,
-  timestamp: asTimestampRev,
-  paths: asChangeSet
-})
-
-interface UpdateFilesResponseData {
-  timestamp: TimestampRev
-  paths: StoreFileTimestampMap
-}
 
 export const updateFilesRouter = (appState: AppState): Router => {
   const router = PromsieRouter()
@@ -55,7 +41,7 @@ export const updateFilesRouter = (appState: AppState): Router => {
     // Response:
 
     res.status(200).json(
-      makeApiResponse<UpdateFilesResponseData>({
+      makeApiResponse<UpdateFilesResponse>({
         timestamp: updateTimestamp,
         paths: paths.reduce<StoreFileTimestampMap>((paths, path) => {
           paths[path] = updateTimestamp
