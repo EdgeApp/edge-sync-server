@@ -1,6 +1,6 @@
 import bodyParser from 'body-parser'
 import cors from 'cors'
-import express, { Express } from 'express'
+import express, { Express, NextFunction, Request, Response } from 'express'
 import nano from 'nano'
 
 import { Config } from './config.schema'
@@ -12,6 +12,7 @@ import { v3Router } from './v3Router'
 export interface AppState {
   config: Config
   dataStore: nano.DocumentScope<StoreData>
+  dbServer: nano.ServerScope
 }
 
 export function makeServer(appState: AppState): Express {
@@ -35,7 +36,7 @@ export function makeServer(appState: AppState): Express {
   })
 
   // Client Error Route
-  app.use((err, _req, res, next) => {
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
     if (!(err instanceof ApiClientError)) {
       return next(err)
     }
@@ -48,7 +49,7 @@ export function makeServer(appState: AppState): Express {
     res.status(err.status).json(response)
   })
   // Server Error Route
-  app.use((err, req, res, _next) => {
+  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     // logging
     if (process.env.NODE_ENV !== 'test') {
       console.error({

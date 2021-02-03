@@ -1,8 +1,10 @@
+import { sub } from 'biggystring'
 import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
 import { AppState, makeServer } from '../src/server'
+import { asTimestampRev, TimestampRev } from '../src/types'
 import { apiSuite } from './suites'
 import {
   isErrorResponse,
@@ -15,14 +17,14 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
   const agent = supertest.agent(app)
 
   const repoId = '0000000000000000000000000000000000000000'
-  let repoTimestamp = 0
+  let repoTimestamp: TimestampRev = asTimestampRev(0)
 
   before(async () => {
     const res = await agent
       .put('/api/v3/repo')
       .send({ repoId })
       .expect(isSuccessfulResponse)
-    expect(res.body.data.timestamp).to.be.a('number')
+    expect(res.body.data.timestamp).to.be.a('string')
     repoTimestamp = res.body.data.timestamp
   })
 
@@ -30,7 +32,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     isSuccessfulResponse(res)
 
     expect(res.body.data, 'res.body.data').to.be.an('object')
-    expect(res.body.data.timestamp, 'res.body.data.timestamp').to.be.a('number')
+    expect(res.body.data.timestamp, 'res.body.data.timestamp').to.be.a('string')
     expect(res.body.data.paths, 'res.body.data.paths').to.be.an('object')
   }
 
@@ -47,7 +49,9 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
       .send({
         repoId
       })
-      .expect(isErrorResponse(400, 'Expected a number at .timestamp'))
+      .expect(
+        isErrorResponse(400, `Invalid timestamp rev 'undefined' at .timestamp`)
+      )
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -322,7 +326,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
       .post('/api/v3/updateFiles')
       .send({
         repoId,
-        timestamp: repoTimestamp - 1,
+        timestamp: sub(repoTimestamp, '1'),
         paths: {
           '/file': makeMockStoreFile({ text: 'content' })
         }

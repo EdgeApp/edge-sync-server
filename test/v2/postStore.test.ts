@@ -3,6 +3,7 @@ import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
+import { asTimestampRev, TimestampRev } from '../../src/types'
 import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import {
@@ -25,7 +26,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .put('/api/v3/repo')
       .send({ repoId })
       .expect(isSuccessfulResponse)
-    expect(res.body.data.timestamp).to.be.a('number')
+    expect(res.body.data.timestamp).to.be.a('string')
     repoTimestamp = res.body.data.timestamp
   })
 
@@ -310,7 +311,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       [file5Path]: makeMockStoreFile({ text: file5Path }).box
     }
 
-    let changesBTimestamp: number = 0
+    let changesBTimestamp: TimestampRev = asTimestampRev(0)
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
@@ -331,7 +332,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
         })
       )
       .expect(res => {
-        changesBTimestamp = parseInt(res.body.hash)
+        changesBTimestamp = asTimestampRev(res.body.hash)
       })
 
     await agent

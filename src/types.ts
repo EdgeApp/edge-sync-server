@@ -8,7 +8,6 @@ import {
   asOptional,
   asString
 } from 'cleaners'
-import nano from 'nano'
 
 // Regexes:
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
@@ -16,10 +15,26 @@ export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
 
 // Types:
 
-const asNanoDocument = asObject<nano.Document>({
+const nanoDocumentShape = {
   _id: asString,
   _rev: asString
-})
+}
+const storeMergeDocumentShape = {
+  ...nanoDocumentShape,
+  mergeBaseTimestamp: asOptional(asString)
+}
+
+export type TimestampRev = string
+export const asTimestampRev = (ts: string | number): TimestampRev => {
+  if (typeof ts === 'string' && /^\d{1,15}(\.\d+)?$/.test(ts)) {
+    return ts
+  }
+  if (typeof ts === 'number') {
+    return ts.toString()
+  }
+
+  throw new TypeError(`Invalid timestamp rev '${String(ts)}'`)
+}
 
 export type EdgeBox = ReturnType<typeof asEdgeBox>
 export const asEdgeBox = asObject({
@@ -28,8 +43,9 @@ export const asEdgeBox = asObject({
   data_base64: asString
 })
 
+// Also known as a "file pointer map"
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
-export const asStoreFileTimestampMap = asMap(asNumber)
+export const asStoreFileTimestampMap = asMap(asTimestampRev)
 
 export interface FilePointers {
   paths: StoreFileTimestampMap
@@ -45,7 +61,7 @@ export const asStoreSettings = asObject({
   apiKeyWhitelist: asMap(asBoolean)
 })
 export const asStoreSettingsDocument = asObject({
-  ...asNanoDocument.shape,
+  ...nanoDocumentShape,
   ...asStoreSettings.shape
 })
 
@@ -54,19 +70,19 @@ export const asStoreSettingsDocument = asObject({
 export type StoreDirectory = ReturnType<typeof asStoreDirectory>
 export type StoreDirectoryDocument = ReturnType<typeof asStoreDirectoryDocument>
 export const asStoreDirectory = asObject({
-  timestamp: asNumber,
+  timestamp: asTimestampRev,
   deleted: asStoreFileTimestampMap,
   paths: asStoreFileTimestampMap
 })
 export const asStoreDirectoryDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreDirectory.shape
 })
 
 // Repo
 
 export interface StoreRepo extends StoreDirectory {
-  timestamp: number
+  timestamp: TimestampRev
   lastGitHash?: string
   lastGitTime?: number
   size: number
@@ -83,7 +99,7 @@ export const asStoreRepo = asObject<StoreRepo>({
   maxSize: asNumber
 })
 export const asStoreRepoDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreRepo.shape
 })
 
@@ -92,11 +108,11 @@ export const asStoreRepoDocument = asObject({
 export type StoreFile = ReturnType<typeof asStoreFile>
 export type StoreFileDocument = ReturnType<typeof asStoreFileDocument>
 export const asStoreFile = asObject({
-  timestamp: asNumber,
+  timestamp: asTimestampRev,
   box: asEdgeBox
 })
 export const asStoreFileDocument = asObject({
-  ...asNanoDocument.shape,
+  ...storeMergeDocumentShape,
   ...asStoreFile.shape
 })
 

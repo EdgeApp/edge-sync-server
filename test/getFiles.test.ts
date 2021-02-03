@@ -1,8 +1,10 @@
+import { sub } from 'biggystring'
 import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest from 'supertest'
 
 import { AppState, makeServer } from '../src/server'
+import { asTimestampRev, TimestampRev } from '../src/types'
 import { apiSuite } from './suites'
 import { delay, isSuccessfulResponse, makeMockStoreFile } from './utils'
 
@@ -12,9 +14,9 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
 
   const repoId = '0000000000000000000000000000000000000000'
   const otherRepoId = '1111111111111111111111111111111111111111'
-  let repoTimestamp: number = 0
-  let oldestTs: number = 0
-  let latestTs: number = 0
+  let repoTimestamp: TimestampRev = asTimestampRev(0)
+  let oldestTs: TimestampRev = asTimestampRev(0)
+  let latestTs: TimestampRev = asTimestampRev(0)
 
   const CONTENT = {
     file1: makeMockStoreFile({ text: '/file1 content' }),
@@ -33,7 +35,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
       .put('/api/v3/repo')
       .send({ repoId })
       .expect(isSuccessfulResponse)
-    expect(res.body.data.timestamp).to.be.a('number')
+    expect(res.body.data.timestamp).to.be.a('string')
 
     repoTimestamp = res.body.data.timestamp
 
@@ -179,7 +181,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
         repoId,
         ignoreTimestamps: false,
         paths: {
-          '/file1': oldestTs - 1
+          '/file1': sub(oldestTs, '1')
         }
       })
       .expect(isSuccessfulResponse)

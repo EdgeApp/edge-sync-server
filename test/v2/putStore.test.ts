@@ -27,7 +27,7 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
       .expect(res => {
         expect(res.body.success).to.equal(true, 'res.body.success')
         expect(res.body.data).to.be.an('object')
-        expect(res.body.data.timestamp).to.be.a('number')
+        expect(res.body.data.timestamp).to.be.a('string')
       })
   })
 

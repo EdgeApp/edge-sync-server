@@ -1,20 +1,26 @@
-import { asNumber, asObject } from 'cleaners'
+import { lt, min } from 'biggystring'
+import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
-import { asRepoId, StoreFileTimestampMap } from '../types'
+import {
+  asRepoId,
+  asTimestampRev,
+  StoreFileTimestampMap,
+  TimestampRev
+} from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
 const asGetUpdatesBody = asObject({
   repoId: asRepoId,
-  timestamp: asNumber
+  timestamp: asTimestampRev
 })
 
 interface GetUpdatesResponseData {
-  timestamp: number
+  timestamp: TimestampRev
   paths: StoreFileTimestampMap
   deleted: StoreFileTimestampMap
 }
@@ -41,10 +47,16 @@ export const getUpdatesRouter = (appState: any): Router => {
       deleted: {}
     }
 
-    if (clientTimestamp < repoDocument.timestamp) {
+    if (lt(clientTimestamp, repoDocument.timestamp)) {
+      const mergeBaseTimestamp = repoDocument.mergeBaseTimestamp
+      const searchTimestamp =
+        mergeBaseTimestamp != null
+          ? min(mergeBaseTimestamp, clientTimestamp)
+          : clientTimestamp
+
       const { paths, deleted, isConsistent } = await getDirectoryUpdates(
         appState
-      )(repoKey, repoDocument, clientTimestamp)
+      )(repoKey, repoDocument, searchTimestamp)
 
       if (isConsistent) {
         responseData.timestamp = repoDocument.timestamp

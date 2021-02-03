@@ -1,7 +1,8 @@
 import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
-import { StoreFile } from '../src/types'
+import { AppState } from '../src/server'
+import { asTimestampRev, StoreFile } from '../src/types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -35,11 +36,29 @@ export const makeMockStoreFile = (data: object): StoreFile => {
   const dataBase64 = JSON.stringify(data)
 
   return {
-    timestamp: Date.now(),
+    timestamp: asTimestampRev(Date.now()),
     box: {
       iv_hex: '',
       encryptionType: 0,
       data_base64: dataBase64
     }
+  }
+}
+
+export const synchronizeServers = async (
+  appStateSource: AppState,
+  appStateTarget: AppState
+): Promise<void> => {
+  try {
+    await appStateTarget.dbServer.request({
+      method: 'post',
+      path: '_replicate',
+      body: {
+        source: appStateSource.config.couchDatabase,
+        target: appStateTarget.config.couchDatabase
+      }
+    })
+  } catch (error) {
+    throw new Error([`Failed to synchronize servers:`, error].join(' '))
   }
 }

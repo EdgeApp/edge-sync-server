@@ -3,6 +3,7 @@ import { it } from 'mocha'
 import supertest from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
+import { asTimestampRev, TimestampRev } from '../../src/types'
 import { apiSuite } from '../suites'
 import {
   delay,
@@ -17,10 +18,10 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
 
   const repoId = '0000000000000000000000000000000000000000'
   const otherRepoId = '1111111111111111111111111111111111111111'
-  let repoTimestamp: number = 0
-  let oldestTs: number = 0
-  let deletionTs: number = 0
-  let latestTs: number = 0
+  let repoTimestamp: TimestampRev = asTimestampRev(0)
+  let oldestTs: TimestampRev = asTimestampRev(0)
+  let deletionTs: TimestampRev = asTimestampRev(0)
+  let latestTs: TimestampRev = asTimestampRev(0)
 
   const CONTENT = {
     file1: makeMockStoreFile({ text: '/file1 content' }),

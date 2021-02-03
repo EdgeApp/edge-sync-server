@@ -1,4 +1,5 @@
-import { asMaybe, asNumber, asObject } from 'cleaners'
+import { gt, lte } from 'biggystring'
+import { asMaybe, asObject } from 'cleaners'
 
 import { AppState } from '../server'
 import {
@@ -6,14 +7,17 @@ import {
   asStoreFile,
   asStoreFileDocument,
   asStoreRepoDocument,
+  asTimestampRev,
   StoreDirectoryDocument,
-  StoreFileTimestampMap
+  StoreFileTimestampMap,
+  TimestampRev
 } from '../types'
 import {
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError
 } from '../util/utils'
+import { getConflictFreeDocuments } from './conflictResolution'
 
 export interface GetFilesMap {
   [path: string]: StoreFileWithTimestamp | StoreDirectoryPathWithTimestamp
@@ -22,15 +26,15 @@ export interface GetFilesMap {
 export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
 export const asStoreFileWithTimestamp = asObject({
   ...asStoreFile.shape,
-  timestamp: asNumber
+  timestamp: asTimestampRev
 })
 
 export interface StoreDirectoryPathWithTimestamp {
   paths: StoreFileTimestampMap
-  timestamp: number
+  timestamp: TimestampRev
 }
 
-export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
+export const fetchGetFilesMap = (appState: AppState) => async (
   repoId: string,
   requestPaths: StoreFileTimestampMap,
   ignoreTimestamps: boolean
@@ -68,37 +72,45 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
     [documentKey: string]: StoreDirectoryDocument
   }
 
-  const [parentDocumentResult, childDocumentResult] = await Promise.all([
-    dataStore.fetch({ keys: parentKeys }),
-    dataStore.fetch({ keys: childKeys })
+  const [parentDocumentResults, childDocumentResults] = await Promise.all([
+    getConflictFreeDocuments(appState)(parentKeys),
+    getConflictFreeDocuments(appState)(childKeys)
   ])
 
-  const parentDocumentMap = parentDocumentResult.rows.reduce(
-    (map: StoreDirectoryDocumentMap, row) => {
-      if (row.error === 'not_found') {
-        throw makeApiClientError(404, `Path '${row.key}' not found.`)
+  const parentDocumentMap = parentDocumentResults.reduce(
+    (map: StoreDirectoryDocumentMap, result) => {
+      if ('error' in result) {
+        if (result.error.error === 'not_found') {
+          throw makeApiClientError(404, `Path '${result.key}' not found.`)
+        }
+        throw new Error(
+          `Failed to get document: ${JSON.stringify(result.error)}`
+        )
       }
 
-      if (!('doc' in row)) throw new Error(row.error)
+      const doc = asMaybe(asStoreDirectoryDocument)(result.doc)
 
-      const doc = asMaybe(asStoreDirectoryDocument)(row.doc)
+      if (doc == null) {
+        throw new Error(`File '${result.key}' is not a directory.`)
+      }
 
-      if (doc == null) throw new Error(`File '${row.key}' is not a directory.`)
-
-      return Object.assign(map, { [row.key]: doc })
+      return Object.assign(map, { [result.key]: doc })
     },
     {}
   )
 
-  const responsePaths = childDocumentResult.rows.reduce(
-    (map: GetFilesMap, row) => {
-      if (row.error === 'not_found') {
-        throw makeApiClientError(404, `Path '${row.key}' not found.`)
+  const responsePaths = childDocumentResults.reduce(
+    (map: GetFilesMap, result) => {
+      if ('error' in result) {
+        if (result.error.error === 'not_found') {
+          throw makeApiClientError(404, `Path '${result.key}' not found.`)
+        }
+        throw new Error(
+          `Failed to get document: ${JSON.stringify(result.error)}`
+        )
       }
 
-      if (!('doc' in row)) throw new Error(row.error)
-
-      const documentKey = row.key
+      const documentKey = result.key
       const documentPath = documentKey.split(':')[1]
       const documentFileName = getNameFromPath(documentPath)
 
@@ -107,52 +119,50 @@ export const fetchGetFilesMap = ({ dataStore }: AppState) => async (
 
       const sentTimestamp = requestPaths[documentPath]
 
-      const fileDocument = asMaybe(asStoreFileDocument)(row.doc)
-      const repoDocument = asMaybe(asStoreRepoDocument)(row.doc)
-      const directoryDocument = asMaybe(asStoreDirectoryDocument)(row.doc)
+      const fileDocument = asMaybe(asStoreFileDocument)(result.doc)
+      const repoDocument = asMaybe(asStoreRepoDocument)(result.doc)
+      const directoryDocument = asMaybe(asStoreDirectoryDocument)(result.doc)
       const directoryLikeDocument = repoDocument ?? directoryDocument
 
-      // Because the repo's timestamp is included in the repo document
-      // we have to get the timestamp from the repo document
-      const timestamp =
+      // For repo document, the pointer timestamp is the repo's timestamp
+      const pointerTimestamp =
         repoDocument == null
           ? parentDocument.paths[documentFileName]
           : repoDocument.timestamp
 
-      if (!ignoreTimestamps && timestamp <= sentTimestamp) return map
+      // Skip map entry if document's pointer is lte to the timestamp
+      // sent by the client for this document.
+      if (!ignoreTimestamps && lte(pointerTimestamp, sentTimestamp)) return map
 
       // Handle file document
       if (fileDocument != null) {
         return Object.assign(map, {
           [documentPath]: asStoreFileWithTimestamp({
-            ...fileDocument,
-            timestamp
+            ...fileDocument
           })
         })
       }
 
       // Handle directory like document (repo or directory)
-      if (directoryLikeDocument != null && ignoreTimestamps) {
-        return Object.assign(map, {
-          [documentPath]: { paths: directoryLikeDocument.paths, timestamp }
-        })
-      }
       if (directoryLikeDocument != null) {
-        // Remove files after timestamp check
-        const paths = Object.entries(directoryLikeDocument.paths).reduce(
-          (paths: StoreFileTimestampMap, [fileName, fileTimestamp]) =>
-            fileTimestamp > sentTimestamp
-              ? { ...paths, [fileName]: fileTimestamp }
-              : paths,
-          {}
-        )
+        const timestamp = directoryLikeDocument.timestamp
+        // Remove paths that don't pass timestamp check
+        const paths = ignoreTimestamps
+          ? directoryLikeDocument.paths
+          : Object.entries(directoryLikeDocument.paths).reduce(
+              (paths: StoreFileTimestampMap, [fileName, fileTimestamp]) =>
+                gt(fileTimestamp, sentTimestamp)
+                  ? { ...paths, [fileName]: fileTimestamp }
+                  : paths,
+              {}
+            )
 
         return Object.assign(map, {
           [documentPath]: { paths, timestamp }
         })
       }
 
-      throw new Error(`File '${row.key}' is not a file or directory.`)
+      throw new Error(`File '${result.key}' is not a file or directory.`)
     },
     {}
   )
