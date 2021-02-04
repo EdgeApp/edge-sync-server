@@ -92,7 +92,7 @@ const getRepoFilePathsRecursively = async (
   repoDir: string
 ): Promise<string[]> => {
   const { stdout } = await exec(
-    `find ${repoDir} -not -type d | { grep -v '.git' || true; }`
+    `find ${repoDir} -not -type d | { grep -v '/\\.git/' || true; }`
   )
   return stdout.split('\n').filter(path => path !== '')
 }
