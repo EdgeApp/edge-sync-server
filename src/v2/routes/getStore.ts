@@ -1,4 +1,3 @@
-import { asMaybe } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
@@ -6,7 +5,6 @@ import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
 import { AppState } from '../../server'
-import { asTimestampRev } from '../../types'
 import { makeApiClientError } from '../../util/utils'
 import {
   asGetStoreParams,
@@ -14,7 +12,10 @@ import {
   GetStoreParams,
   GetStoreResponse
 } from '../types'
-import { getChangesFromRepoUpdates } from '../utils'
+import {
+  getChangesFromRepoUpdates,
+  getTimestampRevFromHashParam
+} from '../utils'
 
 export const getStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -43,8 +44,10 @@ export const getStoreRouter = (appState: AppState): Router => {
       }
     }
 
-    const clientTimestamp =
-      asMaybe(asTimestampRev)(params.hash) ?? asTimestampRev(0)
+    const clientTimestamp = await getTimestampRevFromHashParam(appState)(
+      repoId,
+      params.hash
+    )
     const repoChanges = await getRepoUpdates(appState)(repoId, clientTimestamp)
 
     const changes: ChangeSetV2 = await getChangesFromRepoUpdates(appState)(
