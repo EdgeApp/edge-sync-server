@@ -9,6 +9,6 @@
   },
   "httpPort": 8000,
   "maxPageSize": 100,
-  "migrationOriginServer": "https://...",
+  "migrationOriginServers": ["https://..."],
   "migrationTmpDir": "/tmp/edge-sync-server/"
 }

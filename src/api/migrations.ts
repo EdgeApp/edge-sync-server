@@ -34,18 +34,21 @@ const validateRepoId = (repoId: string): void => {
 }
 
 const cloneRepo = ({ config }: AppState) => async (
+  originUrl: string,
   repoId: string
 ): Promise<string> => {
   validateRepoId(repoId)
 
-  const repoUrl = `${config.migrationOriginServer}${repoId}/`
+  const host = new URL(originUrl).host
+  const repoUrl = `${originUrl}${repoId}/`
+  const randomStuff = Math.random().toString().split('.')[1]
   const repoDir = join(
     config.migrationTmpDir,
-    `${repoId}-${Math.random().toString().split('.')[1]}`
+    `${repoId}_${host}_${randomStuff}`
   )
 
   try {
-    await exec(`git clone -q --depth 1 ${repoUrl} ${repoDir}`)
+    await exec(`git clone -q ${repoUrl} ${repoDir}`)
   } catch (error) {
     if (error.message.indexOf(`repository '${repoUrl}' not found`) !== -1) {
       throw new Error('Repo not found')
@@ -54,6 +57,57 @@ const cloneRepo = ({ config }: AppState) => async (
   }
 
   return repoDir
+}
+
+const cloneRepoWithAbSync = (appState: AppState) => async (
+  repoId: string
+): Promise<string> => {
+  const repoDirs = await Promise.allSettled(
+    appState.config.migrationOriginServers.map(url =>
+      cloneRepo(appState)(url, repoId)
+    )
+  ).then(results =>
+    results
+      .map(result => {
+        if (result.status === 'fulfilled') return result.value
+        if (result.reason.message !== 'Repo not found') throw result.reason
+        return ''
+      })
+      .filter(repoDir => repoDir !== '')
+  )
+
+  // Get the first repoDir
+  const firstRepoDir = repoDirs.shift()
+
+  // Assertion case: there must be repo dirs cloned
+  if (firstRepoDir == null) {
+    throw new Error('Repo not found')
+  }
+
+  // Create an array of dir tuples like [firstRepoDir, otherRepoDir], or more
+  // specifically like [dir[0], dir[0 < n < dir.length]]
+  const repoDirTuples = repoDirs.reduce<Array<[string, string]>>(
+    (dirTuples, otherRepoDir) => [...dirTuples, [firstRepoDir, otherRepoDir]],
+    []
+  )
+
+  // Build a promise chain from the dir tuples (serial operations)
+  const abSyncSeries = repoDirTuples.reduce((promise, [a, b]) => {
+    return promise.then(() => abSync(a, b))
+  }, Promise.resolve())
+
+  // AB Sync all cloned repos by running the promise change
+  await abSyncSeries
+
+  // Cleanup all other repo dirs
+  await Promise.all(repoDirs.map(repoDir => cleanupRepoDir(repoDir)))
+
+  // Return repoDir; it should be sync'd with all other repos
+  return firstRepoDir
+}
+
+const abSync = async (a: string, b: string): Promise<void> => {
+  await exec(`ab-sync ${a} ${b}`)
 }
 
 const cleanupRepoDir = async (repoDir: string): Promise<void> => {
@@ -100,7 +154,7 @@ const getRepoFilePathsRecursively = async (
 export const migrateRepo = (appState: AppState) => async (
   repoId: string
 ): Promise<void> => {
-  const repoDir = await cloneRepo(appState)(repoId)
+  const repoDir = await cloneRepoWithAbSync(appState)(repoId)
 
   try {
     const filePaths = await getRepoFilePathsRecursively(repoDir)
