@@ -13,7 +13,39 @@ import {
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
 export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
 
-// Types:
+// Primitive Types
+
+export const asNonEmptyString = (raw: any): string => {
+  const str = asString(raw)
+
+  if (str === '') {
+    throw new TypeError('Expected non empty string')
+  }
+
+  return str
+}
+
+export const asPath = (raw: any): string => {
+  const path = asString(raw)
+
+  if (!VALID_PATH_REGEX.test(path)) {
+    throw new Error(`Invalid path '${path}'`)
+  }
+
+  return path
+}
+
+export const asRepoId = (raw: any): string => {
+  const repoId = asString(raw)
+
+  if (!VALID_REPO_ID_REGEX.test(repoId)) {
+    throw new Error(`Invalid repo ID '${repoId}'`)
+  }
+
+  return repoId
+}
+
+// Document Types:
 
 const nanoDocumentShape = {
   _id: asString,
@@ -133,6 +165,27 @@ export type StoreDocument =
   | StoreDirectoryDocument
   | StoreFileDocument
 
+// API Types:
+
+export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
+export const asStoreFileWithTimestamp = asObject({
+  ...asStoreFile.shape,
+  timestamp: asTimestampRev
+})
+
+export type StoreDirectoryPathWithTimestamp = ReturnType<
+  typeof asStoreDirectoryPathWithTimestamp
+>
+export const asStoreDirectoryPathWithTimestamp = asObject({
+  paths: asStoreFileTimestampMap,
+  timestamp: asTimestampRev
+})
+
+export type GetFilesMap = ReturnType<typeof asGetFilesMap>
+export const asGetFilesMap = asMap(
+  asEither(asStoreFileWithTimestamp, asStoreDirectoryPathWithTimestamp)
+)
+
 // API Responses
 
 export interface ApiResponse<Data> {
@@ -144,7 +197,6 @@ export interface ApiErrorResponse {
   message: string
   error?: string
 }
-
 export class ApiClientError extends Error {
   status: number
 
@@ -154,34 +206,58 @@ export class ApiClientError extends Error {
   }
 }
 
-// General Purpose Cleaner Types
+// V3
 
-export function asNonEmptyString(raw: any): string {
-  const str = asString(raw)
+export type ConfigGetResponse = ReturnType<typeof asConfigGetResponse>
+export const asConfigGetResponse = asObject({
+  maxPageSize: asNumber
+})
 
-  if (str === '') {
-    throw new TypeError('Expected non empty string')
-  }
+export type GetFilesBody = ReturnType<typeof asGetFilesBody>
+export const asGetFilesBody = asObject({
+  repoId: asRepoId,
+  ignoreTimestamps: asOptional(asBoolean),
+  paths: asStoreFileTimestampMap
+})
+export type GetFilesResponse = ReturnType<typeof asGetFilesResponse>
+export const asGetFilesResponse = asObject({
+  total: asNumber,
+  paths: asGetFilesMap
+})
 
-  return str
-}
+export type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
+export const asGetUpdatesBody = asObject({
+  repoId: asRepoId,
+  timestamp: asTimestampRev
+})
+export type GetUpdatesResponse = ReturnType<typeof asGetUpdatesResponse>
+export const asGetUpdatesResponse = asObject({
+  timestamp: asTimestampRev,
+  paths: asStoreFileTimestampMap,
+  deleted: asStoreFileTimestampMap
+})
 
-export function asPath(raw: any): string {
-  const path = asString(raw)
+export type PutRepoBody = ReturnType<typeof asPutRepoBody>
+export const asPutRepoBody = asObject({
+  repoId: asRepoId
+})
+export type PutRepoResponse = ReturnType<typeof asPutRepoResponse>
+export const asPutRepoResponse = asObject({
+  timestamp: asTimestampRev
+})
 
-  if (!VALID_PATH_REGEX.test(path)) {
-    throw new Error(`Invalid path '${path}'`)
-  }
+export type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
+export const asUpdateFilesBody = asObject({
+  repoId: asRepoId,
+  timestamp: asTimestampRev,
+  paths: asChangeSet
+})
+export type UpdateFilesResponse = ReturnType<typeof asUpdateFilesResponse>
+export const asUpdateFilesResponse = asObject({
+  timestamp: asTimestampRev,
+  paths: asStoreFileTimestampMap
+})
 
-  return path
-}
+// V2
 
-export function asRepoId(raw: any): string {
-  const repoId = asString(raw)
-
-  if (!VALID_REPO_ID_REGEX.test(repoId)) {
-    throw new Error(`Invalid repo ID '${repoId}'`)
-  }
-
-  return repoId
-}
+export * from './v2/types'

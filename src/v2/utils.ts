@@ -1,8 +1,9 @@
 import { asMaybe } from 'cleaners'
 
-import { asStoreFileWithTimestamp, fetchGetFilesMap } from '../api/getFiles'
+import { fetchGetFilesMap } from '../api/getFiles'
 import { RepoUpdates } from '../api/getUpdates'
 import { AppState } from '../server'
+import { asStoreFileWithTimestamp } from '../types'
 import { ChangeSetV2 } from './types'
 
 export const getChangesFromRepoUpdates = (appState: AppState) => async (

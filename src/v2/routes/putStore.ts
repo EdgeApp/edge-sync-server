@@ -1,22 +1,12 @@
-import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { AppState } from '../../server'
-import { asRepoId, asTimestampRev, TimestampRev } from '../../types'
+import { asTimestampRev } from '../../types'
 import { makeApiClientError, makeApiResponse } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'
-
-type PutStoreParams = ReturnType<typeof asPutStoreParams>
-
-interface PutStoreResponseData {
-  timestamp: TimestampRev
-}
-
-const asPutStoreParams = asObject({
-  storeId: asRepoId
-})
+import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
 
 export const putStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -44,7 +34,7 @@ export const putStoreRouter = (appState: AppState): Router => {
 
     // Send response
     res.status(201).json(
-      makeApiResponse<PutStoreResponseData>({ timestamp })
+      makeApiResponse<PutStoreResponse>({ timestamp })
     )
   })
 

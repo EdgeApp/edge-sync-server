@@ -1,29 +1,11 @@
 import { lt, min } from 'biggystring'
-import { asObject } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
-import {
-  asRepoId,
-  asTimestampRev,
-  StoreFileTimestampMap,
-  TimestampRev
-} from '../types'
+import { asGetUpdatesBody, GetUpdatesBody, GetUpdatesResponse } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
-
-type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
-const asGetUpdatesBody = asObject({
-  repoId: asRepoId,
-  timestamp: asTimestampRev
-})
-
-interface GetUpdatesResponseData {
-  timestamp: TimestampRev
-  paths: StoreFileTimestampMap
-  deleted: StoreFileTimestampMap
-}
 
 export const getUpdatesRouter = (appState: any): Router => {
   const router = PromiseRouter()
@@ -41,7 +23,7 @@ export const getUpdatesRouter = (appState: any): Router => {
     const repoKey = `${repoId}:/`
     const repoDocument = await getRepoDocument(appState)(repoId)
 
-    const responseData: GetUpdatesResponseData = {
+    const responseData: GetUpdatesResponse = {
       timestamp: clientTimestamp,
       paths: {},
       deleted: {}
@@ -66,7 +48,7 @@ export const getUpdatesRouter = (appState: any): Router => {
       responseData.deleted = deleted
     }
 
-    res.status(200).json(makeApiResponse<GetUpdatesResponseData>(responseData))
+    res.status(200).json(makeApiResponse<GetUpdatesResponse>(responseData))
   })
 
   return router

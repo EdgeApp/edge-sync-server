@@ -1,4 +1,4 @@
-import { asMaybe, asObject, asOptional } from 'cleaners'
+import { asMaybe } from 'cleaners'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
@@ -6,21 +6,15 @@ import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
 import { AppState } from '../../server'
-import { asNonEmptyString, asRepoId, asTimestampRev } from '../../types'
+import { asTimestampRev } from '../../types'
 import { makeApiClientError } from '../../util/utils'
-import { ChangeSetV2 } from '../types'
+import {
+  asGetStoreParams,
+  ChangeSetV2,
+  GetStoreParams,
+  GetStoreResponse
+} from '../types'
 import { getChangesFromRepoUpdates } from '../utils'
-
-type GetStoreParams = ReturnType<typeof asGetStoreParams>
-const asGetStoreParams = asObject({
-  storeId: asRepoId,
-  hash: asOptional(asNonEmptyString)
-})
-
-interface GetStoreResponseData {
-  hash: string
-  changes: ChangeSetV2
-}
 
 export const getStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -58,7 +52,7 @@ export const getStoreRouter = (appState: AppState): Router => {
       repoChanges
     )
 
-    const responseData: GetStoreResponseData = {
+    const responseData: GetStoreResponse = {
       hash: repoChanges.timestamp.toString(),
       changes
     }
