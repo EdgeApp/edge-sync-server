@@ -1,51 +1,79 @@
 import { expect } from 'chai'
 
-import { intersectRevs } from '../../src/api/conflictResolution'
+import { intersectTimestampHistory } from '../../src/api/conflictResolution'
+import { asTimestampRev, TimestampHistory } from '../../src/types'
 
-describe('Unit: intersectRevs', () => {
+describe('Unit: intersectTimestampHistory', () => {
   it('Will intersect on identical sets', () => {
-    const revs = [
-      '3-1234567890abcdef1234567890abcdef',
-      '2-1234567890abcdef1234567890abcdef',
-      '1-1234567890abcdef1234567890abcdef'
+    const shared: TimestampHistory = [
+      {
+        timestamp: asTimestampRev(300),
+        rev: '3-aaa'
+      },
+      {
+        timestamp: asTimestampRev(200),
+        rev: '2-aaa'
+      },
+      {
+        timestamp: asTimestampRev(100),
+        rev: '1-aaa'
+      }
     ]
-    const leftRevs = [...revs]
-    const rightRevs = [...revs]
+    const left: TimestampHistory = [...shared]
+    const right: TimestampHistory = [...shared]
 
-    expect(intersectRevs(leftRevs, rightRevs)).to.deep.equal(revs)
+    expect(intersectTimestampHistory(left, right)).to.deep.equal(shared)
   })
-  it('Will intersect on sets sharing revs', () => {
-    const sharedRevs = [
-      '2-1234567890abcdef1234567890abcdef',
-      '1-1234567890abcdef1234567890abcdef'
+  it('Will intersect on sets sharing items', () => {
+    const shared: TimestampHistory = [
+      {
+        timestamp: asTimestampRev(200),
+        rev: '2-aaa'
+      },
+      {
+        timestamp: asTimestampRev(100),
+        rev: '1-aaa'
+      }
     ]
-    const leftRevs = [
-      '4-1234567890abcdef1234567890abcdef',
-      '3-1234567890abcdef1234567890abcdef',
-      ...sharedRevs
+    const left: TimestampHistory = [
+      {
+        timestamp: asTimestampRev(401),
+        rev: '4-aaa'
+      },
+      {
+        timestamp: asTimestampRev(301),
+        rev: '3-aaa'
+      },
+      ...shared
     ]
-    const rightRevs = [
-      '4-abcdef1234567890abcdef1234567890',
-      '3-abcdef1234567890abcdef1234567890',
-      ...sharedRevs
+    const right: TimestampHistory = [
+      {
+        timestamp: asTimestampRev(402),
+        rev: '4-bbb'
+      },
+      {
+        timestamp: asTimestampRev(302),
+        rev: '3-bbb'
+      },
+      ...shared
     ]
 
-    expect(intersectRevs(leftRevs, rightRevs)).to.deep.equal(sharedRevs)
+    expect(intersectTimestampHistory(left, right)).to.deep.equal(shared)
   })
-  it('Will not intersect on sets with no shared revs', () => {
-    const leftRevs = [
-      '4-1234567890abcdef1234567890abcdef',
-      '3-1234567890abcdef1234567890abcdef',
-      '2-1234567890abcdef1234567890abcdef',
-      '1-1234567890abcdef1234567890abcdef'
+  it('Will not intersect on sets with no shared items', () => {
+    const left: TimestampHistory = [
+      { timestamp: asTimestampRev(400), rev: '4-aaa' },
+      { timestamp: asTimestampRev(300), rev: '3-aaa' },
+      { timestamp: asTimestampRev(200), rev: '2-aaa' },
+      { timestamp: asTimestampRev(100), rev: '1-aaa' }
     ]
-    const rightRevs = [
-      '4-abcdef1234567890abcdef1234567890',
-      '3-abcdef1234567890abcdef1234567890',
-      '2-abcdef1234567890abcdef1234567890',
-      '1-abcdef1234567890abcdef1234567890'
+    const right: TimestampHistory = [
+      { timestamp: asTimestampRev(400), rev: '4-bbb' },
+      { timestamp: asTimestampRev(300), rev: '3-bbb' },
+      { timestamp: asTimestampRev(200), rev: '2-bbb' },
+      { timestamp: asTimestampRev(100), rev: '1-bbb' }
     ]
 
-    expect(intersectRevs(leftRevs, rightRevs)).to.deep.equal([])
+    expect(intersectTimestampHistory(left, right)).to.deep.equal([])
   })
 })

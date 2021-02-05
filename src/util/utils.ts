@@ -5,7 +5,6 @@ import {
   ApiClientError,
   ApiResponse,
   FilePointers,
-  StoreDirectory,
   StoreFileTimestampMap,
   TimestampRev
 } from '../types'
@@ -101,49 +100,6 @@ export const mergeFilePointers = (
   return filePointers
 }
 
-export const updateDirectoryFilePointers = (
-  directory: StoreDirectory | undefined,
-  path: string,
-  timestamp: TimestampRev,
-  isDeletion: boolean
-): StoreDirectory => {
-  const directoryMutations = {
-    paths: isDeletion ? {} : { [path]: timestamp },
-    deleted: isDeletion ? { [path]: timestamp } : {}
-  }
-  return {
-    timestamp,
-    paths: {
-      ...directory?.paths,
-      ...directoryMutations.paths
-    },
-    deleted: {
-      ...directory?.deleted,
-      ...directoryMutations.deleted
-    }
-  }
-}
-
-export const validateModification = (
-  modification: StoreDirectory,
-  directory: StoreDirectory,
-  directoryPath: string
-): void => {
-  const deletedFilePaths = Object.keys(directory.deleted)
-
-  // Deleted paths must not be already deleted
-  Object.keys(modification.deleted).forEach(fileName => {
-    const filePath = `${directoryPath}/${fileName}`
-
-    if (deletedFilePaths.includes(fileName)) {
-      throw makeApiClientError(
-        422,
-        `Unable to delete file '${filePath}'. ` + `File is already deleted.`
-      )
-    }
-  })
-}
-
 /**
  * Wraps a function and invokes the function with rety attemps if error passes
  * a condition function.
@@ -152,7 +108,6 @@ export const validateModification = (
  * @param condition A function that returns a boolean given the error thrown
  * @param maxRetries Max number of retries (default 100)
  */
-
 export const withRetries = async <T>(
   fn: () => Promise<T>,
   condition: (err: any) => boolean,

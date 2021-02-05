@@ -1,4 +1,5 @@
 import {
+  asArray,
   asBoolean,
   asEither,
   asMap,
@@ -84,6 +85,14 @@ export interface FilePointers {
   deleted: StoreFileTimestampMap
 }
 
+export type TimestampHistory = ReturnType<typeof asTimestampHistory>
+export const asTimestampHistory = asArray(
+  asObject({
+    timestamp: asTimestampRev,
+    rev: asString
+  })
+)
+
 // Settings Document
 
 export type StoreSettings = ReturnType<typeof asStoreSettings>
@@ -104,7 +113,8 @@ export type StoreDirectoryDocument = ReturnType<typeof asStoreDirectoryDocument>
 export const asStoreDirectory = asObject({
   timestamp: asTimestampRev,
   deleted: asStoreFileTimestampMap,
-  paths: asStoreFileTimestampMap
+  paths: asStoreFileTimestampMap,
+  timestampHistory: asTimestampHistory
 })
 export const asStoreDirectoryDocument = asObject({
   ...storeMergeDocumentShape,

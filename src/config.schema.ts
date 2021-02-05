@@ -18,6 +18,7 @@ export const asConfig = asObject({
     n: asNumber
   }),
   httpPort: asNumber, // 8000
+  maxTimestampHistoryAge: asNumber,
   maxPageSize: asNumber, // 100
   // Git URL of the server from which to migrate repos.
   migrationOriginServer: asString,

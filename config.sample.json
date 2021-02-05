@@ -8,6 +8,7 @@
     "n": 1
   },
   "httpPort": 8000,
+  "maxTimestampHistoryAge": 2592000000,
   "maxPageSize": 100,
   "migrationOriginServer": "https://...",
   "migrationTmpDir": "/tmp/edge-sync-server/"
