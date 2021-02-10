@@ -97,16 +97,18 @@ export const getDirectoryUpdates = (appState: AppState) => async (
     if (keys.length > 0) {
       const results = await getConflictFreeDocuments(appState)(keys)
 
-      for (const row of results) {
-        const documentKey = row.key
+      for (const result of results) {
+        const documentKey = result.key
         const documentPath = documentKey.split(':')[1]
         const documentName = getNameFromPath(documentPath)
         // The timestamp for the document from the indexing document
         const documentTimestamp = dir[prop][documentName]
 
-        if ('doc' in row) {
-          const fileDocument = asMaybe(asStoreFileDocument)(row.doc)
-          const directoryDocument = asMaybe(asStoreDirectoryDocument)(row.doc)
+        if ('doc' in result) {
+          const fileDocument = asMaybe(asStoreFileDocument)(result.doc)
+          const directoryDocument = asMaybe(asStoreDirectoryDocument)(
+            result.doc
+          )
 
           const mergeBaseTimestamp =
             fileDocument?.mergeBaseTimestamp ??
@@ -160,6 +162,10 @@ export const getDirectoryUpdates = (appState: AppState) => async (
             throw new Error(`Unexpected document for '${documentKey}'`)
           }
         } else {
+          if (result.error !== 'not_found') {
+            throw result
+          }
+
           rtn.isConsistent = false
         }
       }
