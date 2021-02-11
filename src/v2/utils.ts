@@ -2,8 +2,13 @@ import { asMaybe } from 'cleaners'
 
 import { fetchGetFilesMap } from '../api/getFiles'
 import { RepoUpdates } from '../api/getUpdates'
+import { getRepoDocument } from '../api/repo'
 import { AppState } from '../server'
-import { asStoreFileWithTimestamp } from '../types'
+import {
+  asStoreFileWithTimestamp,
+  asTimestampRev,
+  TimestampRev
+} from '../types'
 import { ChangeSetV2 } from './types'
 
 export const getChangesFromRepoUpdates = (appState: AppState) => async (
@@ -40,4 +45,20 @@ export const getChangesFromRepoUpdates = (appState: AppState) => async (
   })
 
   return changes
+}
+
+export const getTimestampRevFromHashParam = (appState: AppState) => async (
+  repoId: string,
+  hashParam: string | undefined
+): Promise<TimestampRev> => {
+  if (hashParam == null) return asTimestampRev(0)
+
+  const timestampParam = asMaybe(asTimestampRev)(hashParam)
+  if (timestampParam != null) return timestampParam
+
+  const repoDoc = await getRepoDocument(appState)(repoId)
+  if (repoDoc.lastGitTime != null && repoDoc.lastGitHash === hashParam)
+    return asTimestampRev(repoDoc.lastGitTime)
+
+  return asTimestampRev(0)
 }

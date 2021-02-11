@@ -132,6 +132,40 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
       .expect(isErrorResponse(404, `Repo '${unknownRepoId}' not found`))
   })
 
+  it('can get updates with no hash parameter', async () => {
+    await agent
+      .get(`/api/v2/store/${repoId}/`)
+      .expect(isSuccessfulResponse)
+      .expect(res => {
+        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.changes).deep.equals({
+          file1: CONTENT.file1.box,
+          'dir/file1': CONTENT.dirFile1.box,
+          'dir/file2': CONTENT.dirFile2.box,
+          file2: CONTENT.file2.box,
+          deletedFile: null,
+          'dir/deletedFile': null
+        })
+      })
+  })
+
+  it('can get updates with hash parameter', async () => {
+    await agent
+      .get(`/api/v2/store/${repoId}/abcdef1234567890abcdef1234567890`)
+      .expect(isSuccessfulResponse)
+      .expect(res => {
+        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.changes).deep.equals({
+          file1: CONTENT.file1.box,
+          'dir/file1': CONTENT.dirFile1.box,
+          'dir/file2': CONTENT.dirFile2.box,
+          file2: CONTENT.file2.box,
+          deletedFile: null,
+          'dir/deletedFile': null
+        })
+      })
+  })
+
   it('can get updates with 0 timestamp parameter', async () => {
     await agent
       .get(`/api/v2/store/${repoId}/0`)
