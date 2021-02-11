@@ -1,4 +1,4 @@
-import { asNumber, asObject, asString } from 'cleaners'
+import { asArray, asNumber, asObject, asString } from 'cleaners'
 
 export type Config = ReturnType<typeof asConfig>
 
@@ -19,8 +19,8 @@ export const asConfig = asObject({
   }),
   httpPort: asNumber, // 8000
   maxPageSize: asNumber, // 100
-  // Git URL of the server from which to migrate repos.
-  migrationOriginServer: asString,
+  // URL of the servers from which to migrate repos.
+  migrationOriginServers: asArray(asString),
   // Temp directory to use for repo migrations
   migrationTmpDir: asString
 })

@@ -5,12 +5,12 @@
     "emitDeclarationOnly": true,
 
     "esModuleInterop": true,
-    "module": "es2015",
+    "module": "ES2020",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "target": "es2015",
 
-    "lib": ["ES2019"],
+    "lib": ["ES2020"],
 
     "strict": true,
     "noImplicitAny": true

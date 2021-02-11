@@ -1,0 +1,8 @@
+{
+  "dataDir": "/tmp/data",
+  "sshHosts": ["user@hostname"],
+  "remoteReposDir": "/var/repos",
+  "syncServer": "http://localhost:8000",
+  "migrationEndpoint": "/api/v2/migrate/:repoId",
+  "concurrency": 10
+}
