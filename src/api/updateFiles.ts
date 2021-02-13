@@ -8,6 +8,7 @@ import {
   asTimestampRev,
   ChangeSet,
   FileChange,
+  FilePointers,
   StoreDirectory,
   StoreDirectoryDocument,
   StoreFile,
@@ -20,18 +21,17 @@ import {
   getParentPathsOfPath,
   makeApiClientError,
   mergeFilePointers,
-  updateDirectoryFilePointers,
-  validateModification,
   withRetries
 } from '../util/utils'
 import {
   deleteLosingConflictingDocuments,
-  getConflictFreeDocuments
+  getConflictFreeDocuments,
+  makeTimestampHistory
 } from './conflictResolution'
 import { getRepoDocument } from './repo'
 
-type RepoModification = Pick<
-  StoreRepoDocument,
+type DirLikeModification = Pick<
+  StoreDirectory,
   'paths' | 'deleted' | 'timestamp'
 >
 
@@ -70,18 +70,14 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   repoId: string,
   changeSet: ChangeSet,
   updateTimestamp: TimestampRev
-): Promise<RepoModification> => {
+): Promise<DirLikeModification> => {
   const fileKeys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
 
   // Prepare Files Documents:
   const fileResults = await getConflictFreeDocuments(appState)(fileKeys)
   const storeFileDocuments: Array<StoreFileDocument | StoreFile> = []
-  const directoryModifications: Map<string, StoreDirectory> = new Map()
-  let repoModification: RepoModification = {
-    paths: {},
-    deleted: {},
-    timestamp: asTimestampRev(0)
-  }
+  const directoryModifications: Map<string, DirLikeModification> = new Map()
+  let repoModification: DirLikeModification = makeDirLikeModification()
 
   // Prepare file documents:
   fileResults.forEach(row => {
@@ -136,7 +132,8 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
     directoryPaths.forEach((directoryPath, index) => {
       // Get the existing directory modification object
       const directoryKey = `${repoId}:${directoryPath}`
-      const existingDirModification = directoryModifications.get(directoryKey)
+      const existingDirModification: DirLikeModification =
+        directoryModifications.get(directoryKey) ?? makeDirLikeModification()
 
       // If this directory isn't the immediate parent directory of the file,
       // then we want to use the child directory for this directory as the
@@ -147,13 +144,19 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
           ? getNameFromPath(childDirectoryPath)
           : fileName
 
-      const directoryModification = updateDirectoryFilePointers(
+      const updatedFilePointers = updateFilePointers(
         existingDirModification,
         filePointerPath,
         updateTimestamp,
         // Only delete if file pointer is the file (don't delete directories)
         fileChange === null && filePointerPath === fileName
       )
+
+      const directoryModification: DirLikeModification = {
+        ...existingDirModification,
+        ...updatedFilePointers,
+        timestamp: updateTimestamp
+      }
 
       directoryModifications.set(directoryKey, directoryModification)
     })
@@ -170,14 +173,16 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
         ? getNameFromPath(topMostDirectoryPath)
         : fileName
 
+    const updatedFilePointers = updateFilePointers(
+      repoModification,
+      filePointerPath,
+      updateTimestamp,
+      // Only delete if file pointer is the file (don't delete directories)
+      fileChange === null && filePointerPath === fileName
+    )
+
     repoModification = {
-      ...updateDirectoryFilePointers(
-        repoModification,
-        filePointerPath,
-        updateTimestamp,
-        // Only delete if file pointer is the file (don't delete directories)
-        fileChange === null && filePointerPath === fileName
-      ),
+      ...updatedFilePointers,
       timestamp: updateTimestamp
     }
   })
@@ -186,7 +191,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   // Fetch existing documents to merge new document
   const directoryKeys = Array.from(directoryModifications.keys())
   const storeDirectoryDocuments: Array<
-    StoreDirectoryDocument | StoreDirectory
+    StoreDirectoryDocument | (StoreDirectory & { _id: string })
   > = []
   if (directoryKeys.length > 0) {
     const directoryResults = await getConflictFreeDocuments(appState)(
@@ -199,7 +204,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
       const directoryPath = directoryKey.split(':')[1]
       const directoryModification = directoryModifications.get(directoryKey)
 
-      if (directoryModification !== undefined) {
+      if (directoryModification != null) {
         if ('doc' in row) {
           let existingDirectory: StoreDirectoryDocument
 
@@ -220,18 +225,31 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
             directoryPath
           )
 
+          const timestampHistory = makeTimestampHistory(
+            appState.config.maxTimestampHistoryAge,
+            existingDirectory
+          )
+
           const directoryDocument: StoreDirectoryDocument = {
             ...existingDirectory,
             ...directoryModification,
-            ...mergeFilePointers(existingDirectory, directoryModification)
+            ...mergeFilePointers(existingDirectory, directoryModification),
+            timestampHistory
           }
 
           // Update directory
           storeDirectoryDocuments.push(directoryDocument)
         } else {
+          const newDirectory: StoreDirectory = {
+            ...directoryModification,
+            timestampHistory: makeTimestampHistory(
+              appState.config.maxTimestampHistoryAge
+            )
+          }
+
           // Insert directory
           storeDirectoryDocuments.push({
-            ...directoryModification,
+            ...newDirectory,
             _id: directoryKey
           })
         }
@@ -255,11 +273,10 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
 
 export const updateRepoDocument = (appState: AppState) => async (
   repoId: string,
-  repoModification: RepoModification
+  repoModification: DirLikeModification
 ): Promise<void> => {
   const repoKey = `${repoId}:/`
-
-  const storeRepoDocuments: StoreRepoDocument[] = []
+  let storeRepoDocument: StoreRepoDocument
 
   try {
     const existingRepo: StoreRepoDocument = await getRepoDocument(appState)(
@@ -269,13 +286,17 @@ export const updateRepoDocument = (appState: AppState) => async (
     // Validate modificaiton
     validateModification(repoModification, existingRepo, '')
 
-    const repoDocument: StoreRepoDocument = {
+    const timestampHistory = makeTimestampHistory(
+      appState.config.maxTimestampHistoryAge,
+      existingRepo
+    )
+
+    storeRepoDocument = {
       ...existingRepo,
       ...repoModification,
-      ...mergeFilePointers(existingRepo, repoModification)
+      ...mergeFilePointers(existingRepo, repoModification),
+      timestampHistory
     }
-
-    storeRepoDocuments.push(repoDocument)
   } catch (error) {
     if (error instanceof TypeError) {
       throw makeApiClientError(
@@ -288,7 +309,7 @@ export const updateRepoDocument = (appState: AppState) => async (
 
   // Write Repos
   const repoResults = await appState.dataStore.bulk({
-    docs: storeRepoDocuments
+    docs: [storeRepoDocument]
   })
   checkResultsForErrors(repoResults)
 
@@ -301,6 +322,54 @@ export const updateRepoDocument = (appState: AppState) => async (
 // ---------------------------------------------------------------------
 // Private
 // ---------------------------------------------------------------------
+
+const makeDirLikeModification = (): DirLikeModification => ({
+  paths: {},
+  deleted: {},
+  timestamp: asTimestampRev(0)
+})
+
+const updateFilePointers = (
+  filePointers: FilePointers,
+  path: string,
+  timestamp: TimestampRev,
+  isDeletion: boolean
+): FilePointers => {
+  const mutations = {
+    paths: isDeletion ? {} : { [path]: timestamp },
+    deleted: isDeletion ? { [path]: timestamp } : {}
+  }
+  return {
+    paths: {
+      ...filePointers.paths,
+      ...mutations.paths
+    },
+    deleted: {
+      ...filePointers.deleted,
+      ...mutations.deleted
+    }
+  }
+}
+
+const validateModification = (
+  modification: DirLikeModification,
+  directory: StoreDirectory,
+  directoryPath: string
+): void => {
+  const deletedFilePaths = Object.keys(directory.deleted)
+
+  // Deleted paths must not be already deleted
+  Object.keys(modification.deleted).forEach(fileName => {
+    const filePath = `${directoryPath}/${fileName}`
+
+    if (deletedFilePaths.includes(fileName)) {
+      throw makeApiClientError(
+        422,
+        `Unable to delete file '${filePath}'. ` + `File is already deleted.`
+      )
+    }
+  })
+}
 
 // This checks for conflicts and errors in the datastore write results
 const checkResultsForErrors = (results: DocumentBulkResponse[]): void => {

@@ -1,4 +1,4 @@
-import { add, div, gt, mul } from 'biggystring'
+import { add, div, gt, lt, mul, sub } from 'biggystring'
 import { asMaybe } from 'cleaners'
 import nano from 'nano'
 
@@ -10,6 +10,7 @@ import {
   asTimestampRev,
   StoreDirectoryDocument,
   StoreDocument,
+  TimestampHistory,
   TimestampRev
 } from '../types'
 import { maxAll } from '../util/math'
@@ -42,12 +43,8 @@ interface BulkGetResult {
 interface BulkGetResultDoc {
   ok: BulkGetDoc
 }
-type BulkGetDoc = StoreDocument & {
-  _revisions: {
-    start: number
-    ids: string[]
-  }
-}
+type BulkGetDoc = StoreDocument
+
 interface BulkGetResultError {
   error: BulkGetError
 }
@@ -70,95 +67,53 @@ export const getConflictFreeDocuments = ({
     db: config.couchDatabase,
     method: 'post',
     path: '_bulk_get',
-    qs: {
-      revs: true
-    },
     body: { docs }
   })
 
-  /*
-  Get all the merge base document revs for each conflicting document.
-  The merge base document is the document from which all conflicts fork.
-  The merge base document rev should be the latest shared rev between all
-  conflicting documents.
-  */
-  const mergeBaseDocIds = response.results
-    .map(result => {
-      const id = result.id
+  // Filter out deleted type documents from result set. A deleted document
+  // means the conflicting branch has previously been resolved.
+  const results = filterDeletedDocsFromResults(response.results)
 
-      if (!('ok' in result.docs[0])) {
-        // Handle all errors except for not_found
-        if (result.docs[0].error.error !== 'not_found') {
-          throw new Error(
-            `Failed to get rev for merge base document '${id}'. ${JSON.stringify(
-              result.docs[0].error
-            )}`
+  /*
+  Get the merge base timestamps for each conflicting document.
+  The merge base timestamp is the timestamp for the document from which all 
+  conflicts have forked fork. The merge base should be the latest shared item in
+  the timestampHistory between all of the conflicting documents.
+  */
+  const mergeBaseTimestampMap = results.reduce<{
+    [docId: string]: TimestampRev
+  }>((map, result) => {
+    const docId = result.id
+
+    // Skip for any document retrieval errors.
+    // Errors should be handled at the call-site of this API function.
+    if ('error' in result.docs[0]) {
+      return map
+    }
+
+    const sharedTimestampHistory = result.docs
+      .slice(1)
+      .reduce<TimestampHistory>((sharedTimestampHistory, resultDoc) => {
+        if ('ok' in resultDoc) {
+          const timestampHistory = timestampHistoryFromBulkGetResultDoc(
+            resultDoc
+          )
+          sharedTimestampHistory = intersectTimestampHistory(
+            sharedTimestampHistory,
+            timestampHistory
           )
         }
+        return sharedTimestampHistory
+      }, timestampHistoryFromBulkGetResultDoc(result.docs[0]))
 
-        return { id, rev: '' }
-      }
-
-      const sharedRevs = result.docs
-        .slice(1)
-        .reduce<string[]>((sharedRevs, resultDoc) => {
-          if ('ok' in resultDoc) {
-            const revs = revsFromBulkGetResultDoc(resultDoc)
-            sharedRevs = intersectRevs(sharedRevs, revs)
-          }
-          return sharedRevs
-        }, revsFromBulkGetResultDoc(result.docs[0]))
-
-      return { id, rev: sharedRevs[0] }
-    })
-    // Filter out the not_found error cases
-    .filter(({ rev }) => rev !== '' && rev != null)
-
-  // Retrieve the merge base documents
-  const mergeBaseDocsResponse: BulkGetResponse = await dbServer.request({
-    db: config.couchDatabase,
-    method: 'post',
-    path: '_bulk_get',
-    body: { docs: mergeBaseDocIds }
-  })
-
-  // Map each merge base document id to the document timestamp
-  const mergeBaseTimestampMap = mergeBaseDocsResponse.results.reduce<{
-    [id: string]: TimestampRev
-  }>((map, result) => {
-    const id = result.id
-    const bulkGetResultDoc = result.docs[0]
-
-    if (result.docs.length > 1) {
-      throw Error(`Merge base document should not have conflicts!`)
-    }
-
-    // Throw because we shouldn't be getting errors on merge base retrieval
-    if ('error' in bulkGetResultDoc) {
-      throw Error(
-        `Failed to retrieve merge base document '${id}': ${JSON.stringify(
-          bulkGetResultDoc.error
-        )}`
-      )
-    }
-
-    // The merge base document should have a timestamp
-    if (!('timestamp' in bulkGetResultDoc.ok)) {
-      throw Error(`Missing timestamp in merge base document '${id}'`)
-    }
-
-    const timestamp: TimestampRev = asTimestampRev(
-      bulkGetResultDoc.ok.timestamp
-    )
-
-    map[id] = timestamp
+    map[docId] = sharedTimestampHistory[0]?.timestamp
 
     return map
   }, {})
 
   // Create a conflict document set to contain all the document conflict results
   // and the merge base timestamp.
-  const conflictDocumentSet = response.results.map(
+  const conflictDocumentSet = results.map(
     (result): ConflictDocumentSet => ({
       id: result.id,
       docs: result.docs,
@@ -231,21 +186,12 @@ export const resolveDocumentConflicts = (
       return mergeTimestampedDocs(fileDoc, directoryLikeDocument)
     }
 
-    // Handle any document conflicts that are deleted documents
-    if ('_deleted' in leftDoc) {
-      if (rightFileDoc != null) return rightFileDoc
-      if (rightDirectoryLikeDoc != null) return rightDirectoryLikeDoc
-    }
-    if ('_deleted' in rightDoc) {
-      if (leftFileDoc != null) return leftFileDoc
-      if (leftDirectoryLikeDoc != null) return leftDirectoryLikeDoc
-    }
-    // If both documents are deleted documents, then just return one
-    if ('_deleted' in leftDoc && '_deleted' in rightDoc) {
-      return leftDoc
+    // Assert that there should be no deleted documents while resolving conflicts
+    if ('_deleted' in leftDoc || '_deleted' in rightDoc) {
+      throw new Error(`Unexpected deleted document in conflict resolution`)
     }
 
-    // Unknown document types:
+    // Unknown document types
     throw new Error('Unable to merge conflicts for documents of unknown type.')
   }, docs[0])
 
@@ -331,16 +277,49 @@ export const timestampSubVersion = (timestampRevs: TimestampRev[]): string => {
   return div(subVersion, SUB_VERSION_FACTOR, SUB_VERSION_LENGTH)
 }
 
-export const intersectRevs = (
-  leftRevs: string[],
-  rightRevs: string[]
-): string[] => leftRevs.filter(leftRev => rightRevs.includes(leftRev))
+/**
+ * Creates a new TimestampHistory given an optional StoreDirectoryDocument.
+ * If no StoreDirectoryDocument is provided, an empty TimestampHistory is
+ * returned. Otherwise, it'll include all the document's timestampHistory that
+ * doesn't exceed the maxAge.
+ *
+ * @param maxAge Maximum number of milleseconds from the timestamp to now
+ * @param dirLikeDoc Optional directory like document to include in the
+ * timestamp history.
+ */
+export const makeTimestampHistory = (
+  maxAge: number,
+  dirLikeDoc?: StoreDirectoryDocument
+): TimestampHistory => {
+  const currentTimestamp = asTimestampRev(Date.now())
 
-export const revsFromBulkGetResultDoc = (
+  return dirLikeDoc != null
+    ? [
+        {
+          timestamp: dirLikeDoc.timestamp,
+          rev: dirLikeDoc._rev
+        },
+        ...dirLikeDoc.timestampHistory
+      ].filter(({ timestamp }) =>
+        lt(sub(currentTimestamp, timestamp), maxAge.toString())
+      )
+    : []
+}
+
+export const intersectTimestampHistory = (
+  lefts: TimestampHistory,
+  rights: TimestampHistory
+): TimestampHistory =>
+  lefts.filter(left =>
+    rights.some(
+      right => left.timestamp === right.timestamp && left.rev === right.rev
+    )
+  )
+
+export const timestampHistoryFromBulkGetResultDoc = (
   resultDoc: BulkGetResultDoc
-): string[] => {
-  const start = resultDoc.ok._revisions.start
-  return resultDoc.ok._revisions.ids.map((id, i) => `${start - i}-${id}`)
+): TimestampHistory => {
+  return 'timestampHistory' in resultDoc.ok ? resultDoc.ok.timestampHistory : []
 }
 
 export const deleteLosingConflictingDocuments = ({
@@ -360,8 +339,10 @@ export const deleteLosingConflictingDocuments = ({
     body: { docs }
   })
 
+  const results = filterDeletedDocsFromResults(response.results)
+
   // Generate the docs to delete for the bulk request
-  const deletedDocs = response.results.reduce<
+  const deletedDocs = results.reduce<
     Array<{ _id: string; _rev: string; _deleted: true }>
   >((docs, result) => {
     const revMap = result.docs.reduce<{
@@ -394,4 +375,15 @@ export const deleteLosingConflictingDocuments = ({
   }, [])
 
   await dataStore.bulk({ docs: deletedDocs })
+}
+
+function filterDeletedDocsFromResults(
+  results: BulkGetResult[]
+): BulkGetResult[] {
+  return results.map(result => ({
+    ...result,
+    docs: result.docs.filter(doc => {
+      return 'ok' in doc ? !('_deleted' in doc.ok) : true
+    })
+  }))
 }

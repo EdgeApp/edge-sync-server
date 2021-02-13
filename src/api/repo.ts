@@ -1,7 +1,10 @@
 import { AppState } from '../server'
 import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
 import { makeApiClientError } from '../util/utils'
-import { getConflictFreeDocuments } from './conflictResolution'
+import {
+  getConflictFreeDocuments,
+  makeTimestampHistory
+} from './conflictResolution'
 
 export const checkRepoExists = (appState: AppState) => async (
   repoId: string
@@ -33,6 +36,9 @@ export const createRepoDocument = (appState: AppState) => async (
       paths,
       deleted,
       timestamp: data.timestamp,
+      timestampHistory: makeTimestampHistory(
+        appState.config.maxTimestampHistoryAge
+      ),
       lastGitHash: data.lastGitHash,
       lastGitTime: data.lastGitTime,
       size: 0,
