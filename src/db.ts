@@ -6,7 +6,8 @@ import { CouchDbInfo } from './util/couch'
 
 export const getCouchSchema = (config: Config): CouchDbInfo => ({
   name: config.couchDatabase,
-  sharding: config.couchSharding
+  sharding: config.couchSharding,
+  partitioned: true
 })
 
 export const getCouchUri = (config: Config): string =>
