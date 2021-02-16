@@ -1,13 +1,12 @@
 {
   "couchDatabase": "sync_datastore",
-  "couchAdminPassword": "password123",
-  "couchHost": "localhost",
-  "couchPort": "5984",
+  "couchUri": "http://admin:{password}@localhost:5984",
+  "couchPassword": "password123",
   "couchSharding": {
     "q": 24,
     "n": 1
   },
-  "httpPort": 8000,
+  "httpPort": 8008,
   "maxTimestampHistoryAge": 2592000000,
   "maxPageSize": 100,
   "instanceCount": 16,
@@ -16,6 +15,6 @@
     "https://git3.airbitz.co/repos/",
     "https://git-eusa.edge.app/repos/"
   ],
-  "migrationTmpDir": "/tmp/edge-sync-server/",
+  "migrationTmpDir": "/tmp/app/edge-sync-server/",
   "testMigrationRepo": "000000000000000000000000000000000ed9e123"
 }
