@@ -38,7 +38,7 @@ export const configSample: Config = {
   httpPort: 8000,
   maxTimestampHistoryAge: 2592000000,
   maxPageSize: 100,
-  instanceCount: 16,
+  instanceCount: 4,
   migrationOriginServers: [],
   migrationTmpDir: '/tmp/app/edge-sync-server/'
 }
