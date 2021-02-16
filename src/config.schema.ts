@@ -5,11 +5,9 @@ export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
   // sync_datastore
   couchDatabase: asString,
-  couchAdminPassword: asString,
-  // localhost
-  couchHost: asString,
-  // 5984
-  couchPort: asString,
+  // http://admin:{password}@localhost:5984
+  couchUri: asString,
+  couchPassword: asString,
   // CouchDB sharding parmeters
   couchSharding: asObject({
     // Number of shards (24)
@@ -28,3 +26,19 @@ export const asConfig = asObject({
   migrationTmpDir: asString,
   testMigrationRepo: asString
 })
+
+export const configSample: Config = {
+  couchDatabase: 'sync_datastore',
+  couchUri: 'http://admin:{password}@localhost:5984',
+  couchPassword: 'password123',
+  couchSharding: {
+    q: 24,
+    n: 1
+  },
+  httpPort: 8000,
+  maxTimestampHistoryAge: 2592000000,
+  maxPageSize: 100,
+  instanceCount: 16,
+  migrationOriginServers: [],
+  migrationTmpDir: '/tmp/app/edge-sync-server/'
+}
