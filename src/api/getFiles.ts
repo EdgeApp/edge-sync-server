@@ -64,12 +64,10 @@ export const fetchGetFilesMap = (appState: AppState) => async (
   const parentDocumentMap = parentDocumentResults.reduce(
     (map: StoreDirectoryDocumentMap, result) => {
       if ('error' in result) {
-        if (result.error.error === 'not_found') {
+        if (result.error === 'not_found') {
           throw makeApiClientError(404, `Path '${result.key}' not found.`)
         }
-        throw new Error(
-          `Failed to get document: ${JSON.stringify(result.error)}`
-        )
+        throw result
       }
 
       const doc = asMaybe(asStoreDirectoryDocument)(result.doc)
@@ -86,12 +84,10 @@ export const fetchGetFilesMap = (appState: AppState) => async (
   const responsePaths = childDocumentResults.reduce(
     (map: GetFilesMap, result) => {
       if ('error' in result) {
-        if (result.error.error === 'not_found') {
+        if (result.error === 'not_found') {
           throw makeApiClientError(404, `Path '${result.key}' not found.`)
         }
-        throw new Error(
-          `Failed to get document: ${JSON.stringify(result.error)}`
-        )
+        throw result
       }
 
       const documentKey = result.key

@@ -24,7 +24,7 @@ import {
   withRetries
 } from '../util/utils'
 import {
-  deleteLosingConflictingDocuments,
+  deleteDocuments,
   getConflictFreeDocuments,
   makeTimestampHistory
 } from './conflictResolution'
@@ -79,17 +79,19 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   const directoryModifications: Map<string, DirLikeModification> = new Map()
   let repoModification: DirLikeModification = makeDirLikeModification()
 
+  const conflictDocs: Array<{ _id: string; _rev: string }> = []
+
   // Prepare file documents:
-  fileResults.forEach(row => {
-    const fileKey = row.key
+  fileResults.forEach(result => {
+    const fileKey = result.key
     const [repoId, filePath] = fileKey.split(':')
     const fileChange: FileChange = changeSet[filePath]
 
-    if ('doc' in row) {
+    if ('doc' in result) {
       // We don't modify the file document for deletion
       if (fileChange !== null) {
         try {
-          asStoreFileDocument(row.doc)
+          asStoreFileDocument(result.doc)
         } catch (err) {
           throw makeApiClientError(
             422,
@@ -103,25 +105,32 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
           ...fileChange,
           timestamp: updateTimestamp,
           _id: fileKey,
-          _rev: row.doc._rev
+          _rev: result.doc._rev
         })
+
+        conflictDocs.push(...result.conflicts)
       }
     } else {
+      // Throw on errors other than not_found
+      if (result.error !== 'not_found') {
+        throw result
+      }
+
       // We must throw an exception when client wants to delete a file that
       // doesn't exist.
-      if (fileChange !== null) {
-        // Document will be inserted
-        storeFileDocuments.push({
-          ...fileChange,
-          timestamp: updateTimestamp,
-          _id: fileKey
-        })
-      } else {
+      if (fileChange === null) {
         throw makeApiClientError(
           422,
           `Unable to delete file '${filePath}'. ` + `Document does not exist.`
         )
       }
+
+      // Document will be inserted because it is not found
+      storeFileDocuments.push({
+        ...fileChange,
+        timestamp: updateTimestamp,
+        _id: fileKey
+      })
     }
 
     // Directories and Repo Modifications:
@@ -199,17 +208,17 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
     )
 
     // Prepare directory documents
-    directoryResults.forEach(row => {
-      const directoryKey = row.key
+    directoryResults.forEach(result => {
+      const directoryKey = result.key
       const directoryPath = directoryKey.split(':')[1]
       const directoryModification = directoryModifications.get(directoryKey)
 
       if (directoryModification != null) {
-        if ('doc' in row) {
+        if ('doc' in result) {
           let existingDirectory: StoreDirectoryDocument
 
           try {
-            existingDirectory = asStoreDirectoryDocument(row.doc)
+            existingDirectory = asStoreDirectoryDocument(result.doc)
           } catch (err) {
             throw makeApiClientError(
               422,
@@ -239,7 +248,14 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
 
           // Update directory
           storeDirectoryDocuments.push(directoryDocument)
+
+          conflictDocs.push(...result.conflicts)
         } else {
+          // Throw on errors other than not_found
+          if (result.error !== 'not_found') {
+            throw result
+          }
+
           const newDirectory: StoreDirectory = {
             ...directoryModification,
             timestampHistory: makeTimestampHistory(
@@ -264,9 +280,7 @@ export const updateFilesAndDirectories = (appState: AppState) => async (
   checkResultsForErrors(fileAndDirResults)
 
   // Delete any document conflicts
-  await deleteLosingConflictingDocuments(appState)(
-    fileAndDirResults.map(result => result.id)
-  )
+  await deleteDocuments(appState)(conflictDocs)
 
   return repoModification
 }
@@ -277,11 +291,10 @@ export const updateRepoDocument = (appState: AppState) => async (
 ): Promise<void> => {
   const repoKey = `${repoId}:/`
   let storeRepoDocument: StoreRepoDocument
+  const conflictDocs: Array<{ _id: string; _rev: string }> = []
 
   try {
-    const existingRepo: StoreRepoDocument = await getRepoDocument(appState)(
-      repoId
-    )
+    const existingRepo = await getRepoDocument(appState)(repoId)
 
     // Validate modificaiton
     validateModification(repoModification, existingRepo, '')
@@ -297,6 +310,7 @@ export const updateRepoDocument = (appState: AppState) => async (
       ...mergeFilePointers(existingRepo, repoModification),
       timestampHistory
     }
+    conflictDocs.push(...existingRepo.conflicts)
   } catch (error) {
     if (error instanceof TypeError) {
       throw makeApiClientError(
@@ -314,9 +328,7 @@ export const updateRepoDocument = (appState: AppState) => async (
   checkResultsForErrors(repoResults)
 
   // Delete any document conflicts
-  await deleteLosingConflictingDocuments(appState)(
-    repoResults.map(result => result.id)
-  )
+  await deleteDocuments(appState)(conflictDocs)
 }
 
 // ---------------------------------------------------------------------

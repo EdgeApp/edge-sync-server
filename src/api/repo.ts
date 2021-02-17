@@ -51,7 +51,9 @@ export const createRepoDocument = (appState: AppState) => async (
 
 export const getRepoDocument = (appState: AppState) => async (
   repoId: string
-): Promise<StoreRepoDocument> => {
+): Promise<
+  StoreRepoDocument & { conflicts: Array<{ _id: string; _rev: string }> }
+> => {
   const repoKey = `${repoId}:/`
 
   // Validate request body timestamp
@@ -60,18 +62,20 @@ export const getRepoDocument = (appState: AppState) => async (
     const repoResult = repoResults[0]
 
     if ('doc' in repoResult) {
-      return asStoreRepoDocument(repoResult.doc)
+      return {
+        ...asStoreRepoDocument(repoResult.doc),
+        conflicts: repoResult.conflicts
+      }
     } else {
-      const { error } = repoResult
-      throw error
+      if (repoResult.error === 'not_found') {
+        throw makeApiClientError(404, `Repo '${repoId}' not found`)
+      }
+      throw repoResult
     }
   } catch (err) {
-    if (err.error === 'not_found') {
-      throw makeApiClientError(404, `Repo '${repoId}' not found`)
-    } else if (err instanceof TypeError) {
+    if (err instanceof TypeError) {
       throw new TypeError(`'${repoId}' is not a repo document`)
-    } else {
-      throw err
     }
+    throw err
   }
 }
