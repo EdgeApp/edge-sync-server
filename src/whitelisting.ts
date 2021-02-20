@@ -2,19 +2,20 @@ import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
 import { getStoreSettings } from './storeSettings'
-import { ApiClientError } from './types'
+import { StoreSettings } from './types'
 import { makeApiClientError } from './util/utils'
+
+// Middleware:
 
 export const whitelistIps = (appState: AppState) => async (
   req: Request,
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { ipWhitelist } = await getStoreSettings(appState.config)
-
+  const storeSettings = await getStoreSettings(appState.config)
   const clientIp = req.ip
 
-  if (Object.keys(ipWhitelist).length > 0 && !ipWhitelist[clientIp]) {
+  if (!passWhitelistIps(storeSettings, clientIp)) {
     throw makeApiClientError(403, 'Forbidden IP')
   }
 
@@ -26,14 +27,10 @@ export const whitelistApiKeys = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { apiKeyWhitelist } = await getStoreSettings(appState.config)
-
+  const storeSettings = await getStoreSettings(appState.config)
   const clientApiKey = req.query.apiKey
 
-  if (
-    Object.keys(apiKeyWhitelist).length > 0 &&
-    !apiKeyWhitelist[clientApiKey]
-  ) {
+  if (!passWhitelistApiKeys(storeSettings, clientApiKey)) {
     throw makeApiClientError(403, 'Forbidden API Key')
   }
 
@@ -42,20 +39,41 @@ export const whitelistApiKeys = (appState: AppState) => async (
 
 export const whitelistAll = (appState: AppState) => async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  try {
-    await whitelistIps(appState)(req, res, next)
-  } catch (ipError) {
-    if (!(ipError instanceof ApiClientError)) throw ipError
+  const storeSettings = await getStoreSettings(appState.config)
+  const clientIp = req.ip
+  const clientApiKey = req.query.apiKey
 
-    try {
-      await whitelistApiKeys(appState)(req, res, next)
-    } catch (apiKeyError) {
-      if (!(apiKeyError instanceof ApiClientError)) throw apiKeyError
-
-      throw makeApiClientError(403, 'Forbidden IP and API Key')
-    }
+  if (
+    passWhitelistIps(storeSettings, clientIp) ||
+    passWhitelistApiKeys(storeSettings, clientApiKey)
+  ) {
+    return next()
+  } else {
+    throw makeApiClientError(403, 'Forbidden IP or API Key')
   }
+}
+
+// Unit Functions:
+
+export const passWhitelistIps = (
+  storeSettings: StoreSettings,
+  clientIp: string
+): boolean => {
+  const { ipWhitelist } = storeSettings
+
+  return Object.keys(ipWhitelist).length === 0 || ipWhitelist[clientIp]
+}
+
+export const passWhitelistApiKeys = (
+  storeSettings: StoreSettings,
+  clientApiKey: string
+): boolean => {
+  const { apiKeyWhitelist } = storeSettings
+
+  return (
+    Object.keys(apiKeyWhitelist).length === 0 || apiKeyWhitelist[clientApiKey]
+  )
 }
