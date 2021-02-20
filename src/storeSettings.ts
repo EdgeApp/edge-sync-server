@@ -5,6 +5,11 @@ import { asStoreSettings, StoreSettings } from './types'
 export const settingsDocumentKey =
   '00000000000000000000000000000000000000000_:settings'
 
+export const defaultStoreSettings: StoreSettings = {
+  ipWhitelist: {},
+  apiKeyWhitelist: {}
+}
+
 // TTL set to an hour
 const cacheTTL: number = 1000 * 60 * 60
 
@@ -35,10 +40,9 @@ export const getStoreSettings = async (
 
 export const initStoreSettings = async (config: Config): Promise<void> => {
   const dataStore = getDataStore(config)
-  let storeSettings: StoreSettings
   try {
     const doc = await dataStore.get(settingsDocumentKey)
-    storeSettings = asStoreSettings(doc)
+    asStoreSettings(doc)
   } catch (error) {
     if (error.error !== 'not_found') {
       throw new Error(
@@ -46,10 +50,6 @@ export const initStoreSettings = async (config: Config): Promise<void> => {
       )
     }
 
-    storeSettings = {
-      ipWhitelist: {},
-      apiKeyWhitelist: {}
-    }
-    await dataStore.insert(storeSettings, settingsDocumentKey)
+    await dataStore.insert(defaultStoreSettings, settingsDocumentKey)
   }
 }
