@@ -25,5 +25,6 @@ export const asConfig = asObject({
   // URL of the servers from which to migrate repos.
   migrationOriginServers: asArray(asString),
   // Temp directory to use for repo migrations
-  migrationTmpDir: asString
+  migrationTmpDir: asString,
+  testMigrationRepo: asString
 })

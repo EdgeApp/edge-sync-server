@@ -11,6 +11,11 @@
   "maxTimestampHistoryAge": 2592000000,
   "maxPageSize": 100,
   "instanceCount": 16,
-  "migrationOriginServers": ["https://..."],
-  "migrationTmpDir": "/tmp/edge-sync-server/"
+  "migrationOriginServers": [
+    "https://git-uk.edge.app/repos/",
+    "https://git3.airbitz.co/repos/",
+    "https://git-eusa.edge.app/repos/"
+  ],
+  "migrationTmpDir": "/tmp/edge-sync-server/",
+  "testMigrationRepo": "000000000000000000000000000000000ed9e123"
 }
