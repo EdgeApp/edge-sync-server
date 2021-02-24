@@ -48,20 +48,33 @@ export class SyncClient {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body
-    }).then(res => res.json())
+    let responseJson: ApiResponse<T> | ApiErrorResponse
+    let response
 
-    if (response.success !== true) {
-      const error = new RequestError({ url, body }, response)
+    try {
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body
+      })
+      responseJson = await response.json()
+    } catch (err) {
+      throw new Error(
+        `Request failed: ${JSON.stringify({
+          request: { url, body },
+          response
+        })}`
+      )
+    }
+
+    if (!responseJson.success) {
+      const error = new RequestError({ url, body }, responseJson)
       throw error
     }
 
-    return response
+    return responseJson
   }
 
   async createRepo(repoId: string): Promise<any> {
