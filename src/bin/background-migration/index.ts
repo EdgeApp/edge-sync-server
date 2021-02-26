@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     }
 
     const nextPartition: number = checkpoint.partition + 1
-    if (nextPartition > 255) {
+    if (nextPartition < 255) {
       checkpoint = await updateCheckpoint({
         partition: nextPartition,
         index: 0
