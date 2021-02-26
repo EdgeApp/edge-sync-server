@@ -1,28 +1,37 @@
 import { asArray, asBoolean, asNumber, asObject, asString } from 'cleaners'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 
 export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
   verbose: asBoolean,
   servers: asArray(asString),
-  fileSizeRange: asArray(asNumber),
-  fileCountRange: asArray(asNumber),
-  maxOpCount: asNumber,
-  startOpsPerSec: asNumber,
-  opIncreaseRate: asNumber,
   repoCount: asNumber,
   repoPrefix: asString,
-  pathDepth: asNumber,
-  maxFileCount: asNumber,
-  syncTimeout: asNumber
+  repoUpdatesPerMin: asNumber,
+  repoUpdateIncreaseRate: asNumber,
+  maxUpdatesPerRepo: asNumber,
+  repoSyncTimeout: asNumber,
+  fileSizeRange: asArray(asNumber),
+  fileCountRange: asArray(asNumber)
 })
 
-const configPath = join(
-  __dirname,
-  '../../../',
-  process.env.CONFIG ?? 'config.stress.json'
-)
-const configJson = readFileSync(configPath, 'utf8')
-
-export const config = asConfig(JSON.parse(configJson))
+export const configSample: Config = {
+  verbose: false,
+  servers: [
+    'https://sync-us1.edge.app',
+    'https://sync-us2.edge.app',
+    'https://sync-us3.edge.app',
+    'https://sync-us4.edge.app',
+    'https://sync-eu1.edge.app',
+    'https://sync-eu2.edge.app',
+    'https://sync-eu3.edge.app',
+    'https://sync-eu4.edge.app'
+  ],
+  repoCount: 10,
+  repoPrefix: 'ed9e',
+  repoUpdatesPerMin: 2,
+  repoUpdateIncreaseRate: 1.1,
+  maxUpdatesPerRepo: 100,
+  repoSyncTimeout: 60000,
+  fileSizeRange: [1, 4],
+  fileCountRange: [1, 10]
+}

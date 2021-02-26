@@ -1,30 +1,64 @@
 import { randomInt } from 'crypto'
-import { cpus } from 'os'
 import Semaphore from 'semaphore-async-await'
 
-import { TimestampRev } from '../../types'
+import { asTimestampRev, TimestampRev } from '../../types'
 import { SyncClient } from './SyncClient'
-import { asWorkerInput, ReadyEvent, UpdateEvent, WorkerInput } from './types'
-import { isAcceptableError, randomElement, send, throttle } from './utils/utils'
+import {
+  asWorkerInput,
+  CheckEvent,
+  ReadyEvent,
+  UpdateEvent,
+  WorkerInput
+} from './types'
+import {
+  delay,
+  isAcceptableError,
+  isRepoNotFoundError,
+  randomElement,
+  send,
+  throttle
+} from './utils/utils'
 
 process.title = 'worker'
 
-let opsQueued = 0
-let opsDone = 0
+// State
+let updatesQueued = 0
+let updatesDone = 0
+let lastUpdateTimestamp: TimestampRev = asTimestampRev(0)
+let isRepoSynced: boolean = true
+
+// State Methods
+const updateIsRepoSynced = (
+  serverRepoTimestamps: string[],
+  input: WorkerInput
+): void => {
+  const isSynced = serverRepoTimestamps.every(
+    serverRepoTimestamp => serverRepoTimestamp === lastUpdateTimestamp
+  )
+
+  // If repo is has synced across all servers, then increase update rate
+  if (!isRepoSynced && isSynced) {
+    input.repoUpdatesPerMin =
+      input.repoUpdatesPerMin * input.repoUpdateIncreaseRate
+  }
+
+  // Update state
+  isRepoSynced = isSynced
+}
 
 // Main
 async function main(input: WorkerInput): Promise<void> {
-  const concurrency = Math.min(cpus().length, input.maxOpCount)
-
-  send(`Concurrency: ${concurrency}`)
-
-  const lock = new Semaphore(concurrency)
+  const lock = new Semaphore(1)
   lock.drainPermits()
 
-  const getOpDelay = (): number => 1000 / input.maxOpsPerSecond
+  const getOpDelay = (): number => 1000 / (input.repoUpdatesPerMin / 60)
   const releaser = (): void => {
-    if (opsDone < input.maxOpCount) {
-      lock.release()
+    lock.release()
+
+    if (
+      input.maxUpdatesPerRepo === 0 ||
+      updatesDone + 1 < input.maxUpdatesPerRepo
+    ) {
       setTimeout(releaser, getOpDelay())
     }
   }
@@ -45,69 +79,74 @@ async function main(input: WorkerInput): Promise<void> {
   )
 
   // Create repos
-  await Promise.all(
-    input.repoIds.map(async repoId => {
-      const sync = randomElement(syncClients)
+  await getRepoReady(randomElement(syncClients), input.repoId)
 
-      try {
-        const response = await sync.createRepo(repoId)
-        const requestTime = Date.now()
-        const serverRepoTimestamp: TimestampRev = response.data.timestamp
+  // Run updater
+  updater(input, syncClients, lock).catch(errHandler)
 
-        const workerOutput: ReadyEvent = {
-          type: 'ready',
-          serverHost: sync.host,
-          repoId,
-          requestTime,
-          serverRepoTimestamp
-        }
+  // Run the checker
+  checker(input, syncClients).catch(errHandler)
+}
 
-        send(workerOutput)
-      } catch (error) {
-        if (error?.response?.message !== 'Datastore already exists') {
-          throw error
-        }
+// Creates repo if it does not exist.
+const getRepoReady = async (
+  sync: SyncClient,
+  repoId: string
+): Promise<void> => {
+  try {
+    const response = await sync.createRepo(repoId)
+    const requestTime = Date.now()
+    const serverRepoTimestamp: TimestampRev = response.data.timestamp
 
-        const response = await sync.getUpdates(repoId)
-        const requestTime = Date.now()
-        const serverRepoTimestamp = response.data.timestamp
+    const workerOutput: ReadyEvent = {
+      type: 'ready',
+      serverHost: sync.host,
+      repoId,
+      requestTime,
+      serverRepoTimestamp
+    }
 
-        const workerOutput: ReadyEvent = {
-          type: 'ready',
-          serverHost: sync.host,
-          repoId,
-          requestTime,
-          serverRepoTimestamp
-        }
+    send(workerOutput)
+  } catch (error) {
+    if (error?.response?.message !== 'Datastore already exists') {
+      throw error
+    }
 
-        send(workerOutput)
-      }
-    })
-  )
+    const response = await sync.getUpdates(repoId)
+    const requestTime = Date.now()
+    const serverRepoTimestamp = response.data.timestamp
 
-  // Run workers
-  for (let i = 0; i < concurrency; ++i) {
-    ++opsQueued
-    workRoutine(input, syncClients, lock).catch(errHandler)
+    const workerOutput: ReadyEvent = {
+      type: 'ready',
+      serverHost: sync.host,
+      repoId,
+      requestTime,
+      serverRepoTimestamp
+    }
+
+    send(workerOutput)
   }
 }
 
-const workRoutine = (
+const updater = (
   input: WorkerInput,
   syncClients: SyncClient[],
   lock: Semaphore
 ): Promise<void> => {
-  return work(input, syncClients, lock)
+  return updateRepo(input, syncClients, lock)
     .then(send)
     .then(() => {
-      if (opsQueued < input.maxOpCount) {
-        ++opsQueued
-        return workRoutine(input, syncClients, lock)
+      if (
+        input.maxUpdatesPerRepo === 0 ||
+        updatesQueued < input.maxUpdatesPerRepo
+      ) {
+        ++updatesQueued
+        return updater(input, syncClients, lock)
       }
     })
 }
 
-async function work(
+async function updateRepo(
   input: WorkerInput,
   syncClients: SyncClient[],
   lock: Semaphore
@@ -117,10 +156,10 @@ async function work(
   const sync = randomElement(syncClients)
 
   const serverHost = sync.host
-  const repoId = randomElement(input.repoIds)
+  const repoId = input.repoId
 
   const fileCount = randomInt(input.fileCountRange[0], input.fileCountRange[1])
-  const files = await sync.randomFilePayload(fileCount)
+  const files = await sync.randomFilePayload(fileCount, input.fileSizeRange)
   const payloadSize = Buffer.byteLength(JSON.stringify(files))
 
   try {
@@ -134,7 +173,9 @@ async function work(
     const serverRepoTimestamp = response.data.timestamp
     const requestTime = Date.now()
 
-    ++opsDone
+    lastUpdateTimestamp = serverRepoTimestamp
+
+    ++updatesDone
 
     return {
       type: 'update',
@@ -151,7 +192,81 @@ async function work(
 
     // Try again
     lock.release()
-    return await throttle(() => work(input, syncClients, lock), 500)
+    return await throttle(() => updateRepo(input, syncClients, lock), 500)
+  }
+}
+
+const checker = (
+  input: WorkerInput,
+  syncClients: SyncClient[]
+): Promise<void> =>
+  Promise.all(
+    syncClients.map(sync => checkServerStatus({ sync, repoId: input.repoId }))
+  )
+    .then(checkResponses => {
+      const checkEvents = checkResponses.filter(
+        (checkResponse): checkResponse is CheckEvent => checkResponse != null
+      )
+      const serverRepoTimestamps = checkEvents.map(
+        checkEvent => checkEvent.serverRepoTimestamp
+      )
+
+      checkEvents.forEach(checkEvent => {
+        send(checkEvent)
+      })
+
+      updateIsRepoSynced(serverRepoTimestamps, input)
+    })
+    .then(() => delay(500))
+    .then(() => {
+      if (
+        input.maxUpdatesPerRepo === 0 ||
+        updatesDone < input.maxUpdatesPerRepo ||
+        !isRepoSynced
+      ) {
+        return checker(input, syncClients)
+      }
+    })
+
+interface CheckServerStatusProps {
+  sync: SyncClient
+  repoId: string
+}
+
+async function checkServerStatus({
+  sync,
+  repoId
+}: CheckServerStatusProps): Promise<CheckEvent | undefined> {
+  const requestTime = Date.now()
+
+  try {
+    const response = await sync.getUpdates(repoId)
+
+    const serverRepoTimestamp: TimestampRev = response.data.timestamp
+
+    return {
+      type: 'check',
+      serverHost: sync.host,
+      repoId,
+      requestTime,
+      serverRepoTimestamp
+    }
+  } catch (error) {
+    if (!isAcceptableError(error)) {
+      throw error
+    }
+
+    if (isRepoNotFoundError(error)) {
+      return {
+        type: 'check',
+        serverHost: sync.host,
+        repoId,
+        requestTime,
+        serverRepoTimestamp: asTimestampRev(0)
+      }
+    }
+
+    send(error)
   }
 }
 

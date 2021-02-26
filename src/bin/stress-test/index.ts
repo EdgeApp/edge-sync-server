@@ -1,13 +1,12 @@
 import { eq, gt, toFixed } from 'biggystring'
-import { ChildProcess, fork } from 'child_process'
+import { fork } from 'child_process'
 import { join } from 'path'
 
 import { TimestampRev } from '../../types'
-import { Config, config } from './config'
+import { asConfig, Config, configSample } from './config'
 import {
   AllEvents,
   asAllEvents,
-  CheckerInput,
   CheckEvent,
   NetworkSyncEvent,
   ReadyEvent,
@@ -18,6 +17,7 @@ import {
 } from './types'
 import {
   endInstrument,
+  Instrument,
   makeInstrument,
   measureInstrument,
   startInstrument
@@ -36,20 +36,17 @@ import { makeRepoId } from './utils/utils'
 
 interface State {
   startTime: number
-  statusHeader: string
   repos: RepoStateMap
   serverSyncInfoMap: ServerSyncInfoMap
-  output: {
-    reason: string
-    results: StressTestResult[]
-  }
+  output: Output | null
 }
 
 type RepoStateMap = Map<string, RepoState>
 interface RepoState {
+  serverHost: string
   updateRequestTime: number
   repoTimestamp: TimestampRev
-  serverHost: string
+  syncTimeInstrument: Instrument
 }
 
 interface ServerSyncInfoMap {
@@ -66,16 +63,23 @@ interface RepoSyncInfo {
   inSync: boolean
 }
 
-interface StressTestResult {
-  opRate: number
-  avgOpsRate: number
-  networkSyncTime: number
+interface Output {
+  reason: string
+  totalBytesSent: number
+  totalUpdateCount: number
+  avgUpdatesPerSec: number
+  avgUpdateTimeInMs: number
+  maxUpdateTimeInMs: number
+  totalRepoSyncCount: number
+  avgRepoSyncPerSec: number
+  avgRepoSyncTimeInMs: number
+  maxRepoSyncTimeInMs: number
 }
 
 // State:
 
 // Metrics
-const opTimeMetric = makeMetric()
+const repoUpdateTimeMetric = makeMetric()
 const bytesMetric = makeMetric()
 const repoSyncMetric = makeMetric()
 const serverSyncMetric = makeMetric()
@@ -88,53 +92,22 @@ const networkSyncInstrument = makeInstrument()
 
 const state: State = {
   startTime: Date.now(),
-  statusHeader: 'Waiting on checker activity...',
   repos: new Map(),
   serverSyncInfoMap: {},
-  output: {
-    reason: '',
-    results: []
-  }
+  output: null
 }
 
 async function main(config: Config): Promise<void> {
   console.log(`Verbosity: ${String(config.verbose)}`)
 
-  console.log(`Generating random repos...`)
-  // Generate an array of unique repo IDs of configured repoCount length
-  const repoIds = [...Array(config.repoCount)].reduce<string[]>(
-    (arr, _, index) => {
-      let repo: string
-      // Use do..while to make sure the random repo is not already included in arr
-      do {
-        repo = makeRepoId(index, config.repoPrefix)
-      } while (arr.includes(repo))
-      arr.push(repo)
-      return arr
-    },
-    []
-  )
-
   const serverUrls = config.servers
 
+  console.log(`Generating random repos...`)
+  // Generate an array of unique repo IDs of configured repoCount length
+  const repoIds = generateRepoIds(config.repoPrefix, config.repoCount)
+
   // Generate Sync Server Info for each server and host
-  state.serverSyncInfoMap = serverUrls.reduce<ServerSyncInfoMap>(
-    (map, serverUrl) => {
-      const serverHost = new URL('', serverUrl).host
-      const repos = repoIds.reduce<RepoSyncInfoMap>((map, repo) => {
-        map[repo] = {
-          inSync: true
-        }
-        return map
-      }, {})
-      map[serverHost] = {
-        inSync: true,
-        repos
-      }
-      return map
-    },
-    {}
-  )
+  state.serverSyncInfoMap = generateSyncInfoMap(serverUrls, repoIds)
 
   if (config.verbose) {
     console.log(`Repos:\n  ${repoIds.join('\n  ')}`)
@@ -143,89 +116,76 @@ async function main(config: Config): Promise<void> {
 
   // Worker Process
   // ---------------------------------------------------------------------
-  // args
-  const workerInput: WorkerInput = {
-    serverUrls,
-    repoIds,
-    maxOpsPerSecond: config.startOpsPerSec,
-    maxOpCount: config.maxOpCount,
-    fileCountRange: config.fileCountRange
-  }
-  const workerJsonInput = JSON.stringify(workerInput, null, 2)
+  console.info(`Forking worker processes (${repoIds.length})...`)
+  const workerProcesses = repoIds.map(repoId => {
+    const workerInput: WorkerInput = {
+      serverUrls,
+      repoId,
+      repoUpdatesPerMin: config.repoUpdatesPerMin,
+      repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
+      maxUpdatesPerRepo: config.maxUpdatesPerRepo,
+      fileSizeRange: config.fileSizeRange,
+      fileCountRange: config.fileCountRange
+    }
+    const workerJsonInput = JSON.stringify(workerInput, null, 2)
 
-  // spawn
-  console.info('Forking worker process...')
-  if (config.verbose) console.log(`Worker input:\n${workerJsonInput}`)
-  const workerPs = fork(join(__dirname, 'worker.ts'), [workerJsonInput])
+    // spawn
+    const workerPs = fork(join(__dirname, 'worker.ts'), [workerJsonInput])
 
-  // events
-  workerPs.on('message', payload => {
-    try {
-      const output = asAllEvents(payload)
-      onEvent(output)
-    } catch (error) {
-      if (error instanceof TypeError) {
-        console.log({ payload })
-        throw new Error(`Invalid worker output: ${error.message}`)
+    // events
+    workerPs.on('message', payload => {
+      try {
+        const output = asAllEvents(payload)
+        onEvent(output)
+      } catch (error) {
+        if (error instanceof TypeError) {
+          console.log({ payload })
+          throw new Error(`Invalid worker output: ${error.message}`)
+        }
+        throw error
       }
-      throw error
-    }
-  })
-  workerPs.on('exit', (code): void => {
-    if (code !== null && code !== 0) {
-      throw new Error(`Worker process exited with code ${String(code)}`)
-    }
-    print('! worker process finished')
-  })
-
-  // Checker Process
-  // ---------------------------------------------------------------------
-  // args
-  const checkerInput: CheckerInput = {
-    serverUrls,
-    repoIds
-  }
-  const checkerJsonInput = JSON.stringify(checkerInput, null, 2)
-
-  // spawn
-  console.info('Forking checker process...')
-  if (config.verbose) console.log(`Checker input:\n${checkerJsonInput}`)
-  const checkerPs = fork(join(__dirname, 'checker.ts'), [checkerJsonInput])
-
-  // events
-  checkerPs.on('message', payload => {
-    try {
-      const output = asAllEvents(payload)
-      onEvent(output)
-    } catch (error) {
-      if (error instanceof TypeError) {
-        console.info({ payload })
-        throw new Error(`Invalid checker output: ${error.message}`)
+    })
+    workerPs.on('exit', (code): void => {
+      if (code !== null && code !== 0) {
+        throw new Error(`Worker process exited with code ${String(code)}`)
       }
-    }
-  })
+      print('! worker process finished')
+    })
 
-  checkerPs.on('error', (err): void => {
-    throw new Error(`Checker process error: ${err.stack ?? err.message}`)
-  })
-  checkerPs.on('exit', (code): void => {
-    if (code !== null && code !== 0) {
-      throw new Error(`Worker process exited with code ${String(code)}`)
-    }
-    print('! checker process finished')
+    return workerPs
   })
 
   function exit(reason: string): void {
-    workerPs.kill('SIGTERM')
-    checkerPs.kill('SIGTERM')
+    // Exit all worker processes
+    workerProcesses.forEach(workerPs => workerPs.kill('SIGTERM'))
+
+    // Stop the status updater interval
     clearInterval(statusUpdaterIntervalId)
+
+    // Print reason for exiting
     print(`!!! ${reason}`)
-    state.output.reason = reason
-    state.output.results = state.output.results.map(o => ({
-      ...o,
-      avgOpTime: 1 / o.avgOpsRate,
-      exceeds: 1 / o.avgOpsRate > o.networkSyncTime
-    }))
+
+    // Post-processing for output results
+
+    const totalBytesSent = bytesMetric.sum
+    const totalUpdateCount = repoUpdateTimeMetric.total
+    const totalRepoSyncCount = repoSyncMetric.total
+
+    state.output = {
+      reason,
+      totalBytesSent,
+      totalUpdateCount,
+      avgUpdatesPerSec:
+        repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0,
+      avgUpdateTimeInMs: repoUpdateTimeMetric.avg,
+      maxUpdateTimeInMs: repoUpdateTimeMetric.max,
+      totalRepoSyncCount,
+      avgRepoSyncPerSec:
+        repoSyncMetric.avg !== 0 ? 1000 / repoSyncMetric.avg : 0,
+      avgRepoSyncTimeInMs: repoSyncMetric.avg,
+      maxRepoSyncTimeInMs: repoSyncMetric.max
+    }
+
     console.log(JSON.stringify(state.output, null, 2))
     process.exit()
   }
@@ -235,65 +195,82 @@ async function main(config: Config): Promise<void> {
       networkSyncInstrument,
       Date.now()
     )
-    const opsDone = opTimeMetric.total
+    const totalRepoUpdates = repoUpdateTimeMetric.total
+    const avgUpdatesPerSec =
+      repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0
+    const repoSyncTimes = Array.from(state.repos.entries()).map(
+      ([repoId, repoState]) => {
+        const syncTime = Date.now() - repoState.updateRequestTime
 
-    state.statusHeader = [
+        return getIsRepoSynced(repoId) ? 0 : syncTime
+      }
+    )
+    const maxRepoSyncTime = Math.max(...repoSyncTimes)
+
+    const statusHeader = [
       [
-        `${checkmarkify(getIsNetworkInSync())} network`,
-        `${timeSinceNetworkOutOfSync}ms time since network sync `
+        `${checkmarkify(getIsNetworkInSync())} network in-sync`,
+        `${timeSinceNetworkOutOfSync}ms since network sync `
       ].join(' | '),
       statusBarLine(),
       [
-        `${countServersInSync()} / ${config.servers.length}`,
+        `${countServersInSync()} / ${config.servers.length} servers in-sync`,
         ...Object.entries(state.serverSyncInfoMap).map(
           ([serverHost, { inSync }]) => `${checkmarkify(inSync)} ${serverHost}`
         )
+      ].join(' | '),
+      statusBarLine(),
+      [
+        `${countReposInSync()} / ${config.repoCount} repos in-sync`,
+        `maximum ${maxRepoSyncTime}ms since repo out of sync`
       ].join(' | ')
-    ].join('\n')
-
-    const avgOpsPerSec = opTimeMetric.avg !== 0 ? 1000 / opTimeMetric.avg : 0
-
-    // Exit cases
-    if (
-      config.maxOpCount > 0 &&
-      opsDone >= config.maxOpCount &&
-      getIsNetworkInSync()
-    ) {
-      exit('completed max operations')
-    }
-    if (
-      config.syncTimeout > 0 &&
-      timeSinceNetworkOutOfSync > config.syncTimeout
-    ) {
-      state.output.results.push({
-        opRate: workerInput.maxOpsPerSecond,
-        avgOpsRate: opTimeMetric.avg !== 0 ? 1000 / opTimeMetric.avg : 0,
-        networkSyncTime: timeSinceNetworkOutOfSync
-      })
-      exit('exceeded sync timeout')
-    }
+    ]
 
     statusBox(
       [
-        state.statusHeader,
+        ...statusHeader,
         statusBarLine(),
         prettyPrintObject({
-          'Total ops': `${opsDone}`,
-          'Avg op time': `${opTimeMetric.avg}ms`,
-          'Avg ops / sec': `${avgOpsPerSec}`,
-          'Total bytes sent': `${bytesMetric.sum}`,
+          'Total updates': `${totalRepoUpdates} / ${
+            config.maxUpdatesPerRepo * config.repoCount
+          }`,
+          'Avg repo update time': `${repoUpdateTimeMetric.avg}ms`,
+          'Avg repo update / sec': `${avgUpdatesPerSec}`,
+          'Total bytes sent': `${bytesMetric.sum}`
+        }),
+        statusBarLine(),
+        prettyPrintObject({
           'Total repo syncs': `${repoSyncMetric.total}`,
           'Avg repo sync time': `${repoSyncMetric.avg}ms`,
-          'Max repo sync time': `${repoSyncMetric.max}ms`,
+          'Max repo sync time': `${repoSyncMetric.max}ms`
+        }),
+        statusBarLine(),
+        prettyPrintObject({
           'Total server syncs': `${serverSyncMetric.total}`,
           'Avg server sync time': `${serverSyncMetric.avg}ms`,
-          'Max server sync time': `${serverSyncMetric.max}ms`,
+          'Max server sync time': `${serverSyncMetric.max}ms`
+        }),
+        statusBarLine(),
+        prettyPrintObject({
           'Total network syncs': `${networkSyncMetric.total}`,
           'Avg network sync time': `${networkSyncMetric.avg}ms`,
           'Max network sync time': `${networkSyncMetric.max}ms`
         })
       ].join('\n')
     )
+
+    // Exit cases
+    if (
+      config.maxUpdatesPerRepo > 0 &&
+      totalRepoUpdates >= config.maxUpdatesPerRepo * config.repoCount &&
+      getIsNetworkInSync()
+    ) {
+      exit('completed max operations')
+    }
+
+    if (maxRepoSyncTime > config.repoSyncTimeout) {
+      exit('exceeded sync timeout')
+    }
   }
   const statusUpdaterIntervalId = setInterval(statusUpdater, 100)
 
@@ -327,7 +304,7 @@ async function main(config: Config): Promise<void> {
         onServerSync(event)
         break
       case 'network-sync':
-        onNetworkSync(event, workerInput, workerPs)
+        onNetworkSync(event)
         break
     }
   }
@@ -337,9 +314,10 @@ function onReadyEvent(readyEvent: ReadyEvent): void {
   const { requestTime, serverHost, repoId, serverRepoTimestamp } = readyEvent
 
   state.repos.set(repoId, {
+    serverHost,
     updateRequestTime: requestTime,
     repoTimestamp: serverRepoTimestamp,
-    serverHost
+    syncTimeInstrument: makeInstrument()
   })
 
   printLog('ready', serverHost, repoId, requestTime)
@@ -349,7 +327,7 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
   const opTime = endInstrument(opTimeInstrument, Date.now())
   startInstrument(opTimeInstrument, Date.now())
 
-  addToMetric(opTimeMetric, opTime)
+  addToMetric(repoUpdateTimeMetric, opTime)
   addToMetric(bytesMetric, updateEvent.payloadSize)
 
   const {
@@ -362,8 +340,13 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
 
   const repoState = state.repos.get(repoId)
 
-  if (repoState == null || gt(serverRepoTimestamp, repoState.repoTimestamp)) {
+  if (repoState == null) {
+    throw new Error('Missing repo state')
+  }
+
+  if (gt(serverRepoTimestamp, repoState.repoTimestamp)) {
     state.repos.set(repoId, {
+      ...repoState,
       updateRequestTime: requestTime,
       repoTimestamp: serverRepoTimestamp,
       serverHost
@@ -400,7 +383,7 @@ function onCheckEvent(
       : 'conflicting'
     : 'behind'
 
-  const wasRepoInSync = getIsRepoInSync(serverHost, repoId)
+  const wasRepoInSync = getIsRepoInSyncWithServer(serverHost, repoId)
   const wasServerInSync = getIsServerInSync(serverHost)
   const wasNetworkInSync = getIsNetworkInSync()
 
@@ -458,10 +441,12 @@ function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
     return
   }
 
-  addToMetric(repoSyncMetric, timestamp - repoState.updateRequestTime)
+  const repoSyncTime = timestamp - repoState.updateRequestTime
+
+  addToMetric(repoSyncMetric, repoSyncTime)
   setIsRepoInSync(serverHost, repoId, true)
 
-  printLog('sync', serverHost, repoId, timestamp)
+  printLog('sync', serverHost, repoId, timestamp, `${repoSyncTime}ms`)
 }
 
 function onServerSync(serverSyncEvent: ServerSyncEvent): void {
@@ -469,31 +454,16 @@ function onServerSync(serverSyncEvent: ServerSyncEvent): void {
   const serverSyncTime = endInstrument(serverSyncInstrument, timestamp)
   addToMetric(serverSyncMetric, serverSyncTime)
 
-  printLog('server-sync', serverHost, serverSyncTime, timestamp)
+  printLog('server-sync', serverHost, timestamp, `${serverSyncTime}ms`)
 }
 
-function onNetworkSync(
-  networkSyncEvent: NetworkSyncEvent,
-  workerInput: WorkerInput,
-  workerPs: ChildProcess
-): void {
+function onNetworkSync(networkSyncEvent: NetworkSyncEvent): void {
   const { timestamp } = networkSyncEvent
   const networkSyncTime = endInstrument(networkSyncInstrument, timestamp)
 
   addToMetric(networkSyncMetric, networkSyncTime)
 
-  state.output.results.push({
-    opRate: workerInput.maxOpsPerSecond,
-    avgOpsRate: opTimeMetric.avg !== 0 ? 1000 / opTimeMetric.avg : 0,
-    networkSyncTime
-  })
-
-  // Update the maxOpsPerSecond rate
-  workerInput.maxOpsPerSecond =
-    workerInput.maxOpsPerSecond * config.opIncreaseRate
-  workerPs.send(workerInput)
-
-  printLog('net-sync', networkSyncTime, workerInput.maxOpsPerSecond, timestamp)
+  printLog('net-sync', timestamp, `${networkSyncTime}ms`)
 }
 
 function setIsRepoInSync(
@@ -512,7 +482,10 @@ function setIsServerInSync(serverHost: string): void {
   serverSyncInfo.inSync = getIsServerInSync(serverHost)
 }
 
-function getIsRepoInSync(serverHost: string, repoId: string): boolean {
+function getIsRepoInSyncWithServer(
+  serverHost: string,
+  repoId: string
+): boolean {
   const serverSyncInfo = state.serverSyncInfoMap[serverHost]
   const repoSyncInfo = serverSyncInfo.repos[repoId]
   return repoSyncInfo.inSync
@@ -533,19 +506,88 @@ function countServersInSync(): number {
     0
   )
 }
+function countReposInSync(): number {
+  let count = 0
+  state.repos.forEach((_, repoId) => {
+    count += getIsRepoSynced(repoId) ? 1 : 0
+  })
+  return count
+}
+
+const getIsRepoSynced = (repoId: string): boolean => {
+  return Object.keys(state.serverSyncInfoMap).every(serverHost =>
+    getIsRepoInSyncWithServer(serverHost, repoId)
+  )
+}
 
 const checkmarkify = (bool: boolean): string => (bool ? '✓' : '𐄂')
 
+const generateRepoIds = (repoPrefix: string, count: number): string[] => {
+  const arr = []
+  for (let i = 0; i < count; ++i) {
+    arr.push(makeRepoId(i, repoPrefix))
+  }
+  return arr
+}
+
+const generateSyncInfoMap = (
+  serverUrls: string[],
+  repoIds: string[]
+): ServerSyncInfoMap => {
+  const map: ServerSyncInfoMap = {}
+
+  for (const serverUrl of serverUrls) {
+    const serverHost = new URL('', serverUrl).host
+    const repos: RepoSyncInfoMap = {}
+
+    for (const repoId of repoIds) {
+      repos[repoId] = {
+        inSync: true
+      }
+    }
+
+    map[serverHost] = {
+      inSync: true,
+      repos
+    }
+  }
+
+  return map
+}
+
 // Startup
 
-main(config).catch(errHandler)
+let config: Config
+
+try {
+  const jsonArg = process.argv[2]
+
+  if (jsonArg == null) {
+    errHandler(
+      `Missing json config argument:\n\n${JSON.stringify(
+        configSample,
+        null,
+        2
+      )}`
+    )
+  }
+
+  config = asConfig(JSON.parse(jsonArg))
+
+  main(config).catch(errHandler)
+} catch (error) {
+  if (error instanceof TypeError) {
+    throw new Error(`Invalid JSON input argument: ${error.message}`)
+  }
+  throw error
+}
 
 process.on('unhandledRejection', error => {
   console.warn(`UNHANDLED PROMISE!!!`)
   if (error instanceof Error) errHandler(error)
 })
 
-function errHandler(err: Error): void {
+function errHandler(err: Error | string): void {
   console.error(err)
   process.exit(1)
 }

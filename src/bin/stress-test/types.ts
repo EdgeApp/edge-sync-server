@@ -67,18 +67,12 @@ export const asMessageEvent = asObject({
 export type WorkerInput = ReturnType<typeof asWorkerInput>
 export const asWorkerInput = asObject({
   serverUrls: asArray(asString),
-  repoIds: asArray(asString),
-  maxOpsPerSecond: asNumber,
-  maxOpCount: asNumber,
+  repoId: asString,
+  repoUpdatesPerMin: asNumber,
+  repoUpdateIncreaseRate: asNumber,
+  maxUpdatesPerRepo: asNumber,
+  fileSizeRange: asArray(asNumber),
   fileCountRange: asArray(asNumber)
-})
-
-// Checker
-
-export type CheckerInput = ReturnType<typeof asCheckerInput>
-export const asCheckerInput = asObject({
-  serverUrls: asArray(asString),
-  repoIds: asArray(asString)
 })
 
 // Events

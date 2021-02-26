@@ -13,7 +13,6 @@ import {
   UpdateFilesBody,
   UpdateFilesResponse
 } from '../../types'
-import { config } from './config'
 import { randomBytes, randomPath } from './utils/utils'
 
 interface FilePayload {
@@ -153,9 +152,12 @@ export class SyncClient {
     return response
   }
 
-  async randomFilePayload(fileCount: number): Promise<FilePayload> {
+  async randomFilePayload(
+    fileCount: number,
+    fileSizeRange: number[]
+  ): Promise<FilePayload> {
     const data: FilePayload = {}
-    const size = randomInt(config.fileSizeRange[0], config.fileSizeRange[1])
+    const size = randomInt(fileSizeRange[0], fileSizeRange[1])
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()
