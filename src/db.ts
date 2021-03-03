@@ -6,11 +6,12 @@ import { CouchDbInfo } from './util/couch'
 
 export const getCouchSchema = (config: Config): CouchDbInfo => ({
   name: config.couchDatabase,
-  sharding: config.couchSharding
+  sharding: config.couchSharding,
+  partitioned: true
 })
 
 export const getCouchUri = (config: Config): string =>
-  `http://admin:${config.couchAdminPassword}@${config.couchHost}:${config.couchPort}`
+  config.couchUri.replace('{password}', config.couchPassword)
 
 export const getDbServer = (config: Config): nano.ServerScope =>
   nano(getCouchUri(config))
