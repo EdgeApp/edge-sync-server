@@ -7,7 +7,7 @@ import { GetStoreResponse } from '../../src/types'
 import { apiSuite } from '../suites'
 import { isSuccessfulResponse } from '../utils'
 
-apiSuite('Migrations', (appState: AppState) => {
+apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 

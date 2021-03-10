@@ -3,7 +3,8 @@ import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { getDirectoryUpdates } from '../api/getUpdates'
-import { getRepoDocument } from '../api/repo'
+import { migrateRepo } from '../api/migrations'
+import { checkRepoExists, getRepoDocument } from '../api/repo'
 import { asGetUpdatesBody, GetUpdatesBody, GetUpdatesResponse } from '../types'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
@@ -20,6 +21,19 @@ export const getUpdatesRouter = (appState: any): Router => {
     }
 
     const { repoId, timestamp: clientTimestamp } = body
+
+    // Deprecate after migrations
+    if (!(await checkRepoExists(appState)(repoId))) {
+      try {
+        await migrateRepo(appState)(repoId)
+      } catch (error) {
+        if (error.message === 'Repo not found') {
+          throw makeApiClientError(404, `Repo '${repoId}' not found`)
+        }
+        throw error
+      }
+    }
+
     const repoKey = `${repoId}:/`
     const repoDocument = await getRepoDocument(appState)(repoId)
 
