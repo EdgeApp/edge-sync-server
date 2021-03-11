@@ -21,7 +21,7 @@ async function main(): Promise<void> {
         ...configSample,
         couchPassword,
         couchSharding: {
-          q: 512,
+          q: 64,
           n: 2
         },
         migrationOriginServers: [
