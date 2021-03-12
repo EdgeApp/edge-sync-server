@@ -13,20 +13,19 @@ import {
   UpdateFilesBody,
   UpdateFilesResponse
 } from '../../types'
+import { withRetries } from '../../util/utils'
 import { randomBytes, randomPath } from './utils/utils'
-
-interface FilePayload {
-  [file: string]: string
-}
 
 export class SyncClient {
   baseUrl: string
   repoTimestamps: { [repoId: string]: TimestampRev }
+  repoFilePaths: { [repoId: string]: Set<string> }
   host: string
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl
     this.repoTimestamps = {}
+    this.repoFilePaths = {}
     this.host = this.endpoint('').host
   }
 
@@ -92,44 +91,52 @@ export class SyncClient {
 
   async updateFiles(
     repoId: string,
-    filePayload: FilePayload
+    changeSet: ChangeSet
   ): Promise<ApiResponse<UpdateFilesResponse>> {
-    const paths = Object.entries(filePayload).reduce<ChangeSet>(
-      (paths, [key, value]) => {
-        paths[key] = {
-          box: {
-            iv_hex: '',
-            encryptionType: 0,
-            data_base64: value
-          }
+    const response = await withRetries(
+      async () => {
+        // Get updates for this repo in-case client is out of sync
+        await this.getUpdates(repoId)
+
+        // Get the repo's timestamp
+        const timestamp = this.getRepoTimestamp(repoId)
+
+        // Prepare the update body
+        const body: UpdateFilesBody = {
+          timestamp,
+          repoId,
+          paths: changeSet
         }
-        return paths
+
+        // Send the update request
+        return await this.request<UpdateFilesResponse>(
+          'POST',
+          '/api/v3/updateFiles',
+          body
+        )
       },
-      {}
-    )
-
-    // Get updates for this repo in-case client is out of sync
-    await this.getUpdates(repoId)
-
-    // Get the repo's timestamp
-    const timestamp = this.getRepoTimestamp(repoId)
-
-    // Prepare the update body
-    const body: UpdateFilesBody = {
-      timestamp,
-      repoId,
-      paths
-    }
-
-    // Set the update request
-    const response = await this.request<UpdateFilesResponse>(
-      'POST',
-      '/api/v3/updateFiles',
-      body
+      err => /File is already deleted/.test(err.message)
     )
 
     // Save the new repo timestamp
     this.saveRepoTimestamp(repoId, response.data.timestamp)
+
+    // Save the file paths
+    const [paths, deleted] = Object.entries(changeSet).reduce<
+      [string[], string[]]
+    >(
+      ([paths, deleted], [path, change]) => {
+        if (change == null) {
+          deleted.push(path)
+        } else {
+          paths.push(path)
+        }
+
+        return [paths, deleted]
+      },
+      [[], []]
+    )
+    this.saveRepoFilePaths(repoId, paths, deleted)
 
     // Return response
     return response
@@ -149,22 +156,47 @@ export class SyncClient {
       this.saveRepoTimestamp(repoId, data.timestamp)
     }
 
+    // Save the file paths
+    this.saveRepoFilePaths(
+      repoId,
+      Object.keys(response.data.paths),
+      Object.keys(response.data.deleted)
+    )
+
     return response
   }
 
-  async randomFilePayload(
+  async randomChangeSet(
+    repoId: string,
     fileCount: number,
     fileSizeRange: number[]
-  ): Promise<FilePayload> {
-    const data: FilePayload = {}
+  ): Promise<ChangeSet> {
+    const changeSet: ChangeSet = {}
     const size = randomInt(fileSizeRange[0], fileSizeRange[1])
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()
-      data[path] = randomBytes(size).toString('base64')
+      changeSet[path] = {
+        box: {
+          iv_hex: '',
+          encryptionType: 0,
+          data_base64: randomBytes(size).toString('base64')
+        }
+      }
     }
 
-    return data
+    const existingFilePaths = this.repoFilePaths[repoId]
+
+    // Sprinkle in some random deletions
+    if (existingFilePaths != null) {
+      Object.entries(changeSet).forEach(([path, change]) => {
+        if (existingFilePaths.has(path)) {
+          changeSet[path] = Math.round(Math.random()) === 0 ? change : null
+        }
+      })
+    }
+
+    return changeSet
   }
 
   getRepoTimestamp(repoId: string): TimestampRev {
@@ -173,6 +205,19 @@ export class SyncClient {
 
   saveRepoTimestamp(repoId: string, timestamp: TimestampRev): void {
     this.repoTimestamps[repoId] = timestamp
+  }
+
+  saveRepoFilePaths(repoId: string, paths: string[], deleted: string[]): void {
+    for (const path of paths) {
+      if (this.repoFilePaths[repoId] == null)
+        this.repoFilePaths[repoId] = new Set()
+      this.repoFilePaths[repoId].add(path)
+    }
+    for (const path of deleted) {
+      if (this.repoFilePaths[repoId] == null)
+        this.repoFilePaths[repoId] = new Set()
+      this.repoFilePaths[repoId].delete(path)
+    }
   }
 }
 
