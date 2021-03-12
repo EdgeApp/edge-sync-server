@@ -1,4 +1,5 @@
-import { lt } from 'biggystring'
+import { eq, lt } from 'biggystring'
+import { asEither, asMaybe } from 'cleaners'
 import { DocumentBulkResponse } from 'nano'
 
 import { AppState } from '../server'
@@ -11,12 +12,14 @@ import {
   FilePointers,
   StoreDirectory,
   StoreDirectoryDocument,
+  StoreDocument,
   StoreFile,
   StoreFileDocument,
   StoreRepoDocument,
   TimestampRev
 } from '../types'
 import {
+  delay,
   getNameFromPath,
   getParentPathsOfPath,
   makeApiClientError,
@@ -54,6 +57,16 @@ export const updateDocuments = (appState: AppState) => (
   withRetries(
     async (): Promise<TimestampRev> => {
       const updateTimestamp = asTimestampRev(Date.now())
+
+      try {
+        // Check if repo is inconsistent
+        await checkChangeSetDocumentsConsistency(appState)(repoId, changeSet)
+      } catch (error) {
+        // Throw the error to retry after delaying for 1 second
+        await delay(1000)
+        throw error
+      }
+
       const repoModification = await updateFilesAndDirectories(appState)(
         repoId,
         changeSet,
@@ -63,7 +76,7 @@ export const updateDocuments = (appState: AppState) => (
 
       return updateTimestamp
     },
-    err => err.message === 'conflict'
+    err => err.message === 'conflict' || /^Inconsistent: .*$/.test(err.message)
   )
 
 export const updateFilesAndDirectories = (appState: AppState) => async (
@@ -400,4 +413,149 @@ const checkResultsForErrors = (results: DocumentBulkResponse[]): void => {
       }
     }
   })
+}
+
+const checkChangeSetDocumentsConsistency = (appState: AppState) => async (
+  repoId: string,
+  changeSet: ChangeSet
+): Promise<void> => {
+  const paths = Object.keys(changeSet)
+  const repoDocumentKey = `${repoId}:/`
+
+  // Set of all document keys for every document affected in the changeset
+  const documentKeysSet = paths.reduce<Set<string>>((documentKeys, path) => {
+    // Add document key for full path
+    documentKeys.add(`${repoId}:${path}`)
+
+    // Add document keys for each parent path
+    const parentPaths = getParentPathsOfPath(path)
+    for (const parentPath of parentPaths) {
+      documentKeys.add(`${repoId}:${parentPath}`)
+    }
+
+    // Return the set accumulator
+    return documentKeys
+  }, new Set([repoDocumentKey]))
+
+  // Array of the document keys
+  const documentKeys = [...documentKeysSet]
+
+  /*
+  Create a graph of each parent document key to a set of child document keys.
+  Example:
+    {
+      'repoId:/dir1': [
+        'repoId:/dir1/file1.txt',
+        'repoId:/dir1/file2.txt',
+        'repoId:/dir1/subdir'
+      ],
+      'repoId:/dir1/subdir': ['repoId:/dir1/subdir/somefile.tar']
+    }
+  */
+  const documentKeyGraph = documentKeys.reduce<Map<string, string[]>>(
+    (documentKeyGraph, documentKey) => {
+      // Ignore repo document key
+      if (documentKey === repoDocumentKey) return documentKeyGraph
+
+      // The document path from document key
+      const [, documentPath] = documentKey.split(':')
+      // The parent paths from document path
+      const parentPaths = getParentPathsOfPath(documentPath)
+
+      // The immediate parent document path
+      const directParentPath = parentPaths[0] ?? '/'
+      // The immediate parent document key
+      const directParentKey = `${repoId}:${directParentPath}`
+
+      // The parent document's edges in the graph (the child keys)
+      const keys = documentKeyGraph.get(directParentKey) ?? []
+
+      // Update the edges (child keys)
+      documentKeyGraph.set(directParentKey, [...keys, documentKey])
+
+      // Return the graph accumulator
+      return documentKeyGraph
+    },
+    new Map()
+  )
+
+  // Query for documents
+  const documentResults = await getConflictFreeDocuments(appState)(documentKeys)
+
+  // Map each document key to its StoreDocument
+  const storeDocumentMap = documentResults.reduce<Map<string, StoreDocument>>(
+    (storeDocumentMap, result) => {
+      // Handle error cases
+      if ('error' in result) {
+        if (result.error !== 'not_found') {
+          throw result
+        }
+        return storeDocumentMap
+      }
+
+      // Set the document key to map to the StoreDocument
+      storeDocumentMap.set(result.key, result.doc)
+
+      // Return map accumulator
+      return storeDocumentMap
+    },
+    new Map()
+  )
+
+  // Iterate over each document key and check if its timestamp is consistent
+  // with its pointer timestamp in the parent document.
+  for (const [parentKey, childKeys] of documentKeyGraph.entries()) {
+    const doc = storeDocumentMap.get(parentKey)
+    const parentStoreDirectoryDocument = asMaybe(asStoreDirectoryDocument)(doc)
+
+    for (const childKey of childKeys) {
+      const [, childDocumentPath] = childKey.split(':')
+      const childDocmentName = getNameFromPath(childDocumentPath)
+
+      // Get the file pointer timestamp for the child document
+      const filePointerTimestamp =
+        parentStoreDirectoryDocument != null
+          ? parentStoreDirectoryDocument.paths[childDocmentName]
+          : undefined
+      // Get the deleted file pointer timestamp for the child document
+      const deletedFilePointerTimestamp =
+        parentStoreDirectoryDocument != null
+          ? parentStoreDirectoryDocument.deleted[childDocmentName]
+          : undefined
+      // Get the child document
+      const childDoc = storeDocumentMap.get(childKey)
+
+      if (filePointerTimestamp == null) {
+        // This is a new document if both file pointer and document aren't present
+        if (childDoc == null) continue
+        // This is a deleted document if deleted file pointer is present
+        if (deletedFilePointerTimestamp != null) continue
+        // Otherise, inconsistent if no file pointer for child document
+        throw new Error(
+          `Inconsistent: File pointer in '${parentKey}' missing for document '${childKey}'`
+        )
+      }
+
+      // Inconsistent if child doc is missing while a file pointer is present
+      if (childDoc == null)
+        throw new Error(
+          `Inconsistent: Document '${childKey}' missing for file pointer in '${parentKey}'`
+        )
+
+      const childStoreFileOrDirDocument = asMaybe(
+        asEither(asStoreFileDocument, asStoreDirectoryDocument)
+      )(childDoc)
+
+      if (childStoreFileOrDirDocument != null) {
+        // Inconsistent if pointer timestamp and document timestamp don't match
+        if (!eq(filePointerTimestamp, childStoreFileOrDirDocument.timestamp))
+          throw new Error(
+            `Inconsistent: Document timestamp and file pointer mismatch for '${childKey}'`
+          )
+        continue
+      }
+
+      throw new Error(`Unexpected document type during repo consistency check`)
+    }
+  }
 }

@@ -117,16 +117,10 @@ export const withRetries = async <T>(
   let retries: number = 0
 
   while (true) {
-    if (retries === maxRetries) {
-      throw new Error(
-        `Failed to resolve conflicts after ${maxRetries} attempts`
-      )
-    }
-
     try {
       result = await fn()
     } catch (err) {
-      if (condition(err)) {
+      if (condition(err) && retries !== maxRetries) {
         retries += 1
         continue
       }
@@ -137,4 +131,8 @@ export const withRetries = async <T>(
   }
 
   return result
+}
+
+export const delay = (ms: number): Promise<void> => {
+  return new Promise((resolve, reject) => setTimeout(resolve, ms))
 }
