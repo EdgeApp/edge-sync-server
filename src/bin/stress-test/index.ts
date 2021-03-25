@@ -1,5 +1,7 @@
 import { eq, gt, toFixed } from 'biggystring'
 import { fork } from 'child_process'
+import { readFileSync } from 'fs'
+import minimist from 'minimist'
 import { join } from 'path'
 
 import { TimestampRev } from '../../types'
@@ -78,6 +80,8 @@ interface Output {
 
 // State:
 
+let config: Config
+
 // Metrics
 const repoUpdateTimeMetric = makeMetric()
 const bytesMetric = makeMetric()
@@ -97,7 +101,7 @@ const state: State = {
   output: null
 }
 
-async function main(config: Config): Promise<void> {
+async function main(): Promise<void> {
   console.log(`Verbosity: ${String(config.verbose)}`)
 
   const serverUrls = config.servers
@@ -557,27 +561,35 @@ const generateSyncInfoMap = (
 
 // Startup
 
-let config: Config
-
 try {
-  const jsonArg = process.argv[2]
+  const argv = minimist(process.argv.slice(2))
+  const jsonArg = argv._[0]
+  let configJson: string | undefined = jsonArg
+  const configFile = argv.config
 
-  if (jsonArg == null) {
+  if (configFile != null) {
+    configJson = readFileSync(join(process.cwd(), configFile), 'utf-8')
+  }
+
+  if (configJson == null) {
     errHandler(
-      `Missing json config argument:\n\n${JSON.stringify(
-        configSample,
-        null,
-        2
-      )}`
+      [
+        `Usage:`,
+        `  yarn test.stress --config=config.stress.json`,
+        `  yarn test.stress $json`,
+        ``,
+        `Example JSON Config:`,
+        JSON.stringify(configSample, null, 2)
+      ].join('\n')
     )
   }
 
-  config = asConfig(JSON.parse(jsonArg))
+  config = asConfig(JSON.parse(configJson))
 
-  main(config).catch(errHandler)
+  main().catch(errHandler)
 } catch (error) {
   if (error instanceof TypeError) {
-    throw new Error(`Invalid JSON input argument: ${error.message}`)
+    errHandler(`Invalid config: ${error.message}`)
   }
   throw error
 }
