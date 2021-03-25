@@ -71,7 +71,7 @@ export const asWorkerInput = asObject({
   repoUpdatesPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,
-  fileSizeRange: asArray(asNumber),
+  fileByteSizeRange: asArray(asNumber),
   fileCountRange: asArray(asNumber)
 })
 

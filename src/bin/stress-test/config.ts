@@ -10,7 +10,7 @@ export const asConfig = asObject({
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,
   repoSyncTimeout: asNumber,
-  fileSizeRange: asArray(asNumber),
+  fileByteSizeRange: asArray(asNumber),
   fileCountRange: asArray(asNumber)
 })
 
@@ -32,6 +32,6 @@ export const configSample: Config = {
   repoUpdateIncreaseRate: 1.1,
   maxUpdatesPerRepo: 100,
   repoSyncTimeout: 60000,
-  fileSizeRange: [1, 4],
+  fileByteSizeRange: [1, 4],
   fileCountRange: [1, 10]
 }

@@ -169,10 +169,10 @@ export class SyncClient {
   async randomChangeSet(
     repoId: string,
     fileCount: number,
-    fileSizeRange: number[]
+    fileByteSizeRange: number[]
   ): Promise<ChangeSet> {
     const changeSet: ChangeSet = {}
-    const size = randomInt(fileSizeRange[0], fileSizeRange[1])
+    const size = randomInt(fileByteSizeRange[0], fileByteSizeRange[1])
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()

@@ -162,7 +162,7 @@ async function updateRepo(
   const changeSet = await sync.randomChangeSet(
     repoId,
     fileCount,
-    input.fileSizeRange
+    input.fileByteSizeRange
   )
   const payloadSize = Buffer.byteLength(JSON.stringify(changeSet))
 

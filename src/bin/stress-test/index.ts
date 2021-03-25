@@ -128,7 +128,7 @@ async function main(): Promise<void> {
       repoUpdatesPerMin: config.repoUpdatesPerMin,
       repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
       maxUpdatesPerRepo: config.maxUpdatesPerRepo,
-      fileSizeRange: config.fileSizeRange,
+      fileByteSizeRange: config.fileByteSizeRange,
       fileCountRange: config.fileCountRange
     }
     const workerJsonInput = JSON.stringify(workerInput, null, 2)
