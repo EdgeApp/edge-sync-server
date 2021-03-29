@@ -11,7 +11,6 @@ import {
   WorkerInput
 } from './types'
 import {
-  delay,
   isAcceptableError,
   isRepoNotFoundError,
   randomElement,
@@ -48,22 +47,36 @@ const updateIsRepoSynced = (
 
 // Main
 async function main(input: WorkerInput): Promise<void> {
-  const lock = new Semaphore(1)
-  lock.drainPermits()
+  const updateLock = new Semaphore(1)
+  const readLock = new Semaphore(1)
 
-  const getOpDelay = (): number => 1000 / (input.repoUpdatesPerMin / 60)
-  const releaser = (): void => {
-    lock.release()
+  const getUpdateDelay = (): number => (60 / input.repoUpdatesPerMin) * 1000
+  const updateLockReleaser = (): void => {
+    updateLock.release()
 
     if (
       input.maxUpdatesPerRepo === 0 ||
       updatesDone + 1 < input.maxUpdatesPerRepo
     ) {
-      setTimeout(releaser, getOpDelay())
+      setTimeout(updateLockReleaser, getUpdateDelay())
     }
   }
-  // Start releaser
-  releaser()
+  const getReadLockDelay = (): number => (60 / input.repoReadsPerMin) * 1000
+  const readLockReleaser = (): void => {
+    readLock.release()
+
+    if (
+      input.maxUpdatesPerRepo === 0 ||
+      updatesDone + 1 < input.maxUpdatesPerRepo
+    ) {
+      setTimeout(readLockReleaser, getReadLockDelay())
+    }
+  }
+  // Initialize lock releasers
+  updateLock.drainPermits()
+  updateLockReleaser()
+  readLock.drainPermits()
+  readLockReleaser()
 
   process.on('message', message => {
     try {
@@ -88,10 +101,10 @@ async function main(input: WorkerInput): Promise<void> {
   await getRepoReady(randomElement(syncClients), input.repoId)
 
   // Run updater
-  updater(input, syncClients, lock).catch(errHandler)
+  updater(input, syncClients, updateLock, readLock).catch(errHandler)
 
   // Run the checker
-  checker(input, syncClients).catch(errHandler)
+  checker(input, syncClients, readLock).catch(errHandler)
 }
 
 // Creates repo if it does not exist.
@@ -139,17 +152,19 @@ const getRepoReady = async (
 const updater = (
   input: WorkerInput,
   syncClients: SyncClient[],
-  lock: Semaphore
+  updateLock: Semaphore,
+  readLock: Semaphore
 ): Promise<void> => {
-  return updateRepo(input, syncClients, lock)
+  return updateRepo(input, syncClients, updateLock)
     .then(send)
     .then(() => {
+      readLock.release()
       if (
         input.maxUpdatesPerRepo === 0 ||
         updatesQueued < input.maxUpdatesPerRepo
       ) {
         ++updatesQueued
-        return updater(input, syncClients, lock)
+        return updater(input, syncClients, updateLock, readLock)
       }
     })
 }
@@ -157,9 +172,9 @@ const updater = (
 async function updateRepo(
   input: WorkerInput,
   syncClients: SyncClient[],
-  lock: Semaphore
+  updateLock: Semaphore
 ): Promise<UpdateEvent> {
-  await lock.acquire()
+  await updateLock.acquire()
 
   const sync = randomElement(syncClients)
 
@@ -203,25 +218,30 @@ async function updateRepo(
     }
 
     // Try again
-    lock.release()
-    return await throttle(() => updateRepo(input, syncClients, lock), 500)
+    updateLock.release()
+    return await throttle(() => updateRepo(input, syncClients, updateLock), 500)
   }
 }
 
 const checker = (
   input: WorkerInput,
-  syncClients: SyncClient[]
+  syncClients: SyncClient[],
+  readLock: Semaphore
 ): Promise<void> =>
-  Promise.all(
-    // Only check for updates on servers where the client's timestamp does
-    // not equal the last update timestamp. This prevents redundant checks.
-    syncClients
-      .filter(
-        syncClient =>
-          syncClient.repoTimestamps[input.repoId] !== lastUpdateTimestamp
+  readLock
+    .acquire()
+    .then(() =>
+      Promise.all(
+        // Only check for updates on servers where the client's timestamp does
+        // not equal the last update timestamp. This prevents redundant checks.
+        syncClients
+          .filter(
+            syncClient =>
+              syncClient.repoTimestamps[input.repoId] !== lastUpdateTimestamp
+          )
+          .map(sync => checkServerStatus({ sync, repoId: input.repoId }))
       )
-      .map(sync => checkServerStatus({ sync, repoId: input.repoId }))
-  )
+    )
     .then(checkResponses => {
       const checkEvents = checkResponses.filter(
         (checkResponse): checkResponse is CheckEvent => checkResponse != null
@@ -236,14 +256,13 @@ const checker = (
 
       updateIsRepoSynced(serverRepoTimestamps, input)
     })
-    .then(() => delay(500))
     .then(() => {
       if (
         input.maxUpdatesPerRepo === 0 ||
         updatesDone < input.maxUpdatesPerRepo ||
         !isRepoSynced
       ) {
-        return checker(input, syncClients)
+        return checker(input, syncClients, readLock)
       }
     })
 

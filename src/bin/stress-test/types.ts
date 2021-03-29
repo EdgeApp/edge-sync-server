@@ -70,6 +70,7 @@ export const asWorkerInput = asObject({
   clusters: asMap(asArray(asString)),
   repoId: asString,
   repoUpdatesPerMin: asNumber,
+  repoReadsPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,
   fileByteSizeRange: asArray(asNumber),

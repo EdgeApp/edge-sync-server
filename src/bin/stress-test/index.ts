@@ -133,6 +133,7 @@ async function main(): Promise<void> {
       clusters: config.clusters,
       repoId,
       repoUpdatesPerMin: config.repoUpdatesPerMin,
+      repoReadsPerMin: config.repoReadsPerMin,
       repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
       maxUpdatesPerRepo: config.maxUpdatesPerRepo,
       fileByteSizeRange: config.fileByteSizeRange,
