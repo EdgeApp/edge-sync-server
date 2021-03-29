@@ -81,6 +81,7 @@ interface Output {
 // State:
 
 let config: Config
+let serverCount: number = 0
 
 // Metrics
 const repoUpdateTimeMetric = makeMetric()
@@ -104,7 +105,13 @@ const state: State = {
 async function main(): Promise<void> {
   console.log(`Verbosity: ${String(config.verbose)}`)
 
-  const serverUrls = config.servers
+  const serverUrls = Object.values(config.clusters).reduce<string[]>(
+    (allUrls, urls) => {
+      return [...allUrls, ...urls]
+    },
+    []
+  )
+  serverCount = serverUrls.length
 
   console.log(`Generating random repos...`)
   // Generate an array of unique repo IDs of configured repoCount length
@@ -123,7 +130,7 @@ async function main(): Promise<void> {
   console.info(`Forking worker processes (${repoIds.length})...`)
   const workerProcesses = repoIds.map(repoId => {
     const workerInput: WorkerInput = {
-      serverUrls,
+      clusters: config.clusters,
       repoId,
       repoUpdatesPerMin: config.repoUpdatesPerMin,
       repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
@@ -213,12 +220,12 @@ async function main(): Promise<void> {
 
     const statusHeader = [
       [
-        `${checkmarkify(getIsNetworkInSync())} network in-sync`,
+        `${checkmarkify(getIsNetworkInSync(serverCount))} network in-sync`,
         `${timeSinceNetworkOutOfSync}ms since network sync `
       ].join(' | '),
       statusBarLine(),
       [
-        `${countServersInSync()} / ${config.servers.length} servers in-sync`,
+        `${countServersInSync()} / ${serverCount} servers in-sync`,
         ...Object.entries(state.serverSyncInfoMap).map(
           ([serverHost, { inSync }]) => `${checkmarkify(inSync)} ${serverHost}`
         )
@@ -267,7 +274,7 @@ async function main(): Promise<void> {
     if (
       config.maxUpdatesPerRepo > 0 &&
       totalRepoUpdates >= config.maxUpdatesPerRepo * config.repoCount &&
-      getIsNetworkInSync()
+      getIsNetworkInSync(serverCount)
     ) {
       exit('completed max operations')
     }
@@ -389,7 +396,7 @@ function onCheckEvent(
 
   const wasRepoInSync = getIsRepoInSyncWithServer(serverHost, repoId)
   const wasServerInSync = getIsServerInSync(serverHost)
-  const wasNetworkInSync = getIsNetworkInSync()
+  const wasNetworkInSync = getIsNetworkInSync(serverCount)
 
   if (status === 'replicated' && !wasRepoInSync) {
     onEvent({
@@ -400,7 +407,7 @@ function onCheckEvent(
     })
 
     const isServerInSync = getIsServerInSync(serverHost)
-    const isNetworkInSync = getIsNetworkInSync()
+    const isNetworkInSync = getIsNetworkInSync(serverCount)
 
     // If server is now in-sync, emit a server-sync event
     if (!wasServerInSync && isServerInSync) {
@@ -500,8 +507,8 @@ function getIsServerInSync(serverHost: string): boolean {
   return Object.values(serverSyncInfo.repos).every(repo => repo.inSync)
 }
 
-function getIsNetworkInSync(): boolean {
-  return countServersInSync() === config.servers.length
+function getIsNetworkInSync(serverCount: number): boolean {
+  return countServersInSync() === serverCount
 }
 
 function countServersInSync(): number {

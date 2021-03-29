@@ -1,5 +1,6 @@
 import {
   asArray,
+  asMap,
   asNumber,
   asObject,
   asString,
@@ -66,7 +67,7 @@ export const asMessageEvent = asObject({
 
 export type WorkerInput = ReturnType<typeof asWorkerInput>
 export const asWorkerInput = asObject({
-  serverUrls: asArray(asString),
+  clusters: asMap(asArray(asString)),
   repoId: asString,
   repoUpdatesPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,

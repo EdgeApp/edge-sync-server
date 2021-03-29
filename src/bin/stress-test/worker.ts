@@ -74,8 +74,14 @@ async function main(input: WorkerInput): Promise<void> {
   })
 
   // Create sync clients
-  const syncClients = input.serverUrls.map(
-    serverUrl => new SyncClient(serverUrl)
+  const syncClients = Object.entries(input.clusters).reduce<SyncClient[]>(
+    (syncClients, [clusterName, urls]) => {
+      const clients = urls.map(
+        serverUrl => new SyncClient(serverUrl, clusterName)
+      )
+      return [...syncClients, ...clients]
+    },
+    []
   )
 
   // Create repos
@@ -97,6 +103,8 @@ const getRepoReady = async (
     const response = await sync.createRepo(repoId)
     const requestTime = Date.now()
     const serverRepoTimestamp: TimestampRev = response.data.timestamp
+
+    lastUpdateTimestamp = serverRepoTimestamp
 
     const workerOutput: ReadyEvent = {
       type: 'ready',
@@ -205,7 +213,14 @@ const checker = (
   syncClients: SyncClient[]
 ): Promise<void> =>
   Promise.all(
-    syncClients.map(sync => checkServerStatus({ sync, repoId: input.repoId }))
+    // Only check for updates on servers where the client's timestamp does
+    // not equal the last update timestamp. This prevents redundant checks.
+    syncClients
+      .filter(
+        syncClient =>
+          syncClient.repoTimestamps[input.repoId] !== lastUpdateTimestamp
+      )
+      .map(sync => checkServerStatus({ sync, repoId: input.repoId }))
   )
     .then(checkResponses => {
       const checkEvents = checkResponses.filter(

@@ -18,12 +18,14 @@ import { randomBytes, randomPath } from './utils/utils'
 
 export class SyncClient {
   baseUrl: string
+  clusterName: string
   repoTimestamps: { [repoId: string]: TimestampRev }
   repoFilePaths: { [repoId: string]: Set<string> }
   host: string
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, clusterName: string = '') {
     this.baseUrl = baseUrl
+    this.clusterName = clusterName
     this.repoTimestamps = {}
     this.repoFilePaths = {}
     this.host = this.endpoint('').host
