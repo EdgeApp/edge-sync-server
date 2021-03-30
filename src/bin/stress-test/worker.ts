@@ -27,7 +27,7 @@ let lastUpdateTimestamp: TimestampRev = asTimestampRev(0)
 let isRepoSynced: boolean = true
 
 // State Methods
-const updateIsRepoSynced = (
+const repoUpdateIsSynced = (
   serverRepoTimestamps: string[],
   input: WorkerInput
 ): void => {
@@ -254,7 +254,7 @@ const checker = (
         send(checkEvent)
       })
 
-      updateIsRepoSynced(serverRepoTimestamps, input)
+      repoUpdateIsSynced(serverRepoTimestamps, input)
     })
     .then(() => {
       if (
