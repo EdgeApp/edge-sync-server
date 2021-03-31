@@ -63,10 +63,10 @@ export const asMessageEvent = asObject({
   message: asString
 })
 
-// Worker
+// Configs
 
-export type WorkerInput = ReturnType<typeof asWorkerInput>
-export const asWorkerInput = asObject({
+export type WorkerConfig = ReturnType<typeof asWorkerConfig>
+export const asWorkerConfig = asObject({
   clusters: asMap(asArray(asString)),
   repoId: asString,
   repoUpdatesPerMin: asNumber,

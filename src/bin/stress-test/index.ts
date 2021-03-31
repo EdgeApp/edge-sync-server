@@ -16,7 +16,7 @@ import {
   ServerSyncEvent,
   SyncEvent,
   UpdateEvent,
-  WorkerInput
+  WorkerConfig
 } from './types'
 import {
   endInstrument,
@@ -128,12 +128,36 @@ async function main(): Promise<void> {
     console.log(`Servers:\n  ${serverUrls.join('\n  ')}`)
   }
 
-  // Worker Process
+  // Worker Cluster Process
   // ---------------------------------------------------------------------
-  console.info(`Forking worker processes (${repoIds.length})...`)
-  const workerProcesses = repoIds.map(repoId =>
-    forkWorkerProcess(repoId, onEvent)
-  )
+  console.info(`Forking worker cluster processes...`)
+  // spawn
+  const workerCluster = fork(join(__dirname, 'worker-cluster.ts'))
+  // events
+  workerCluster.on('message', payload => {
+    try {
+      const output = asAllEvents(payload)
+      onEvent(output)
+    } catch (error) {
+      if (error instanceof TypeError) {
+        console.log({ payload })
+        throw new Error(`Invalid worker cluster output: ${error.message}`)
+      }
+      throw error
+    }
+  })
+  workerCluster.on('exit', (code): void => {
+    if (code !== null && code !== 0) {
+      throw new Error(`Worker cluster process exited with code ${String(code)}`)
+    }
+    print('! worker cluster process finished')
+  })
+
+  // Start Inital Worker Routines
+  // ---------------------------------------------------------------------
+  console.info(`Starting worker cluster routines (${repoIds.length})...`)
+  repoIds.forEach(repoId => startWorkerRoutine(workerCluster, repoId))
+
   // Increase repo count every minute
   const repoIncreaseInterval = setInterval(() => {
     const currentRepoCount = state.repoIds.length
@@ -145,14 +169,15 @@ async function main(): Promise<void> {
     printLog('repo-increase', newRepoCount)
 
     for (let i = 0; i < newRepoCount; ++i) {
-      const newRepoId = makeRepoId(state.repoIds.length + i, config.repoPrefix)
-      forkWorkerProcess(newRepoId, onEvent)
+      const newRepoId = makeRepoId(state.repoIds.length, config.repoPrefix)
+      startWorkerRoutine(workerCluster, newRepoId)
+      printLog('new-repo', newRepoId)
     }
   }, 60000)
 
   function exit(reason: string): void {
     // Exit all worker processes
-    workerProcesses.forEach(workerPs => workerPs.kill('SIGTERM'))
+    workerCluster.kill('SIGTERM')
 
     // Stop the status updater interval
     clearInterval(statusUpdaterIntervalId)
@@ -273,11 +298,8 @@ async function main(): Promise<void> {
   const statusUpdaterIntervalId = setInterval(statusUpdater, 100)
 }
 
-function forkWorkerProcess(
-  repoId: string,
-  onEvent: (event: AllEvents) => void
-): ChildProcess {
-  const workerInput: WorkerInput = {
+function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
+  const workerConfig: WorkerConfig = {
     clusters: config.clusters,
     repoId,
     repoUpdatesPerMin: config.repoUpdatesPerMin,
@@ -287,35 +309,10 @@ function forkWorkerProcess(
     fileByteSizeRange: config.fileByteSizeRange,
     fileCountRange: config.fileCountRange
   }
-  const workerJsonInput = JSON.stringify(workerInput, null, 2)
-
-  // spawn
-  const workerPs = fork(join(__dirname, 'worker.ts'), [workerJsonInput])
-
-  // events
-  workerPs.on('message', payload => {
-    try {
-      const output = asAllEvents(payload)
-      onEvent(output)
-    } catch (error) {
-      if (error instanceof TypeError) {
-        console.log({ payload })
-        throw new Error(`Invalid worker output: ${error.message}`)
-      }
-      throw error
-    }
-  })
-  workerPs.on('exit', (code): void => {
-    if (code !== null && code !== 0) {
-      throw new Error(`Worker process exited with code ${String(code)}`)
-    }
-    print('! worker process finished')
-  })
+  workerCluster.send(workerConfig)
 
   state.repoIds.push(repoId)
   addRepoToSyncInfoMap(repoId)
-
-  return workerPs
 }
 
 function onEvent(event: AllEvents): void {
