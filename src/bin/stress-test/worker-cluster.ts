@@ -4,7 +4,7 @@ import os from 'os'
 
 import { asWorkerConfig } from './types'
 import { send } from './utils/utils'
-import { workerRoutine } from './worker'
+import { workerRoutine } from './worker-routine'
 
 process.title = 'worker-cluster'
 
