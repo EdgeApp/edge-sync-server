@@ -1,0 +1,6 @@
+services:
+  edge-sync-server:
+    image: edge-sync-server:latest
+    ports:
+      - '8008:8008'
+    container_name: edge-sync-server

@@ -1,0 +1,8 @@
+{
+  "apps": [
+    {
+      "name": "edge-sync-server",
+      "script": "lib/index.js"
+    }
+  ]
+}

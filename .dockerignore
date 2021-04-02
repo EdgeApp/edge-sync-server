@@ -1,0 +1,26 @@
+# Build output:
+/.cache/
+/dist/
+/lib/
+/.nyc_output
+/coverage
+
+# Config
+/config.json
+/config.*.json
+!/config.sample.json
+!/config.*.sample.json
+
+# Package managers:
+node_modules/
+npm-debug.log
+package-lock.json
+yarn-error.log
+
+# Editors:
+.DS_Store
+.idea/
+.vscode/
+
+#Edge Encrypted Files:
+edge/
