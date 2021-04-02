@@ -5,6 +5,7 @@ export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
   couchDatabase: asString,
   couchUri: asString,
+  couchHostname: asString,
   couchPassword: asString,
   couchSharding: asObject({
     q: asNumber,
@@ -21,7 +22,8 @@ export const asConfig = asObject({
 
 export const configSample: Config = {
   couchDatabase: 'sync_datastore',
-  couchUri: 'http://admin:{password}@localhost:5984',
+  couchUri: 'http://admin:{password}@{hostname}:5984',
+  couchHostname: 'localhost',
   couchPassword: 'password123',
   couchSharding: {
     q: 24,

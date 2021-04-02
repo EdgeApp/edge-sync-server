@@ -8,17 +8,19 @@ import { Config, configSample } from './src/config.schema'
 const argv = minimist(process.argv.slice(2))
 
 const isProduction = argv.dev !== true
-const password = process.env.COUCH_PASSWORD
+const { COUCH_HOSTNAME, COUCH_PASSWORD } = process.env
 
 async function main(): Promise<void> {
+  const couchHostname: string = COUCH_HOSTNAME ?? configSample.couchHostname
   const couchPassword: string =
-    typeof password === 'string' && password !== ''
-      ? password
+    typeof COUCH_PASSWORD === 'string' && COUCH_PASSWORD !== ''
+      ? COUCH_PASSWORD
       : await captureInput('Enter CouchDB password: ', true)
 
   const config: Config = isProduction
     ? {
         ...configSample,
+        couchHostname,
         couchPassword,
         couchSharding: {
           q: 64,
