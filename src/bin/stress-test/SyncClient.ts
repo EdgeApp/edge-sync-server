@@ -1,6 +1,6 @@
 import { gt } from 'biggystring'
 import { randomInt } from 'crypto'
-import fetch from 'node-fetch'
+import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
 import {
@@ -48,8 +48,8 @@ export class SyncClient {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
 
+    let response: FetchResponse | undefined
     let responseJson: ApiResponse<T> | ApiErrorResponse
-    let response
 
     try {
       response = await fetch(url, {
@@ -59,12 +59,27 @@ export class SyncClient {
         },
         body
       })
-      responseJson = await response.json()
-    } catch (err) {
+    } catch (error) {
       throw new Error(
-        `Request failed: ${JSON.stringify({
+        `Request failed to fetch: ${JSON.stringify({
+          error,
+          request: { url, body }
+        })}`
+      )
+    }
+
+    const responseText = await response.text()
+
+    try {
+      responseJson = JSON.parse(responseText)
+    } catch (error) {
+      throw new Error(
+        `Request failed to parse JSON: ${JSON.stringify({
+          error,
           request: { url, body },
-          response
+          response,
+          status: response.status,
+          responseText
         })}`
       )
     }
