@@ -159,8 +159,12 @@ async function updateRepo(
   const repoId = input.repoId
 
   const fileCount = randomInt(input.fileCountRange[0], input.fileCountRange[1])
-  const files = await sync.randomFilePayload(fileCount, input.fileSizeRange)
-  const payloadSize = Buffer.byteLength(JSON.stringify(files))
+  const changeSet = await sync.randomChangeSet(
+    repoId,
+    fileCount,
+    input.fileSizeRange
+  )
+  const payloadSize = Buffer.byteLength(JSON.stringify(changeSet))
 
   try {
     // Make sure the worker is up-to-date with the repo in order to successfully
@@ -168,7 +172,7 @@ async function updateRepo(
     await sync.getUpdates(repoId)
 
     // Write update
-    const response = await sync.updateFiles(repoId, files)
+    const response = await sync.updateFiles(repoId, changeSet)
 
     const serverRepoTimestamp = response.data.timestamp
     const requestTime = Date.now()
