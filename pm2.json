@@ -1,8 +1,10 @@
 {
   "apps": [
     {
-      "name": "edge-sync-server",
-      "script": "lib/index.js"
+      "name": "server",
+      "script": "lib/index.js",
+      "error_file": "logs/server/error.log",
+      "out_file": "logs/server/log.log"
     }
   ]
 }

@@ -1,6 +1,10 @@
 services:
   edge-sync-server:
     image: edge-sync-server:latest
+    container_name: edge-sync-server
     ports:
       - '8008:8008'
-    container_name: edge-sync-server
+    volumes:
+      - server-logs:/usr/app/logs
+volumes:
+  server-logs:

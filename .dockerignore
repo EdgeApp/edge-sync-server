@@ -5,12 +5,6 @@
 /.nyc_output
 /coverage
 
-# Config
-/config.json
-/config.*.json
-!/config.sample.json
-!/config.*.sample.json
-
 # Package managers:
 node_modules/
 npm-debug.log

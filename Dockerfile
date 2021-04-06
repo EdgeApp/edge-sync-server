@@ -2,9 +2,6 @@ FROM node:14.16.0-alpine3.13
 
 EXPOSE 8008
 
-ARG COUCH_HOSTNAME
-ARG COUCH_PASSWORD
-
 # Install git
 RUN apk add git
 
@@ -17,8 +14,14 @@ RUN chmod 755 /usr/local/lib/libgit2.so.23
 # Install PM2
 RUN npm install -g pm2
 
+# PM2 log rotation
+RUN pm2 install pm2-logrotate
+
 # Set working directory to /usr/app
 WORKDIR /usr/app
+
+# Set logs directory
+VOLUME [ "./logs" ]
 
 # Copy project files
 COPY package.json .
@@ -28,13 +31,12 @@ COPY yarn.lock .
 RUN yarn install --ignore-scripts
 
 # Copy project files
-COPY ./ ./
+COPY pm2.json .
+COPY config.json .
+COPY src src/
 
 # Build
-RUN yarn prepare
-
-# Setup config file
-RUN yarn setup
+RUN yarn build.lib
 
 # Run app
 CMD [ "pm2-runtime", "pm2.json" ]
