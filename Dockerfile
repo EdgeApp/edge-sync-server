@@ -32,7 +32,6 @@ RUN yarn install --ignore-scripts
 
 # Copy project files
 COPY pm2.json .
-COPY config.json .
 COPY src src/
 
 # Build

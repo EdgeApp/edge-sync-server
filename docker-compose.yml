@@ -4,7 +4,13 @@ services:
     container_name: edge-sync-server
     ports:
       - '8008:8008'
+    configs:
+      - source: server-config
+        target: /usr/app/config.json
     volumes:
       - server-logs:/usr/app/logs
+configs:
+  server-config:
+    file: ./config.json
 volumes:
   server-logs:
