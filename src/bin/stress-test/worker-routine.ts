@@ -4,14 +4,13 @@ import Semaphore from 'semaphore-async-await'
 import { asTimestampRev, TimestampRev } from '../../types'
 import { SyncClient } from './SyncClient'
 import {
-  asWorkerInput,
+  asWorkerConfig,
   CheckEvent,
   ReadyEvent,
   UpdateEvent,
-  WorkerInput
+  WorkerConfig
 } from './types'
 import {
-  delay,
   isAcceptableError,
   isRepoNotFoundError,
   randomElement,
@@ -28,9 +27,9 @@ let lastUpdateTimestamp: TimestampRev = asTimestampRev(0)
 let isRepoSynced: boolean = true
 
 // State Methods
-const updateIsRepoSynced = (
+const repoUpdateIsSynced = (
   serverRepoTimestamps: string[],
-  input: WorkerInput
+  config: WorkerConfig
 ): void => {
   const isSynced = serverRepoTimestamps.every(
     serverRepoTimestamp => serverRepoTimestamp === lastUpdateTimestamp
@@ -38,54 +37,66 @@ const updateIsRepoSynced = (
 
   // If repo is has synced across all servers, then increase update rate
   if (!isRepoSynced && isSynced) {
-    input.repoUpdatesPerMin =
-      input.repoUpdatesPerMin * input.repoUpdateIncreaseRate
+    config.repoUpdatesPerMin =
+      config.repoUpdatesPerMin * config.repoUpdateIncreaseRate
   }
 
   // Update state
   isRepoSynced = isSynced
 }
 
-// Main
-async function main(input: WorkerInput): Promise<void> {
-  const lock = new Semaphore(1)
-  lock.drainPermits()
+// Main Function
+export async function workerRoutine(config: WorkerConfig): Promise<void> {
+  const updateLock = new Semaphore(1)
+  const readLock = new Semaphore(1)
 
-  const getOpDelay = (): number => 1000 / (input.repoUpdatesPerMin / 60)
-  const releaser = (): void => {
-    lock.release()
+  const getUpdateDelay = (): number => (60 / config.repoUpdatesPerMin) * 1000
+  const updateLockReleaser = (): void => {
+    updateLock.release()
 
     if (
-      input.maxUpdatesPerRepo === 0 ||
-      updatesDone + 1 < input.maxUpdatesPerRepo
+      config.maxUpdatesPerRepo === 0 ||
+      updatesDone + 1 < config.maxUpdatesPerRepo
     ) {
-      setTimeout(releaser, getOpDelay())
+      setTimeout(updateLockReleaser, getUpdateDelay())
     }
   }
-  // Start releaser
-  releaser()
+  const getReadLockDelay = (): number => (60 / config.repoReadsPerMin) * 1000
+  const readLockReleaser = (): void => {
+    readLock.release()
 
-  process.on('message', message => {
-    try {
-      input = asWorkerInput(message)
-    } catch (error) {
-      throw new Error(`Invalid input from message event`)
+    if (
+      config.maxUpdatesPerRepo === 0 ||
+      updatesDone + 1 < config.maxUpdatesPerRepo
+    ) {
+      setTimeout(readLockReleaser, getReadLockDelay())
     }
-  })
+  }
+  // Initialize lock releasers
+  updateLock.drainPermits()
+  updateLockReleaser()
+  readLock.drainPermits()
+  readLockReleaser()
 
   // Create sync clients
-  const syncClients = input.serverUrls.map(
-    serverUrl => new SyncClient(serverUrl)
+  const syncClients = Object.entries(config.clusters).reduce<SyncClient[]>(
+    (syncClients, [clusterName, urls]) => {
+      const clients = urls.map(
+        serverUrl => new SyncClient(serverUrl, clusterName)
+      )
+      return [...syncClients, ...clients]
+    },
+    []
   )
 
   // Create repos
-  await getRepoReady(randomElement(syncClients), input.repoId)
+  await getRepoReady(randomElement(syncClients), config.repoId)
 
   // Run updater
-  updater(input, syncClients, lock).catch(errHandler)
+  updater(config, syncClients, updateLock, readLock).catch(errHandler)
 
   // Run the checker
-  checker(input, syncClients).catch(errHandler)
+  checker(config, syncClients, readLock).catch(errHandler)
 }
 
 // Creates repo if it does not exist.
@@ -97,6 +108,8 @@ const getRepoReady = async (
     const response = await sync.createRepo(repoId)
     const requestTime = Date.now()
     const serverRepoTimestamp: TimestampRev = response.data.timestamp
+
+    lastUpdateTimestamp = serverRepoTimestamp
 
     const workerOutput: ReadyEvent = {
       type: 'ready',
@@ -129,40 +142,45 @@ const getRepoReady = async (
 }
 
 const updater = (
-  input: WorkerInput,
+  config: WorkerConfig,
   syncClients: SyncClient[],
-  lock: Semaphore
+  updateLock: Semaphore,
+  readLock: Semaphore
 ): Promise<void> => {
-  return updateRepo(input, syncClients, lock)
+  return updateRepo(config, syncClients, updateLock)
     .then(send)
     .then(() => {
+      readLock.release()
       if (
-        input.maxUpdatesPerRepo === 0 ||
-        updatesQueued < input.maxUpdatesPerRepo
+        config.maxUpdatesPerRepo === 0 ||
+        updatesQueued < config.maxUpdatesPerRepo
       ) {
         ++updatesQueued
-        return updater(input, syncClients, lock)
+        return updater(config, syncClients, updateLock, readLock)
       }
     })
 }
 
 async function updateRepo(
-  input: WorkerInput,
+  config: WorkerConfig,
   syncClients: SyncClient[],
-  lock: Semaphore
+  updateLock: Semaphore
 ): Promise<UpdateEvent> {
-  await lock.acquire()
+  await updateLock.acquire()
 
   const sync = randomElement(syncClients)
 
   const serverHost = sync.host
-  const repoId = input.repoId
+  const repoId = config.repoId
 
-  const fileCount = randomInt(input.fileCountRange[0], input.fileCountRange[1])
+  const fileCount = randomInt(
+    config.fileCountRange[0],
+    config.fileCountRange[1]
+  )
   const changeSet = await sync.randomChangeSet(
     repoId,
     fileCount,
-    input.fileSizeRange
+    config.fileByteSizeRange
   )
   const payloadSize = Buffer.byteLength(JSON.stringify(changeSet))
 
@@ -195,18 +213,33 @@ async function updateRepo(
     }
 
     // Try again
-    lock.release()
-    return await throttle(() => updateRepo(input, syncClients, lock), 500)
+    updateLock.release()
+    return await throttle(
+      () => updateRepo(config, syncClients, updateLock),
+      500
+    )
   }
 }
 
 const checker = (
-  input: WorkerInput,
-  syncClients: SyncClient[]
+  config: WorkerConfig,
+  syncClients: SyncClient[],
+  readLock: Semaphore
 ): Promise<void> =>
-  Promise.all(
-    syncClients.map(sync => checkServerStatus({ sync, repoId: input.repoId }))
-  )
+  readLock
+    .acquire()
+    .then(() =>
+      Promise.all(
+        // Only check for updates on servers where the client's timestamp does
+        // not equal the last update timestamp. This prevents redundant checks.
+        syncClients
+          .filter(
+            syncClient =>
+              syncClient.repoTimestamps[config.repoId] !== lastUpdateTimestamp
+          )
+          .map(sync => checkServerStatus({ sync, repoId: config.repoId }))
+      )
+    )
     .then(checkResponses => {
       const checkEvents = checkResponses.filter(
         (checkResponse): checkResponse is CheckEvent => checkResponse != null
@@ -219,16 +252,15 @@ const checker = (
         send(checkEvent)
       })
 
-      updateIsRepoSynced(serverRepoTimestamps, input)
+      repoUpdateIsSynced(serverRepoTimestamps, config)
     })
-    .then(() => delay(500))
     .then(() => {
       if (
-        input.maxUpdatesPerRepo === 0 ||
-        updatesDone < input.maxUpdatesPerRepo ||
+        config.maxUpdatesPerRepo === 0 ||
+        updatesDone < config.maxUpdatesPerRepo ||
         !isRepoSynced
       ) {
-        return checker(input, syncClients)
+        return checker(config, syncClients, readLock)
       }
     })
 
@@ -276,36 +308,38 @@ async function checkServerStatus({
 
 // Startup:
 
-try {
-  const jsonArg = process.argv[2]
-
-  if (jsonArg == null) {
-    throw new Error('Missing json argument.')
-  }
-
-  let input: WorkerInput
-
+if (require.main === module) {
   try {
-    input = asWorkerInput(JSON.parse(jsonArg))
+    const jsonArg = process.argv[2]
+
+    if (jsonArg == null) {
+      throw new Error('Missing json config argument.')
+    }
+
+    let config: WorkerConfig
+
+    try {
+      config = asWorkerConfig(JSON.parse(jsonArg))
+    } catch (error) {
+      if (error instanceof Error)
+        throw new Error(`Invalid JSON config argument: ${error.message}`)
+      throw error
+    }
+
+    workerRoutine(config).catch(errHandler)
   } catch (error) {
-    if (error instanceof Error)
-      throw new Error(`Invalid JSON input argument: ${error.message}`)
-    throw error
+    if (error instanceof TypeError) {
+      send(new Error(`Invalid JSON config argument: ${error.message}`))
+    } else {
+      send(error)
+    }
   }
 
-  main(input).catch(errHandler)
-} catch (error) {
-  if (error instanceof TypeError) {
-    send(new Error(`Invalid JSON input argument: ${error.message}`))
-  } else {
-    send(error)
-  }
+  process.on('unhandledRejection', error => {
+    send(`UNHANDLED PROMISE!!!`)
+    if (error instanceof Error) errHandler(error)
+  })
 }
-
-process.on('unhandledRejection', error => {
-  send(`UNHANDLED PROMISE!!!`)
-  if (error instanceof Error) errHandler(error)
-})
 
 function errHandler(err: Error): void {
   send(err)

@@ -1,5 +1,6 @@
 import {
   asArray,
+  asMap,
   asNumber,
   asObject,
   asString,
@@ -62,16 +63,17 @@ export const asMessageEvent = asObject({
   message: asString
 })
 
-// Worker
+// Configs
 
-export type WorkerInput = ReturnType<typeof asWorkerInput>
-export const asWorkerInput = asObject({
-  serverUrls: asArray(asString),
+export type WorkerConfig = ReturnType<typeof asWorkerConfig>
+export const asWorkerConfig = asObject({
+  clusters: asMap(asArray(asString)),
   repoId: asString,
   repoUpdatesPerMin: asNumber,
+  repoReadsPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,
-  fileSizeRange: asArray(asNumber),
+  fileByteSizeRange: asArray(asNumber),
   fileCountRange: asArray(asNumber)
 })
 
@@ -105,11 +107,18 @@ export const asCheckEvent = asObject({
   serverRepoTimestamp: asTimestampRev
 })
 
+export type SyncEvent = ReturnType<typeof asSyncEvent>
+export const asSyncEvent = asObject({
+  type: asLiteral('sync'),
+  timestamp: asNumber,
+  repoId: asString,
+  serverHost: asString
+})
+
 export type RepoSyncEvent = ReturnType<typeof asRepoSyncEvent>
 export const asRepoSyncEvent = asObject({
   type: asLiteral('repo-sync'),
   timestamp: asNumber,
-  serverHost: asString,
   repoId: asString
 })
 
@@ -135,6 +144,7 @@ export const asAllEvents = asUnion(
   asReadyEvent,
   asUpdateEvent,
   asCheckEvent,
+  asSyncEvent,
   asRepoSyncEvent,
   asServerSyncEvent,
   asNetworkSyncEvent
