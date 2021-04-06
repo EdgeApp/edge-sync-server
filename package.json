@@ -26,7 +26,7 @@
     "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts",
     "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
     "precommit": "lint-staged && yarn test && yarn prepare",
-    "prepare": "npm-run-all clean -p build.*",
+    "prepare": "npm-run-all setup clean -p build.*",
     "setup": "node -r sucrase/register setup.ts",
     "start": "node -r sucrase/register src/index.ts",
     "start.dev": "nodemon",
