@@ -12,26 +12,38 @@ yarn
 
 ### Configuration
 
-App configuration settings are managed by `config.json`. The schema for this file is located in `src/config.schema.ts` and uses [cleaners](https://www.npmjs.com/package/cleaners) for type definitions, and a example file is included (`config.sample.json`). The config file path can be changed with the `CONFIG` envirnoment variable.
+A default config `config.json` is automatically created on install. The schema for this file is located in `src/config.ts` and uses [cleaners](https://www.npmjs.com/package/cleaners) for type definitions.
 
-### Running for Development
+You can use `yarn configure` to re-create the config file if removed.
+
+The config file path can be customized with the `CONFIG` env var.
+
+### Scripts
+
+#### Running Source
+
+```
+yarn start
+```
+
+#### Running for Development
 
 There is a convenient "dev" script for running a development server which uses nodemon and sucrase to run the server.
 
 ```
-yarn dev
+yarn start.dev
 ```
 
-### Build
+#### Build
 
 ```
 yarn prepare
 ```
 
-### Running Build
+#### Running Build for Production
 
 ```
-yarn start
+pm2 start pm2.json
 ```
 
 ## Testing
