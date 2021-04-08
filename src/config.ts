@@ -1,40 +1,49 @@
-import { readFileSync } from 'fs'
-import { join as joinPath } from 'path'
+import { makeConfig } from 'cleaner-config'
+import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
 
-import { asConfig, Config } from './config.schema'
+// Customization:
 
-const configPath = joinPath(
-  __dirname,
-  '../',
-  process.env.CONFIG ?? 'config.json'
-)
+const {
+  NODE_ENV = 'production',
+  COUCH_HOSTNAME = 'localhost',
+  COUCH_PASSWORD = 'password'
+} = process.env
 
-let config: Config
+const isDev = NODE_ENV === 'dev'
 
-// Read JSON file
-try {
-  const filePath = joinPath(configPath)
-  const configJson = readFileSync(filePath, 'utf8')
-  config = JSON.parse(configJson)
-} catch (error) {
-  throw new Error(`Config load failed\n${indentErrorStack(error.stack)}`)
-}
+// Config:
 
-// Validate config
-try {
-  config = asConfig(config)
-} catch (error) {
-  throw new Error(`Config validation failed\n${indentErrorStack(error.stack)}`)
-}
+export type Config = ReturnType<typeof asConfig>
 
-// Export typed config object
-export { config }
+export const asConfig = asObject({
+  couchDatabase: asOptional(asString, 'sync_datastore'),
+  couchUri: asOptional(asString, 'http://admin:{password}@{hostname}:5984'),
+  couchHostname: asOptional(asString, COUCH_HOSTNAME),
+  couchPassword: asOptional(asString, COUCH_PASSWORD),
+  couchSharding: asOptional(
+    asObject({
+      q: asNumber,
+      n: asNumber
+    }),
+    {
+      q: 16,
+      n: 3
+    }
+  ),
+  httpPort: asOptional(asNumber, 8008),
+  maxTimestampHistoryAge: asOptional(asNumber, 2592000000),
+  maxPageSize: asOptional(asNumber, 100),
+  instanceCount: asOptional(asNumber, isDev ? 4 : undefined),
+  migrationOriginServers: asOptional(asArray(asString), [
+    'https://git-uk.edge.app/repos/',
+    'https://git3.airbitz.co/repos/',
+    'https://git-eusa.edge.app/repos/'
+  ]),
+  migrationTmpDir: asOptional(asString, '/tmp/app/edge-sync-server/'),
+  testMigrationRepo: asOptional(
+    asString,
+    '000000000000000000000000000000000ed9e123'
+  )
+})
 
-// Utility functions:
-
-function indentErrorStack(stack: string): string {
-  return stack
-    .split('\n')
-    .map(line => `    ${line}`)
-    .join('\n')
-}
+export const config = makeConfig(asConfig, process.env.CONFIG)

@@ -1,4 +1,4 @@
-import { Config } from './config.schema'
+import { Config } from './config'
 import { getDataStore } from './db'
 import { asStoreSettings, StoreSettings } from './types'
 
