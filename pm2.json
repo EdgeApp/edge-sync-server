@@ -5,6 +5,12 @@
       "script": "lib/index.js",
       "error_file": "logs/server/error.log",
       "out_file": "logs/server/log.log"
+    },
+    {
+      "name": "background-migration",
+      "script": "lib/bin/background-migration/index.js",
+      "error_file": "logs/background-migration/error.log",
+      "out_file": "logs/background-migration/log.log"
     }
   ]
 }
