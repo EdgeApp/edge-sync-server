@@ -1,6 +1,6 @@
 import nano from 'nano'
 
-import { Config } from './config.schema'
+import { Config } from './config'
 import { StoreData } from './types'
 import { CouchDbInfo } from './util/couch'
 

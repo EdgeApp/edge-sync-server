@@ -3,7 +3,7 @@ import cors from 'cors'
 import express, { Express, NextFunction, Request, Response } from 'express'
 import nano from 'nano'
 
-import { Config } from './config.schema'
+import { Config } from './config'
 import { ApiClientError, ApiErrorResponse, StoreData } from './types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
