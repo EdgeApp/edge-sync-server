@@ -2,7 +2,6 @@ import {
   asArray,
   asBoolean,
   asEither,
-  asMap,
   asNull,
   asNumber,
   asObject,
@@ -58,7 +57,7 @@ const storeMergeDocumentShape = {
 }
 
 export type TimestampRev = string
-export const asTimestampRev = (ts: string | number): TimestampRev => {
+export const asTimestampRev = (ts: unknown): TimestampRev => {
   if (typeof ts === 'string' && /^\d{1,15}(\.\d+)?$/.test(ts)) {
     return ts
   }
@@ -78,7 +77,7 @@ export const asEdgeBox = asObject({
 
 // Also known as a "file pointer map"
 export type StoreFileTimestampMap = ReturnType<typeof asStoreFileTimestampMap>
-export const asStoreFileTimestampMap = asMap(asTimestampRev)
+export const asStoreFileTimestampMap = asObject(asTimestampRev)
 
 export interface FilePointers {
   paths: StoreFileTimestampMap
@@ -98,8 +97,8 @@ export const asTimestampHistory = asArray(
 export type StoreSettings = ReturnType<typeof asStoreSettings>
 export type StoreSettingsDocument = ReturnType<typeof asStoreSettingsDocument>
 export const asStoreSettings = asObject({
-  ipWhitelist: asMap(asBoolean),
-  apiKeyWhitelist: asMap(asBoolean)
+  ipWhitelist: asObject(asBoolean),
+  apiKeyWhitelist: asObject(asBoolean)
 })
 export const asStoreSettingsDocument = asObject({
   ...nanoDocumentShape,
@@ -164,7 +163,7 @@ export type FileChange = ReturnType<typeof asFileChange>
 export const asFileChange = asEither(asObject({ box: asEdgeBox }), asNull)
 
 export type ChangeSet = ReturnType<typeof asChangeSet>
-export const asChangeSet = asMap(asFileChange)
+export const asChangeSet = asObject(asFileChange)
 
 // Union of all store data types
 export type StoreData = StoreSettings | StoreRepo | StoreDirectory | StoreFile
@@ -192,7 +191,7 @@ export const asStoreDirectoryPathWithTimestamp = asObject({
 })
 
 export type GetFilesMap = ReturnType<typeof asGetFilesMap>
-export const asGetFilesMap = asMap(
+export const asGetFilesMap = asObject(
   asEither(asStoreFileWithTimestamp, asStoreDirectoryPathWithTimestamp)
 )
 

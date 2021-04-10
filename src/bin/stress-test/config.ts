@@ -1,16 +1,9 @@
-import {
-  asArray,
-  asBoolean,
-  asMap,
-  asNumber,
-  asObject,
-  asString
-} from 'cleaners'
+import { asArray, asBoolean, asNumber, asObject, asString } from 'cleaners'
 
 export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
   verbose: asBoolean,
-  clusters: asMap(asArray(asString)),
+  clusters: asObject(asArray(asString)),
   repoCount: asNumber,
   repoPrefix: asString,
   repoUpdatesPerMin: asNumber,
