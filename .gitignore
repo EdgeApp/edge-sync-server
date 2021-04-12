@@ -5,6 +5,9 @@
 /.nyc_output
 /coverage
 
+# Logs
+/logs
+
 # Config
 /config.json
 /config.*.json
