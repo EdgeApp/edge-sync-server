@@ -69,15 +69,30 @@ interface RepoSyncInfo {
 
 interface Output {
   reason: string
-  totalBytesSent: number
-  totalUpdateCount: number
-  avgUpdatesPerSec: number
-  avgUpdateTimeInMs: number
-  maxUpdateTimeInMs: number
-  totalRepoSyncCount: number
-  avgRepoSyncPerSec: number
-  avgRepoSyncTimeInMs: number
-  maxRepoSyncTimeInMs: number
+  config: Config
+  metrics: {
+    repos: {
+      count: number
+    }
+    payloads: {
+      totalBytes: number
+      avgBytes: number
+      minBytes: number
+      maxBytes: number
+    }
+    updates: {
+      total: number
+      avgPerSec: number
+      avgTimeInMs: number
+      maxTimeInMs: number
+    }
+    repoSyncs: {
+      total: number
+      avgPerSec: number
+      avgTimeInMs: number
+      maxTimeInMs: number
+    }
+  }
 }
 
 // State:
@@ -190,23 +205,35 @@ async function main(): Promise<void> {
 
     // Post-processing for output results
 
-    const totalBytesSent = bytesMetric.sum
-    const totalUpdateCount = repoUpdateTimeMetric.total
-    const totalRepoSyncCount = repoSyncMetric.total
-
     state.output = {
       reason,
-      totalBytesSent,
-      totalUpdateCount,
-      avgUpdatesPerSec:
-        repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0,
-      avgUpdateTimeInMs: repoUpdateTimeMetric.avg,
-      maxUpdateTimeInMs: repoUpdateTimeMetric.max,
-      totalRepoSyncCount,
-      avgRepoSyncPerSec:
-        repoSyncMetric.avg !== 0 ? 1000 / repoSyncMetric.avg : 0,
-      avgRepoSyncTimeInMs: repoSyncMetric.avg,
-      maxRepoSyncTimeInMs: repoSyncMetric.max
+      config,
+      metrics: {
+        repos: {
+          count: state.repoIds.length
+        },
+        payloads: {
+          totalBytes: bytesMetric.sum,
+          avgBytes: bytesMetric.avg,
+          minBytes: bytesMetric.min,
+          maxBytes: bytesMetric.max
+        },
+        updates: {
+          total: repoUpdateTimeMetric.total,
+          avgPerSec:
+            repoUpdateTimeMetric.avg !== 0
+              ? 1000 / repoUpdateTimeMetric.avg
+              : 0,
+          avgTimeInMs: repoUpdateTimeMetric.avg,
+          maxTimeInMs: repoUpdateTimeMetric.max
+        },
+        repoSyncs: {
+          total: repoSyncMetric.total,
+          avgPerSec: repoSyncMetric.avg !== 0 ? 1000 / repoSyncMetric.avg : 0,
+          avgTimeInMs: repoSyncMetric.avg,
+          maxTimeInMs: repoSyncMetric.max
+        }
+      }
     }
 
     console.log(JSON.stringify(state.output, null, 2))
