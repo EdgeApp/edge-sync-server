@@ -48,25 +48,39 @@ export class SyncClient {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
 
-    let response: FetchResponse | undefined
     let responseJson: ApiResponse<T> | ApiErrorResponse
 
-    try {
-      response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body
-      })
-    } catch (error) {
-      throw new Error(
-        `Request failed to fetch: ${JSON.stringify({
-          error,
-          request: { url, body }
-        })}`
-      )
-    }
+    const response: FetchResponse | undefined = await withRetries(
+      async () => {
+        let response: FetchResponse | undefined
+        try {
+          response = await fetch(url, {
+            method,
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body
+          })
+        } catch (error) {
+          throw new Error(
+            `Request failed to fetch: ${JSON.stringify({
+              error: {
+                message: error.message,
+                stack: error.stack
+              },
+              request: { url, body }
+            })}`
+          )
+        }
+
+        if (response.status === 502) {
+          throw new Error('timeout')
+        }
+
+        return response
+      },
+      err => err.message === 'timeout'
+    )
 
     const responseText = await response.text()
 
@@ -74,13 +88,20 @@ export class SyncClient {
       responseJson = JSON.parse(responseText)
     } catch (error) {
       throw new Error(
-        `Request failed to parse JSON: ${JSON.stringify({
-          error,
-          request: { url, body },
-          response,
-          status: response.status,
-          responseText
-        })}`
+        `Request failed to parse JSON: ${JSON.stringify(
+          {
+            error: {
+              message: error.message,
+              stack: error.stack
+            },
+            request: { url, body },
+            response,
+            status: response.status,
+            responseText
+          },
+          null,
+          2
+        )}`
       )
     }
 
