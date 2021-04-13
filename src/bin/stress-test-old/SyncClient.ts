@@ -155,7 +155,7 @@ export class SyncClient {
 
   async randomFilePayload(fileCount: number): Promise<FilePayload> {
     const data: FilePayload = {}
-    const size = randomInt(config.fileSizeRange[0], config.fileSizeRange[1])
+    const size = randomInt(config.fileSizeRange[0], config.fileSizeRange[1] + 1)
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()

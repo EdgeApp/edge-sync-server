@@ -189,7 +189,7 @@ export class SyncClient {
     fileByteSizeRange: number[]
   ): Promise<ChangeSet> {
     const changeSet: ChangeSet = {}
-    const size = randomInt(fileByteSizeRange[0], fileByteSizeRange[1])
+    const size = randomInt(fileByteSizeRange[0], fileByteSizeRange[1] + 1)
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()

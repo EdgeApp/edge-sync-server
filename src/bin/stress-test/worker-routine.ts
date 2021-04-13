@@ -175,7 +175,7 @@ async function updateRepo(
 
   const fileCount = randomInt(
     config.fileCountRange[0],
-    config.fileCountRange[1]
+    config.fileCountRange[1] + 1
   )
   const changeSet = await sync.randomChangeSet(
     repoId,
