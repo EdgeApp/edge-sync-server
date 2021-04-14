@@ -107,9 +107,9 @@ export const asCheckEvent = asObject({
   serverRepoTimestamp: asTimestampRev
 })
 
-export type SyncEvent = ReturnType<typeof asSyncEvent>
-export const asSyncEvent = asObject({
-  type: asLiteral('sync'),
+export type ReplicationEvent = ReturnType<typeof asReplicationEvent>
+export const asReplicationEvent = asObject({
+  type: asLiteral('replication'),
   timestamp: asNumber,
   repoId: asString,
   serverHost: asString
@@ -144,7 +144,7 @@ export const asAllEvents = asUnion(
   asReadyEvent,
   asUpdateEvent,
   asCheckEvent,
-  asSyncEvent,
+  asReplicationEvent,
   asRepoSyncEvent,
   asServerSyncEvent,
   asNetworkSyncEvent

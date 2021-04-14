@@ -12,9 +12,9 @@ import {
   CheckEvent,
   NetworkSyncEvent,
   ReadyEvent,
+  ReplicationEvent,
   RepoSyncEvent,
   ServerSyncEvent,
-  SyncEvent,
   UpdateEvent,
   WorkerConfig
 } from './types'
@@ -86,6 +86,12 @@ interface Output {
       avgTimeInMs: number
       maxTimeInMs: number
     }
+    repoReplications: {
+      total: number
+      avgPerSec: number
+      avgTimeInMs: number
+      maxTimeInMs: number
+    }
     repoSyncs: {
       total: number
       avgPerSec: number
@@ -101,9 +107,10 @@ let config: Config
 let serverCount: number = 0
 
 // Metrics
-const repoUpdateTimeMetric = makeMetric()
 const bytesMetric = makeMetric()
-const repoSyncMetric = makeMetric()
+const repoUpdateTimeMetric = makeMetric()
+const repoReplicationTimeMetric = makeMetric()
+const repoSyncTimeMetric = makeMetric()
 const serverSyncMetric = makeMetric()
 const networkSyncMetric = makeMetric()
 
@@ -227,11 +234,21 @@ async function main(): Promise<void> {
           avgTimeInMs: repoUpdateTimeMetric.avg,
           maxTimeInMs: repoUpdateTimeMetric.max
         },
+        repoReplications: {
+          total: repoReplicationTimeMetric.total,
+          avgPerSec:
+            repoReplicationTimeMetric.avg !== 0
+              ? 1000 / repoReplicationTimeMetric.avg
+              : 0,
+          avgTimeInMs: repoReplicationTimeMetric.avg,
+          maxTimeInMs: repoReplicationTimeMetric.max
+        },
         repoSyncs: {
-          total: repoSyncMetric.total,
-          avgPerSec: repoSyncMetric.avg !== 0 ? 1000 / repoSyncMetric.avg : 0,
-          avgTimeInMs: repoSyncMetric.avg,
-          maxTimeInMs: repoSyncMetric.max
+          total: repoSyncTimeMetric.total,
+          avgPerSec:
+            repoSyncTimeMetric.avg !== 0 ? 1000 / repoSyncTimeMetric.avg : 0,
+          avgTimeInMs: repoSyncTimeMetric.avg,
+          maxTimeInMs: repoSyncTimeMetric.max
         }
       }
     }
@@ -250,7 +267,10 @@ async function main(): Promise<void> {
       repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0
     const repoSyncTimes = Array.from(state.repos.entries()).map(
       ([repoId, repoState]) => {
-        const syncTime = Date.now() - repoState.updateRequestTime
+        const syncTime = measureInstrument(
+          repoState.syncTimeInstrument,
+          Date.now()
+        )
 
         return getIsRepoSynced(repoId) ? 0 : syncTime
       }
@@ -290,9 +310,15 @@ async function main(): Promise<void> {
         }),
         statusBarLine(),
         prettyPrintObject({
-          'Total repo syncs': `${repoSyncMetric.total}`,
-          'Avg repo sync time': `${repoSyncMetric.avg}ms`,
-          'Max repo sync time': `${repoSyncMetric.max}ms`
+          'Total repo replications': `${repoReplicationTimeMetric.total}`,
+          'Avg repo replication time': `${repoReplicationTimeMetric.avg}ms`,
+          'Max repo replication time': `${repoReplicationTimeMetric.max}ms`
+        }),
+        statusBarLine(),
+        prettyPrintObject({
+          'Total repo syncs': `${repoSyncTimeMetric.total}`,
+          'Avg repo sync time': `${repoSyncTimeMetric.avg}ms`,
+          'Max repo sync time': `${repoSyncTimeMetric.max}ms`
         }),
         statusBarLine(),
         prettyPrintObject({
@@ -365,8 +391,8 @@ function onEvent(event: AllEvents): void {
     case 'check':
       onCheckEvent(event, onEvent)
       break
-    case 'sync':
-      onSync(event)
+    case 'replication':
+      onReplication(event)
       break
     case 'repo-sync':
       onRepoSync(event)
@@ -446,20 +472,21 @@ function onCheckEvent(
   }
 
   const status = eq(checkEvent.serverRepoTimestamp, repoState.repoTimestamp)
-    ? 'in-sync'
+    ? 'replicated'
     : gt(checkEvent.serverRepoTimestamp, repoState.repoTimestamp)
     ? gt(toFixed(checkEvent.serverRepoTimestamp, 0, 0), repoState.repoTimestamp)
       ? 'ahead'
       : 'conflicting'
     : 'behind'
 
-  const wasRepoInSync = getIsRepoInSyncWithServer(serverHost, repoId)
+  const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, repoId)
+  const wasRepoInSync = getIsRepoSynced(repoId)
   const wasServerInSync = getIsServerInSync(serverHost)
   const wasNetworkInSync = getIsNetworkInSync(serverCount)
 
-  if (status === 'in-sync' && !wasRepoInSync) {
+  if (status === 'replicated' && !wasRepoReplicated) {
     onEvent({
-      type: 'sync',
+      type: 'replication',
       timestamp: checkEvent.requestTime,
       serverHost,
       repoId
@@ -470,7 +497,7 @@ function onCheckEvent(
     const isNetworkInSync = getIsNetworkInSync(serverCount)
 
     // If repo is now in-sync, emit a repo-sync event
-    if (isRepoSynced) {
+    if (!wasRepoInSync && isRepoSynced) {
       onEvent({
         type: 'repo-sync',
         timestamp: checkEvent.requestTime,
@@ -492,18 +519,23 @@ function onCheckEvent(
         timestamp: checkEvent.requestTime
       })
     }
-  } else if (status === 'behind' && wasRepoInSync) {
-    // If server is in-sync, then track server out-of-sync time
+  } else if (status === 'behind' && wasRepoReplicated) {
+    // If repo was in-sync, then track repo out-of-sync time
+    if (wasRepoInSync) {
+      startInstrument(repoState.syncTimeInstrument, checkEvent.requestTime)
+    }
+
+    // If server was in-sync, then track server out-of-sync time
     if (wasServerInSync) {
       startInstrument(serverSyncInstrument, checkEvent.requestTime)
     }
 
-    // If network is in-sync, then track network out-of-sync time
+    // If network was in-sync, then track network out-of-sync time
     if (wasNetworkInSync) {
       startInstrument(networkSyncInstrument, checkEvent.requestTime)
     }
 
-    setIsRepoInSync(serverHost, repoId, false)
+    setIsRepoInSyncWithServer(serverHost, repoId, false)
 
     printLog('desync', serverHost, repoId, checkEvent.requestTime)
   } else if (['ahead', 'conflicting'].includes(status)) {
@@ -511,8 +543,8 @@ function onCheckEvent(
   }
 }
 
-// Repo in-sync with a server
-function onSync(syncEvent: SyncEvent): void {
+// Repo replicated from server where it was updated to another server
+function onReplication(syncEvent: ReplicationEvent): void {
   const { timestamp, serverHost, repoId } = syncEvent
   const repoState = state.repos.get(repoId)
 
@@ -521,17 +553,33 @@ function onSync(syncEvent: SyncEvent): void {
     return
   }
 
-  const repoSyncTime = timestamp - repoState.updateRequestTime
+  const repoReplicationTime = timestamp - repoState.updateRequestTime
 
-  addToMetric(repoSyncMetric, repoSyncTime)
-  setIsRepoInSync(serverHost, repoId, true)
+  addToMetric(repoReplicationTimeMetric, repoReplicationTime)
+  setIsRepoInSyncWithServer(serverHost, repoId, true)
 
-  printLog('sync', serverHost, repoId, timestamp, `${repoSyncTime}ms`)
+  printLog(
+    'replication',
+    serverHost,
+    repoId,
+    timestamp,
+    `${repoReplicationTime}ms`
+  )
 }
 
 // Repo is now in-sync with all servers
 function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
   const { timestamp, repoId } = repoSyncEvent
+  const repoState = state.repos.get(repoId)
+
+  if (repoState == null) {
+    printLog('worker', 'repo not ready', repoId)
+    return
+  }
+
+  const repoSyncTime = endInstrument(repoState.syncTimeInstrument, timestamp)
+
+  addToMetric(repoSyncTimeMetric, repoSyncTime)
 
   printLog('repo-sync', repoId, timestamp)
 }
@@ -555,7 +603,7 @@ function onNetworkSync(networkSyncEvent: NetworkSyncEvent): void {
   printLog('net-sync', timestamp, `${networkSyncTime}ms`)
 }
 
-function setIsRepoInSync(
+function setIsRepoInSyncWithServer(
   serverHost: string,
   repoId: string,
   inSync: boolean
@@ -565,12 +613,6 @@ function setIsRepoInSync(
   repoSyncInfo.inSync = inSync
   setIsServerInSync(serverHost)
 }
-
-function setIsServerInSync(serverHost: string): void {
-  const serverSyncInfo = state.serverSyncInfoMap[serverHost]
-  serverSyncInfo.inSync = getIsServerInSync(serverHost)
-}
-
 function getIsRepoInSyncWithServer(
   serverHost: string,
   repoId: string
@@ -578,6 +620,11 @@ function getIsRepoInSyncWithServer(
   const serverSyncInfo = state.serverSyncInfoMap[serverHost]
   const repoSyncInfo = serverSyncInfo.repos[repoId]
   return repoSyncInfo.inSync
+}
+
+function setIsServerInSync(serverHost: string): void {
+  const serverSyncInfo = state.serverSyncInfoMap[serverHost]
+  serverSyncInfo.inSync = getIsServerInSync(serverHost)
 }
 
 function getIsServerInSync(serverHost: string): boolean {
