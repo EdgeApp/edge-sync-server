@@ -47,6 +47,7 @@ interface State {
 
 type RepoStateMap = Map<string, RepoState>
 interface RepoState {
+  repoId: string
   serverHost: string
   updateRequestTime: number
   repoTimestamp: TimestampRev
@@ -258,24 +259,30 @@ async function main(): Promise<void> {
   }
 
   function statusUpdater(): void {
+    const now = Date.now()
     const timeSinceNetworkOutOfSync = measureInstrument(
       networkSyncInstrument,
-      Date.now()
+      now
     )
     const totalRepoUpdates = repoUpdateTimeMetric.total
     const avgUpdatesPerSec =
       repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0
-    const repoSyncTimes = Array.from(state.repos.entries()).map(
-      ([repoId, repoState]) => {
-        const syncTime = measureInstrument(
-          repoState.syncTimeInstrument,
-          Date.now()
-        )
 
-        return getIsRepoSynced(repoId) ? 0 : syncTime
-      }
-    )
-    const maxRepoSyncTime = Math.max(...repoSyncTimes)
+    // Most stale repo is the repo with the largest out of sync time
+    const repoStates = Array.from(state.repos.values())
+    const mostStaleRepo =
+      repoStates.length !== 0
+        ? repoStates.reduce((repoStateA, repoStateB) => {
+            return measureInstrument(repoStateA.syncTimeInstrument, now) >
+              measureInstrument(repoStateB.syncTimeInstrument, now)
+              ? repoStateA
+              : repoStateB
+          })
+        : undefined
+    const maxRepoSyncTime =
+      mostStaleRepo != null
+        ? measureInstrument(mostStaleRepo.syncTimeInstrument, now)
+        : 0
 
     const statusHeader = [
       [
@@ -290,10 +297,13 @@ async function main(): Promise<void> {
         )
       ].join(' | '),
       statusBarLine(),
-      [
-        `${countReposInSync()} / ${state.repoIds.length} repos in-sync`,
-        `maximum ${maxRepoSyncTime}ms since repo out of sync`
-      ].join(' | ')
+      mostStaleRepo != null
+        ? [
+            `${countReposInSync()} / ${state.repoIds.length} repos in-sync`,
+            `maximum ${maxRepoSyncTime}ms since repo out of sync`,
+            `stale repo ${mostStaleRepo.repoId}`
+          ].join(' | ')
+        : 'Waiting for repos...'
     ]
 
     statusBox(
@@ -410,6 +420,7 @@ function onReadyEvent(readyEvent: ReadyEvent): void {
   const { requestTime, serverHost, repoId, serverRepoTimestamp } = readyEvent
 
   state.repos.set(repoId, {
+    repoId,
     serverHost,
     updateRequestTime: requestTime,
     repoTimestamp: serverRepoTimestamp,
