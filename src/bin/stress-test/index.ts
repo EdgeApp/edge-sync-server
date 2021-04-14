@@ -354,7 +354,10 @@ async function main(): Promise<void> {
       exit('completed max operations')
     }
 
-    if (maxRepoSyncTime > config.repoSyncTimeout) {
+    if (
+      config.repoSyncTimeout !== 0 &&
+      maxRepoSyncTime > config.repoSyncTimeout
+    ) {
       exit('exceeded sync timeout')
     }
   }
