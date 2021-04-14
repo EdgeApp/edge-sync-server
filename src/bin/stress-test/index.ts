@@ -108,7 +108,7 @@ const serverSyncMetric = makeMetric()
 const networkSyncMetric = makeMetric()
 
 // Instruments
-const opTimeInstrument = makeInstrument()
+const repoUpdateTimeInstrument = makeInstrument()
 const serverSyncInstrument = makeInstrument()
 const networkSyncInstrument = makeInstrument()
 
@@ -394,10 +394,10 @@ function onReadyEvent(readyEvent: ReadyEvent): void {
 }
 
 function onUpdateEvent(updateEvent: UpdateEvent): void {
-  const opTime = endInstrument(opTimeInstrument, Date.now())
-  startInstrument(opTimeInstrument, Date.now())
+  const repoUpdateTime = endInstrument(repoUpdateTimeInstrument, Date.now())
+  startInstrument(repoUpdateTimeInstrument, Date.now())
 
-  addToMetric(repoUpdateTimeMetric, opTime)
+  addToMetric(repoUpdateTimeMetric, repoUpdateTime)
   addToMetric(bytesMetric, updateEvent.payloadSize)
 
   const {
