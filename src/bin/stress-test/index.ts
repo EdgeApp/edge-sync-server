@@ -70,7 +70,7 @@ interface RepoSyncInfo {
 
 interface Output {
   reason: string
-  error?: Error
+  errors: any[]
   config: Config
   snapshots: Snapshot[]
 }
@@ -136,7 +136,8 @@ async function main(): Promise<void> {
     output: {
       reason: 'unknown',
       config,
-      snapshots: []
+      snapshots: [],
+      errors: []
     }
   }
 
@@ -319,17 +320,28 @@ async function main(): Promise<void> {
       totalRepoUpdates >= config.maxUpdatesPerRepo * state.repoIds.length &&
       getIsNetworkInSync(serverCount)
     ) {
-      exit('completed max operations')
+      exitGracefully('completed max operations')
     }
 
     if (
       config.repoSyncTimeout !== 0 &&
       maxRepoSyncTime > config.repoSyncTimeout
     ) {
-      exit('exceeded sync timeout')
+      exitGracefully('exceeded sync timeout')
     }
   }
   intervalIds.push(setInterval(statusUpdater, 100))
+
+  function exitGracefully(reason: string): void {
+    // Exit all worker processes
+    workerCluster.kill('SIGTERM')
+
+    // Stop all intervals
+    intervalIds.forEach(intervalId => clearInterval(intervalId))
+
+    // exit process
+    exit(reason)
+  }
 }
 
 function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
@@ -353,6 +365,7 @@ function onEvent(event: AllEvents): void {
   switch (event.type) {
     case 'error':
       printLog('error', event.process, event.message)
+      state.output.errors.push(event)
       if (config.verbose)
         print({
           stack: event.stack,
@@ -797,14 +810,14 @@ function exit(reason: string, error?: Error): void {
   takeSnapshot()
 
   state.output.reason = reason
-  state.output.error =
-    error != null
-      ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        }
-      : undefined
+
+  if (error != null) {
+    state.output.errors.push({
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
+  }
 
   console.log(JSON.stringify(state.output, null, 2))
   process.exit(error == null ? 0 : 1)
