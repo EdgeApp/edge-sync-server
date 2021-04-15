@@ -119,7 +119,10 @@ async function work(
   const serverHost = sync.host
   const repoId = randomElement(input.repoIds)
 
-  const fileCount = randomInt(input.fileCountRange[0], input.fileCountRange[1])
+  const fileCount = randomInt(
+    input.fileCountRange[0],
+    input.fileCountRange[1] + 1
+  )
   const files = await sync.randomFilePayload(fileCount)
   const payloadSize = Buffer.byteLength(JSON.stringify(files))
 
