@@ -28,12 +28,16 @@ export const statusBarLine = (): string =>
 let statusText: string = ''
 
 export const statusBox = (text: string): void => {
+  if (process.env.VERBOSE !== '1') return
+
   const line = statusBarLine()
   logUpdate([line, text].join('\n'))
   statusText = text
 }
 
 export const print = (...args: any[]): void => {
+  if (process.env.VERBOSE !== '1') return
+
   args.forEach(arg => {
     const text =
       typeof arg === 'string'
@@ -46,6 +50,8 @@ export const print = (...args: any[]): void => {
 }
 
 export const printLog = (...args: any[]): void => {
+  if (process.env.VERBOSE !== '1') return
+
   const convert = (val: any): string =>
     typeof val !== 'string' ? JSON.stringify(val) : val
   const log = args

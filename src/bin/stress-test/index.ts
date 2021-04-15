@@ -141,7 +141,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`Verbosity: ${String(config.verbose)}`)
+  print(`Verbosity: ${String(config.verbose)}`)
 
   const serverUrls = Object.values(config.clusters).reduce<string[]>(
     (allUrls, urls) => {
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   )
   serverCount = serverUrls.length
 
-  console.log(`Generating random repos...`)
+  print(`Generating random repos...`)
   // Generate an array of unique repo IDs of configured repoCount length
   const repoIds = generateRepoIds(config.repoPrefix, config.repoCount)
 
@@ -159,13 +159,13 @@ async function main(): Promise<void> {
   state.serverSyncInfoMap = makeSyncInfoMap(serverUrls)
 
   if (config.verbose) {
-    console.log(`Repos:\n  ${repoIds.join('\n  ')}`)
-    console.log(`Servers:\n  ${serverUrls.join('\n  ')}`)
+    print(`Repos:\n  ${repoIds.join('\n  ')}`)
+    print(`Servers:\n  ${serverUrls.join('\n  ')}`)
   }
 
   // Worker Cluster Process
   // ---------------------------------------------------------------------
-  console.info(`Forking worker cluster processes...`)
+  print(`Forking worker cluster processes...`)
   // spawn
   const workerCluster = fork(join(__dirname, 'worker-cluster.ts'))
   // events
@@ -196,7 +196,7 @@ async function main(): Promise<void> {
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
-  console.info(`Starting worker cluster routines (${repoIds.length})...`)
+  print(`Starting worker cluster routines (${repoIds.length})...`)
   repoIds.forEach(repoId => startWorkerRoutine(workerCluster, repoId))
 
   const intervalIds: NodeJS.Timeout[] = []
@@ -779,6 +779,8 @@ try {
 
   config = asConfig(JSON.parse(configJson))
 
+  process.env.VERBOSE = config.verbose ? '1' : '0'
+
   main().catch(errHandler)
 } catch (error) {
   if (error instanceof TypeError) {
@@ -819,6 +821,8 @@ function exit(reason: string, error?: Error): void {
     })
   }
 
-  console.log(JSON.stringify(state.output, null, 2))
+  console.log(
+    JSON.stringify(state.output, null, process.env.VERBOSE === '1' ? 2 : 0)
+  )
   process.exit(error == null ? 0 : 1)
 }
