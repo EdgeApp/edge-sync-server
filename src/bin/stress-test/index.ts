@@ -42,7 +42,7 @@ interface State {
   repoIds: string[]
   repos: RepoStateMap
   serverSyncInfoMap: ServerSyncInfoMap
-  output: Output | null
+  output: Output
 }
 
 type RepoStateMap = Map<string, RepoState>
@@ -70,35 +70,39 @@ interface RepoSyncInfo {
 
 interface Output {
   reason: string
+  error?: Error
   config: Config
-  metrics: {
-    repos: {
-      count: number
-    }
-    payloads: {
-      totalBytes: number
-      avgBytes: number
-      minBytes: number
-      maxBytes: number
-    }
-    updates: {
-      total: number
-      avgPerSec: number
-      avgTimeInMs: number
-      maxTimeInMs: number
-    }
-    repoReplications: {
-      total: number
-      avgPerSec: number
-      avgTimeInMs: number
-      maxTimeInMs: number
-    }
-    repoSyncs: {
-      total: number
-      avgPerSec: number
-      avgTimeInMs: number
-      maxTimeInMs: number
-    }
+  snapshots: Snapshot[]
+}
+interface Snapshot {
+  timestamp: number
+  datetime: string
+  repos: {
+    count: number
+  }
+  payloads: {
+    totalBytes: number
+    avgBytes: number
+    minBytes: number
+    maxBytes: number
+  }
+  updates: {
+    total: number
+    avgPerSec: number
+    avgTimeInMs: number
+    maxTimeInMs: number
+  }
+  repoReplications: {
+    total: number
+    avgPerSec: number
+    avgTimeInMs: number
+    maxTimeInMs: number
+  }
+  repoSyncs: {
+    total: number
+    avgPerSec: number
+    avgTimeInMs: number
+    maxTimeInMs: number
   }
 }
 
@@ -120,15 +124,22 @@ const repoUpdateTimeInstrument = makeInstrument()
 const serverSyncInstrument = makeInstrument()
 const networkSyncInstrument = makeInstrument()
 
-const state: State = {
-  startTime: Date.now(),
-  repoIds: [],
-  repos: new Map(),
-  serverSyncInfoMap: {},
-  output: null
-}
+let state: State
 
 async function main(): Promise<void> {
+  // Initialize state
+  state = {
+    startTime: Date.now(),
+    repoIds: [],
+    repos: new Map(),
+    serverSyncInfoMap: {},
+    output: {
+      reason: 'unknown',
+      config,
+      snapshots: []
+    }
+  }
+
   console.log(`Verbosity: ${String(config.verbose)}`)
 
   const serverUrls = Object.values(config.clusters).reduce<string[]>(
@@ -163,15 +174,21 @@ async function main(): Promise<void> {
       onEvent(output)
     } catch (error) {
       if (error instanceof TypeError) {
-        console.log({ payload })
-        throw new Error(`Invalid worker cluster output: ${error.message}`)
+        print('!!! worker payload', { payload })
+        exit(
+          'worker exception',
+          new Error(`Invalid worker cluster output: ${error.message}`)
+        )
       }
-      throw error
+      exit('worker exception', error)
     }
   })
   workerCluster.on('exit', (code): void => {
     if (code !== null && code !== 0) {
-      throw new Error(`Worker cluster process exited with code ${String(code)}`)
+      exit(
+        'worker exception',
+        new Error(`Worker cluster process exited with code ${String(code)}`)
+      )
     }
     print('! worker cluster process finished')
   })
@@ -181,8 +198,10 @@ async function main(): Promise<void> {
   console.info(`Starting worker cluster routines (${repoIds.length})...`)
   repoIds.forEach(repoId => startWorkerRoutine(workerCluster, repoId))
 
+  const intervalIds: NodeJS.Timeout[] = []
+
   // Increase repo count every minute
-  const repoIncreaseInterval = setInterval(() => {
+  function repoCountIncreaser(): void {
     const currentRepoCount = state.repoIds.length
     // Use ceil because we want to increase by at least 1 if the rate > 1
     const newRepoCount = Math.ceil(
@@ -196,67 +215,14 @@ async function main(): Promise<void> {
       startWorkerRoutine(workerCluster, newRepoId)
       printLog('new-repo', newRepoId)
     }
-  }, 60000)
-
-  function exit(reason: string): void {
-    // Exit all worker processes
-    workerCluster.kill('SIGTERM')
-
-    // Stop the status updater interval
-    clearInterval(statusUpdaterIntervalId)
-
-    // Stop the repo increase interval
-    clearInterval(repoIncreaseInterval)
-
-    // Print reason for exiting
-    print(`!!! ${reason}`)
-
-    // Post-processing for output results
-
-    state.output = {
-      reason,
-      config,
-      metrics: {
-        repos: {
-          count: state.repoIds.length
-        },
-        payloads: {
-          totalBytes: bytesMetric.sum,
-          avgBytes: bytesMetric.avg,
-          minBytes: bytesMetric.min,
-          maxBytes: bytesMetric.max
-        },
-        updates: {
-          total: repoUpdateTimeMetric.total,
-          avgPerSec:
-            repoUpdateTimeMetric.avg !== 0
-              ? 1000 / repoUpdateTimeMetric.avg
-              : 0,
-          avgTimeInMs: repoUpdateTimeMetric.avg,
-          maxTimeInMs: repoUpdateTimeMetric.max
-        },
-        repoReplications: {
-          total: repoReplicationTimeMetric.total,
-          avgPerSec:
-            repoReplicationTimeMetric.avg !== 0
-              ? 1000 / repoReplicationTimeMetric.avg
-              : 0,
-          avgTimeInMs: repoReplicationTimeMetric.avg,
-          maxTimeInMs: repoReplicationTimeMetric.max
-        },
-        repoSyncs: {
-          total: repoSyncTimeMetric.total,
-          avgPerSec:
-            repoSyncTimeMetric.avg !== 0 ? 1000 / repoSyncTimeMetric.avg : 0,
-          avgTimeInMs: repoSyncTimeMetric.avg,
-          maxTimeInMs: repoSyncTimeMetric.max
-        }
-      }
-    }
-
-    console.log(JSON.stringify(state.output, null, 2))
-    process.exit()
   }
+  intervalIds.push(setInterval(repoCountIncreaser, 60000))
+
+  // Take a snapshot every 30 seconds
+  function snapshotTaker(): void {
+    takeSnapshot()
+  }
+  intervalIds.push(setInterval(snapshotTaker, 30000))
 
   function statusUpdater(): void {
     const now = Date.now()
@@ -297,13 +263,15 @@ async function main(): Promise<void> {
         )
       ].join(' | '),
       statusBarLine(),
-      mostStaleRepo != null
-        ? [
-            `${countReposInSync()} / ${state.repoIds.length} repos in-sync`,
-            `maximum ${maxRepoSyncTime}ms since repo out of sync`,
-            `stale repo ${mostStaleRepo.repoId}`
-          ].join(' | ')
-        : 'Waiting for repos...'
+      [
+        `${countReposInSync()} / ${state.repoIds.length} repos in-sync`,
+        ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.repoId)
+          ? [
+              `maximum ${maxRepoSyncTime}ms since repo out of sync`,
+              `stale repo ${mostStaleRepo.repoId}`
+            ]
+          : [])
+      ].join(' | ')
     ]
 
     statusBox(
@@ -361,7 +329,7 @@ async function main(): Promise<void> {
       exit('exceeded sync timeout')
     }
   }
-  const statusUpdaterIntervalId = setInterval(statusUpdater, 100)
+  intervalIds.push(setInterval(statusUpdater, 100))
 }
 
 function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
@@ -463,6 +431,27 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     })
   }
 
+  // All servers except for the server which facilitated the update are assumed
+  // to not have replicated repo's update
+  const allOtherServerHosts = Object.keys(state.serverSyncInfoMap).filter(
+    host => host !== serverHost
+  )
+  allOtherServerHosts.forEach(host => {
+    // If repo was in-sync, then track repo out-of-sync time
+    if (repoState.syncTimeInstrument.start === null) {
+      startInstrument(repoState.syncTimeInstrument, updateEvent.requestTime)
+    }
+    // If server was in-sync, then track server out-of-sync time
+    if (serverSyncInstrument.start === null) {
+      startInstrument(serverSyncInstrument, updateEvent.requestTime)
+    }
+    // If network was in-sync, then track network out-of-sync time
+    if (networkSyncInstrument.start === null) {
+      startInstrument(networkSyncInstrument, updateEvent.requestTime)
+    }
+    setIsRepoInSyncWithServer(host, repoId, false)
+  })
+
   printLog(
     'write',
     requestTime,
@@ -551,7 +540,7 @@ function onCheckEvent(
 
     setIsRepoInSyncWithServer(serverHost, repoId, false)
 
-    printLog('desync', serverHost, repoId, checkEvent.requestTime)
+    printLog('behind', serverHost, repoId, checkEvent.requestTime)
   } else if (['ahead', 'conflicting'].includes(status)) {
     printLog(status, serverHost, repoId, checkEvent.requestTime)
   }
@@ -705,6 +694,51 @@ const addRepoToSyncInfoMap = (repoId: string): void => {
   })
 }
 
+const takeSnapshot = (): Snapshot => {
+  const timestamp = Date.now()
+  const datetime = new Date(timestamp).toLocaleString()
+  const snapshot: Snapshot = {
+    timestamp,
+    datetime,
+    repos: {
+      count: state.repoIds.length
+    },
+    payloads: {
+      totalBytes: bytesMetric.sum,
+      avgBytes: bytesMetric.avg,
+      minBytes: bytesMetric.min,
+      maxBytes: bytesMetric.max
+    },
+    updates: {
+      total: repoUpdateTimeMetric.total,
+      avgPerSec:
+        repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0,
+      avgTimeInMs: repoUpdateTimeMetric.avg,
+      maxTimeInMs: repoUpdateTimeMetric.max
+    },
+    repoReplications: {
+      total: repoReplicationTimeMetric.total,
+      avgPerSec:
+        repoReplicationTimeMetric.avg !== 0
+          ? 1000 / repoReplicationTimeMetric.avg
+          : 0,
+      avgTimeInMs: repoReplicationTimeMetric.avg,
+      maxTimeInMs: repoReplicationTimeMetric.max
+    },
+    repoSyncs: {
+      total: repoSyncTimeMetric.total,
+      avgPerSec:
+        repoSyncTimeMetric.avg !== 0 ? 1000 / repoSyncTimeMetric.avg : 0,
+      avgTimeInMs: repoSyncTimeMetric.avg,
+      maxTimeInMs: repoSyncTimeMetric.max
+    }
+  }
+
+  state.output.snapshots.push(snapshot)
+
+  return snapshot
+}
+
 // Startup
 
 try {
@@ -746,6 +780,32 @@ process.on('unhandledRejection', error => {
 })
 
 function errHandler(err: Error | string): void {
-  console.error(err)
-  process.exit(1)
+  // Handle error strings as CLI error message
+  if (typeof err === 'string') {
+    console.error(err)
+    process.exit(1)
+  }
+
+  exit('exception', err)
+}
+
+function exit(reason: string, error?: Error): void {
+  // Print reason for exiting
+  print(`!!! ${reason}`)
+
+  // Final output snapshot
+  takeSnapshot()
+
+  state.output.reason = reason
+  state.output.error =
+    error != null
+      ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        }
+      : undefined
+
+  console.log(JSON.stringify(state.output, null, 2))
+  process.exit(error == null ? 0 : 1)
 }

@@ -1,7 +1,7 @@
 import { randomInt } from 'crypto'
-import Semaphore from 'semaphore-async-await'
 
 import { asTimestampRev, TimestampRev } from '../../types'
+import { delay } from '../../util/utils'
 import { SyncClient } from './SyncClient'
 import {
   asWorkerConfig,
@@ -21,63 +21,12 @@ import {
 process.title = 'worker'
 
 // State
-let updatesQueued = 0
 let updatesDone = 0
 let lastUpdateTimestamp: TimestampRev = asTimestampRev(0)
 let isRepoSynced: boolean = true
 
-// State Methods
-const repoUpdateIsSynced = (
-  serverRepoTimestamps: string[],
-  config: WorkerConfig
-): void => {
-  const isSynced = serverRepoTimestamps.every(
-    serverRepoTimestamp => serverRepoTimestamp === lastUpdateTimestamp
-  )
-
-  // If repo is has synced across all servers, then increase update rate
-  if (!isRepoSynced && isSynced) {
-    config.repoUpdatesPerMin =
-      config.repoUpdatesPerMin * config.repoUpdateIncreaseRate
-  }
-
-  // Update state
-  isRepoSynced = isSynced
-}
-
 // Main Function
 export async function workerRoutine(config: WorkerConfig): Promise<void> {
-  const updateLock = new Semaphore(1)
-  const readLock = new Semaphore(1)
-
-  const getUpdateDelay = (): number => (60 / config.repoUpdatesPerMin) * 1000
-  const updateLockReleaser = (): void => {
-    updateLock.release()
-
-    if (
-      config.maxUpdatesPerRepo === 0 ||
-      updatesDone + 1 < config.maxUpdatesPerRepo
-    ) {
-      setTimeout(updateLockReleaser, getUpdateDelay())
-    }
-  }
-  const getReadLockDelay = (): number => (60 / config.repoReadsPerMin) * 1000
-  const readLockReleaser = (): void => {
-    readLock.release()
-
-    if (
-      config.maxUpdatesPerRepo === 0 ||
-      updatesDone + 1 < config.maxUpdatesPerRepo
-    ) {
-      setTimeout(readLockReleaser, getReadLockDelay())
-    }
-  }
-  // Initialize lock releasers
-  updateLock.drainPermits()
-  updateLockReleaser()
-  readLock.drainPermits()
-  readLockReleaser()
-
   // Create sync clients
   const syncClients = Object.entries(config.clusters).reduce<SyncClient[]>(
     (syncClients, [clusterName, urls]) => {
@@ -93,10 +42,10 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   await getRepoReady(randomElement(syncClients), config.repoId)
 
   // Run updater
-  updater(config, syncClients, updateLock, readLock).catch(errHandler)
+  updater(config, syncClients).catch(errHandler)
 
   // Run the checker
-  checker(config, syncClients, readLock).catch(errHandler)
+  checker(config, syncClients).catch(errHandler)
 }
 
 // Creates repo if it does not exist.
@@ -143,31 +92,26 @@ const getRepoReady = async (
 
 const updater = (
   config: WorkerConfig,
-  syncClients: SyncClient[],
-  updateLock: Semaphore,
-  readLock: Semaphore
+  syncClients: SyncClient[]
 ): Promise<void> => {
-  return updateRepo(config, syncClients, updateLock)
+  return updateRepo(config, syncClients)
     .then(send)
     .then(() => {
-      readLock.release()
       if (
         config.maxUpdatesPerRepo === 0 ||
-        updatesQueued < config.maxUpdatesPerRepo
+        updatesDone < config.maxUpdatesPerRepo
       ) {
-        ++updatesQueued
-        return updater(config, syncClients, updateLock, readLock)
+        return delay((60 / config.repoUpdatesPerMin) * 1000).then(() =>
+          updater(config, syncClients)
+        )
       }
     })
 }
 
 async function updateRepo(
   config: WorkerConfig,
-  syncClients: SyncClient[],
-  updateLock: Semaphore
+  syncClients: SyncClient[]
 ): Promise<UpdateEvent> {
-  await updateLock.acquire()
-
   const sync = randomElement(syncClients)
 
   const serverHost = sync.host
@@ -213,46 +157,50 @@ async function updateRepo(
     }
 
     // Try again
-    updateLock.release()
-    return await throttle(
-      () => updateRepo(config, syncClients, updateLock),
-      500
-    )
+    return await throttle(() => updateRepo(config, syncClients), 500)
   }
 }
 
-const checker = (
+const checker = async (
   config: WorkerConfig,
-  syncClients: SyncClient[],
-  readLock: Semaphore
-): Promise<void> =>
-  readLock
-    .acquire()
-    .then(() =>
-      Promise.all(
-        // Only check for updates on servers where the client's timestamp does
-        // not equal the last update timestamp. This prevents redundant checks.
-        syncClients
-          .filter(
-            syncClient =>
-              syncClient.repoTimestamps[config.repoId] !== lastUpdateTimestamp
-          )
-          .map(sync => checkServerStatus({ sync, repoId: config.repoId }))
+  syncClients: SyncClient[]
+): Promise<void> => {
+  await delay((60 / config.repoReadsPerMin) * 1000)
+
+  return await Promise.all(
+    // Only check for updates on servers where the client's timestamp does
+    // not equal the last update timestamp. This prevents redundant checks.
+    syncClients
+      .filter(
+        syncClient =>
+          syncClient.repoTimestamps[config.repoId] !== lastUpdateTimestamp
       )
-    )
+      .map(sync => checkServerStatus({ sync, repoId: config.repoId }))
+  )
     .then(checkResponses => {
       const checkEvents = checkResponses.filter(
         (checkResponse): checkResponse is CheckEvent => checkResponse != null
       )
-      const serverRepoTimestamps = checkEvents.map(
-        checkEvent => checkEvent.serverRepoTimestamp
-      )
-
       checkEvents.forEach(checkEvent => {
         send(checkEvent)
       })
 
-      repoUpdateIsSynced(serverRepoTimestamps, config)
+      const serverRepoTimestamps = checkEvents.map(
+        checkEvent => checkEvent.serverRepoTimestamp
+      )
+
+      const wasRepoSynced = isRepoSynced
+
+      // Update State
+      isRepoSynced = serverRepoTimestamps.every(
+        serverRepoTimestamp => serverRepoTimestamp === lastUpdateTimestamp
+      )
+
+      // If repo has become synced across all servers, then increase update rate
+      if (!wasRepoSynced && isRepoSynced) {
+        config.repoUpdatesPerMin =
+          config.repoUpdatesPerMin * config.repoUpdateIncreaseRate
+      }
     })
     .then(() => {
       if (
@@ -260,9 +208,10 @@ const checker = (
         updatesDone < config.maxUpdatesPerRepo ||
         !isRepoSynced
       ) {
-        return checker(config, syncClients, readLock)
+        return checker(config, syncClients)
       }
     })
+}
 
 interface CheckServerStatusProps {
   sync: SyncClient
