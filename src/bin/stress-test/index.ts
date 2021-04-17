@@ -70,7 +70,7 @@ interface RepoSyncInfo {
 
 interface Output {
   reason: string
-  error?: Error
+  errors: any[]
   config: Config
   snapshots: Snapshot[]
 }
@@ -136,11 +136,12 @@ async function main(): Promise<void> {
     output: {
       reason: 'unknown',
       config,
-      snapshots: []
+      snapshots: [],
+      errors: []
     }
   }
 
-  console.log(`Verbosity: ${String(config.verbose)}`)
+  print(`Verbosity: ${String(config.verbose)}`)
 
   const serverUrls = Object.values(config.clusters).reduce<string[]>(
     (allUrls, urls) => {
@@ -150,7 +151,7 @@ async function main(): Promise<void> {
   )
   serverCount = serverUrls.length
 
-  console.log(`Generating random repos...`)
+  print(`Generating random repos...`)
   // Generate an array of unique repo IDs of configured repoCount length
   const repoIds = generateRepoIds(config.repoPrefix, config.repoCount)
 
@@ -158,13 +159,13 @@ async function main(): Promise<void> {
   state.serverSyncInfoMap = makeSyncInfoMap(serverUrls)
 
   if (config.verbose) {
-    console.log(`Repos:\n  ${repoIds.join('\n  ')}`)
-    console.log(`Servers:\n  ${serverUrls.join('\n  ')}`)
+    print(`Repos:\n  ${repoIds.join('\n  ')}`)
+    print(`Servers:\n  ${serverUrls.join('\n  ')}`)
   }
 
   // Worker Cluster Process
   // ---------------------------------------------------------------------
-  console.info(`Forking worker cluster processes...`)
+  print(`Forking worker cluster processes...`)
   // spawn
   const workerCluster = fork(join(__dirname, 'worker-cluster.ts'))
   // events
@@ -195,7 +196,7 @@ async function main(): Promise<void> {
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
-  console.info(`Starting worker cluster routines (${repoIds.length})...`)
+  print(`Starting worker cluster routines (${repoIds.length})...`)
   repoIds.forEach(repoId => startWorkerRoutine(workerCluster, repoId))
 
   const intervalIds: NodeJS.Timeout[] = []
@@ -319,17 +320,28 @@ async function main(): Promise<void> {
       totalRepoUpdates >= config.maxUpdatesPerRepo * state.repoIds.length &&
       getIsNetworkInSync(serverCount)
     ) {
-      exit('completed max operations')
+      exitGracefully('completed max operations')
     }
 
     if (
       config.repoSyncTimeout !== 0 &&
       maxRepoSyncTime > config.repoSyncTimeout
     ) {
-      exit('exceeded sync timeout')
+      exitGracefully('exceeded sync timeout')
     }
   }
   intervalIds.push(setInterval(statusUpdater, 100))
+
+  function exitGracefully(reason: string): void {
+    // Exit all worker processes
+    workerCluster.kill('SIGTERM')
+
+    // Stop all intervals
+    intervalIds.forEach(intervalId => clearInterval(intervalId))
+
+    // exit process
+    exit(reason)
+  }
 }
 
 function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
@@ -353,6 +365,7 @@ function onEvent(event: AllEvents): void {
   switch (event.type) {
     case 'error':
       printLog('error', event.process, event.message)
+      state.output.errors.push(event)
       if (config.verbose)
         print({
           stack: event.stack,
@@ -766,6 +779,8 @@ try {
 
   config = asConfig(JSON.parse(configJson))
 
+  process.env.VERBOSE = config.verbose ? '1' : '0'
+
   main().catch(errHandler)
 } catch (error) {
   if (error instanceof TypeError) {
@@ -797,15 +812,17 @@ function exit(reason: string, error?: Error): void {
   takeSnapshot()
 
   state.output.reason = reason
-  state.output.error =
-    error != null
-      ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        }
-      : undefined
 
-  console.log(JSON.stringify(state.output, null, 2))
+  if (error != null) {
+    state.output.errors.push({
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
+  }
+
+  console.log(
+    JSON.stringify(state.output, null, process.env.VERBOSE === '1' ? 2 : 0)
+  )
   process.exit(error == null ? 0 : 1)
 }
