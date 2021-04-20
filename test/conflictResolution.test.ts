@@ -105,7 +105,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
   // Tests:
 
   it('/api/v3/getFiles returns merged conflicting documents', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({
         '/nonConflictFile': {
           ...CONTENT.updateAContent,
@@ -139,7 +139,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         }
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getFiles')
@@ -154,11 +154,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         }
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/getFiles returns merged timestamps given a directory path', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({
         '/conflictDir': {
           paths: {
@@ -180,7 +180,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         }
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getFiles')
@@ -192,11 +192,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         }
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/getUpdates returns merged timestamps correctly', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({
         '/mergeBaseFile': repoTimestamps.mergedBase,
         '/nonConflictFile': repoTimestamps.updateA,
@@ -215,7 +215,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: 0
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getUpdates')
@@ -224,11 +224,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: 0
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/getUpdates returns updates after merge base given latest timestamp', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({
         '/nonConflictFile': repoTimestamps.updateA,
         '/conflictFile': repoTimestamps.mergedRev,
@@ -245,7 +245,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: repoTimestamps.updateB
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getUpdates')
@@ -254,11 +254,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: repoTimestamps.updateB
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/getUpdates returns updates after merge base given non-latest timestamp revision', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({
         '/nonConflictFile': repoTimestamps.updateA,
         '/conflictFile': repoTimestamps.mergedRev,
@@ -280,7 +280,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: nonLatestTimestampRev
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getUpdates')
@@ -289,11 +289,11 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: nonLatestTimestampRev
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/getUpdates returns no updates given latest timestamp revision', async () => {
-    const expectation = (res: supertest.Response): void => {
+    const isExpected = (res: supertest.Response): void => {
       expect(res.body.data.paths).deep.equals({})
       expect(res.body.data.deleted).deep.equals({})
     }
@@ -305,7 +305,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: repoTimestamps.mergedRev
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
 
     await agentB
       .post('/api/v3/getUpdates')
@@ -314,7 +314,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
         timestamp: repoTimestamps.mergedRev
       })
       .expect(res => isSuccessfulResponse(res))
-      .expect(expectation)
+      .expect(res => isExpected(res))
   })
 
   it('/api/v3/updateFiles will resolve conflicts', async () => {

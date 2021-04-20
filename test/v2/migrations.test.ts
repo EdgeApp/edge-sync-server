@@ -45,7 +45,7 @@ apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
   it('GET /api/v2/store passive migration', async () => {
     const res = await agent
       .get(`/api/v2/store/${repoId}`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     expect(res.body.changes).to.deep.equal(repoStoreContent.changes)
     expect(res.body.hash != null, 'Missing hash field in response')

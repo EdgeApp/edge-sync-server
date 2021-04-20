@@ -16,13 +16,13 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
     await agent
       .put('/api/v2/store/')
       .send()
-      .expect(isErrorResponse(404, 'not found'))
+      .expect(res => isErrorResponse(404, 'not found')(res))
   })
 
   it('Can create new repo', async () => {
     await agent
       .put(`/api/v2/store/${repoId}`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(201)
       .expect(res => {
         expect(res.body.success).to.equal(true, 'res.body.success')
@@ -32,6 +32,8 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
   })
 
   it('Will error for existing repo', async () => {
-    await agent.put(`/api/v2/store/${repoId}`).expect(isErrorResponse(409))
+    await agent
+      .put(`/api/v2/store/${repoId}`)
+      .expect(res => isErrorResponse(409)(res))
   })
 })

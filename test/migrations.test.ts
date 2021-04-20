@@ -60,7 +60,7 @@ apiSuite('Migrations (v3 getFiles)', (appState: AppState) => {
         ignoreTimestamps: true,
         paths
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     const data: GetFilesResponse = res.body.data
 
@@ -131,7 +131,7 @@ apiSuite('Migrations (v3 getUpdates)', (appState: AppState) => {
         repoId,
         timestamp: 0
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     const data: GetUpdatesResponse = res.body.data
 

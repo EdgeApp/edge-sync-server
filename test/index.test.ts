@@ -13,7 +13,7 @@ apiSuite('Basic server errors', (appState: AppState) => {
     await agent
       .get('/api/v3/nowhere')
       .send()
-      .expect(isErrorResponse(404, 'not found'))
+      .expect(res => isErrorResponse(404, 'not found')(res))
   })
 })
 
@@ -25,7 +25,7 @@ apiSuite('/api/v3/config', (appState: AppState) => {
     await agent
       .get('/api/v3/config')
       .send()
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.data).to.have.property('maxPageSize')
       })

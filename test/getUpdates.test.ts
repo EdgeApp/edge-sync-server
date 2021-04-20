@@ -39,7 +39,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
     let res = await agent
       .put('/api/v3/repo')
       .send({ repoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     repoTimestamp = res.body.data.timestamp
 
@@ -56,7 +56,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
           '/dir/deletedFile': CONTENT.dirDeletedFile
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     oldestTs = repoTimestamp = res.body.data.timestamp
 
@@ -71,7 +71,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
           '/dir/deletedFile': null
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     deletionTs = repoTimestamp = res.body.data.timestamp
 
@@ -88,7 +88,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
           '/dir/file2': CONTENT.dirFile2
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     latestTs = repoTimestamp = res.body.data.timestamp
 
@@ -96,7 +96,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
     res = await agent
       .put('/api/v3/repo')
       .send({ repoId: otherRepoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -109,7 +109,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
           '/dir/deletedFile.ignore': CONTENT.dirDeletedFile
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -120,7 +120,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
           '/dir/deletedFile.ignore': null
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
   })
 
   // Tests:
@@ -133,14 +133,16 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
         repoId: unknownRepoId,
         timestamp: 0
       })
-      .expect(isErrorResponse(404, `Repo '${unknownRepoId}' not found`))
+      .expect(res =>
+        isErrorResponse(404, `Repo '${unknownRepoId}' not found`)(res)
+      )
   })
 
   it('can get updates with 0 timestamp parameter', async () => {
     await agent
       .post('/api/v3/getUpdates')
       .send({ repoId, timestamp: 0 })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.data.paths).deep.equals({
           '/file1': oldestTs,
@@ -159,7 +161,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
     await agent
       .post('/api/v3/getUpdates')
       .send({ repoId, timestamp: oldestTs })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.data.paths).deep.equals({
           '/dir/file2': latestTs,
@@ -173,7 +175,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
     await agent
       .post('/api/v3/getUpdates')
       .send({ repoId, timestamp: deletionTs })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.data.paths).deep.equals({
           '/dir/file2': latestTs,
@@ -184,7 +186,7 @@ apiSuite('/api/v3/getUpdates', (appState: AppState) => {
     await agent
       .post('/api/v3/getUpdates')
       .send({ repoId, timestamp: latestTs })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.data.paths).deep.equals({})
         expect(res.body.data.deleted).deep.equals({})

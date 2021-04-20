@@ -25,7 +25,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     const res = await agent
       .put('/api/v3/repo')
       .send({ repoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     expect(res.body.data.timestamp).to.be.a('string')
     repoTimestamp = res.body.data.timestamp
   })
@@ -69,7 +69,9 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can validate request body', async () => {
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
-      .expect(isErrorResponse(400, 'Expected an object at .changes'))
+      .expect(res =>
+        isErrorResponse(400, 'Expected an object at .changes')(res)
+      )
   })
 
   it('Can validate paths', async () => {
@@ -88,7 +90,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
             [path]: makeMockStoreFile({ text: 'content' }).box
           }
         })
-        .expect(isErrorResponse(400, `Invalid path '/${path}'`))
+        .expect(res => isErrorResponse(400, `Invalid path '/${path}'`)(res))
     }
   })
 
@@ -103,8 +105,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes
       })
-      .expect(isPostStoreResponse(changes))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changes)(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Can update file', async () => {
@@ -121,15 +123,15 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes: changesA
       })
-      .expect(isPostStoreResponse(changesA))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesA)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: changesB
       })
-      .expect(isPostStoreResponse(changesB))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesB)(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Can write file with directory', async () => {
@@ -143,8 +145,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes
       })
-      .expect(isPostStoreResponse(changes))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changes)(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Cannot write file where there is a directory', async () => {
@@ -159,8 +161,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes
       })
-      .expect(isPostStoreResponse(changes))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changes)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
@@ -168,12 +170,12 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           [dirPath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to write file '/${dirPath}'. ` +
             `Existing document is not a file.`
-        )
+        )(res)
       )
   })
 
@@ -189,8 +191,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes
       })
-      .expect(isPostStoreResponse(changes))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changes)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
@@ -198,12 +200,12 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           [badFilePath]: makeMockStoreFile({ text: 'content' }).box
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to write files under '/${filePath}'. ` +
             `Existing document is not a directory.`
-        )
+        )(res)
       )
   })
 
@@ -221,15 +223,15 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes: changesA
       })
-      .expect(isPostStoreResponse(changesA))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesA)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: changesB
       })
-      .expect(isPostStoreResponse(changesB))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesB)(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Cannot delete non-existing file', async () => {
@@ -242,11 +244,11 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to delete file '/${filePath}'. ` + `Document does not exist.`
-        )
+        )(res)
       )
   })
 
@@ -264,15 +266,15 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes: changesA
       })
-      .expect(isPostStoreResponse(changesA))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesA)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: changesB
       })
-      .expect(isPostStoreResponse(changesB))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesB)(res))
+      .then(updateRepoTimestamp)
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
@@ -280,11 +282,11 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to delete file '/${filePath}'. ` + `File is already deleted.`
-        )
+        )(res)
       )
   })
 
@@ -318,7 +320,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .send({
         changes: changesA
       })
-      .expect(isPostStoreResponse(changesA))
+      .expect(res => isPostStoreResponse(changesA)(res))
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
@@ -359,14 +361,14 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           ...changesD
         })
       )
-      .expect(updateRepoTimestamp)
+      .then(updateRepoTimestamp)
 
     await agent
       .post(`/api/v2/store/${repoId}/${repoTimestamp}`)
       .send({
         changes: changesE
       })
-      .expect(isPostStoreResponse(changesE))
-      .expect(updateRepoTimestamp)
+      .expect(res => isPostStoreResponse(changesE)(res))
+      .then(updateRepoTimestamp)
   })
 })

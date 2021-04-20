@@ -23,7 +23,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     const res = await agent
       .put('/api/v3/repo')
       .send({ repoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     expect(res.body.data.timestamp).to.be.a('string')
     repoTimestamp = res.body.data.timestamp
   })
@@ -43,14 +43,17 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
   it('Can validate request body', async () => {
     await agent
       .post('/api/v3/updateFiles')
-      .expect(isErrorResponse(400, 'Expected a string at .repoId'))
+      .expect(res => isErrorResponse(400, 'Expected a string at .repoId')(res))
     await agent
       .post('/api/v3/updateFiles')
       .send({
         repoId
       })
-      .expect(
-        isErrorResponse(400, `Invalid timestamp rev 'undefined' at .timestamp`)
+      .expect(res =>
+        isErrorResponse(
+          400,
+          `Invalid timestamp rev 'undefined' at .timestamp`
+        )(res)
       )
     await agent
       .post('/api/v3/updateFiles')
@@ -58,7 +61,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
         repoId,
         timestamp: repoTimestamp
       })
-      .expect(isErrorResponse(400, 'Expected an object at .paths'))
+      .expect(res => isErrorResponse(400, 'Expected an object at .paths')(res))
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -68,7 +71,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           '/file': null
         }
       })
-      .expect(isErrorResponse(400, `Invalid repo ID '' at .repoId`))
+      .expect(res => isErrorResponse(400, `Invalid repo ID '' at .repoId`)(res))
   })
 
   it('Can validate paths', async () => {
@@ -90,7 +93,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
             [path]: makeMockStoreFile({ text: 'content' })
           }
         })
-        .expect(isErrorResponse(400, `Invalid path '${path}'`))
+        .expect(res => isErrorResponse(400, `Invalid path '${path}'`)(res))
     }
   })
 
@@ -104,7 +107,9 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           '/file': { wrong: 'shape' }
         }
       })
-      .expect(isErrorResponse(400, `Expected null at .paths["/file"]`))
+      .expect(res =>
+        isErrorResponse(400, `Expected null at .paths["/file"]`)(res)
+      )
   })
 
   it('Can write file', async () => {
@@ -119,8 +124,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Can update file', async () => {
@@ -135,8 +140,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -146,8 +151,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Can write file with directory', async () => {
@@ -162,8 +167,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Cannot write file where there is a directory', async () => {
@@ -179,8 +184,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -190,12 +195,12 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [dirPath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to write file '${dirPath}'. ` +
             `Existing document is not a file.`
-        )
+        )(res)
       )
   })
 
@@ -212,8 +217,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isSuccessfulResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isSuccessfulResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -223,12 +228,12 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [badFilePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to write files under '${filePath}'. ` +
             `Existing document is not a directory.`
-        )
+        )(res)
       )
   })
 
@@ -244,8 +249,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -255,8 +260,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(isUpdateFilesResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isUpdateFilesResponse(res))
+      .then(updateRepoTimestamp)
   })
 
   it('Cannot delete non-existing file', async () => {
@@ -271,11 +276,11 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to delete file '${filePath}'. ` + `Document does not exist.`
-        )
+        )(res)
       )
   })
 
@@ -291,8 +296,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isSuccessfulResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isSuccessfulResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -302,8 +307,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(isSuccessfulResponse)
-      .expect(updateRepoTimestamp)
+      .expect(res => isSuccessfulResponse(res))
+      .then(updateRepoTimestamp)
     await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -313,11 +318,11 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           [filePath]: null
         }
       })
-      .expect(
+      .expect(res =>
         isErrorResponse(
           422,
           `Unable to delete file '${filePath}'. ` + `File is already deleted.`
-        )
+        )(res)
       )
   })
 
@@ -331,6 +336,8 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
           '/file': makeMockStoreFile({ text: 'content' })
         }
       })
-      .expect(isErrorResponse(422, 'Failed due to out-of-date timestamp'))
+      .expect(res =>
+        isErrorResponse(422, 'Failed due to out-of-date timestamp')(res)
+      )
   })
 })
