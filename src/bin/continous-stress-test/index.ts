@@ -20,7 +20,9 @@ config.verbose = false
 // Manage repo prefix
 let prefixCounter = 0
 function updateRepoPrefix(): void {
-  config.repoPrefix = `ed9e${(prefixCounter++).toString(16).padStart(5, '0')}`
+  config.syncKeyPrefix = `ed9e${(prefixCounter++)
+    .toString(16)
+    .padStart(5, '0')}`
   logOut('using config', config)
 }
 updateRepoPrefix()

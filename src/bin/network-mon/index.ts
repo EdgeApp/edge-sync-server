@@ -29,13 +29,13 @@ interface Result {
   timeElapsed: number
 }
 
-const repoNotFoundMessageRegex = /^Repo '.+' not found$/
+const repoNotFoundMessageRegex = /^Repo not found$/
 
 let repoStartTs: number
 let repoUpdateTs: number
 
 async function main(config: Config): Promise<void> {
-  const { repoId } = config
+  const { syncKey } = config
 
   const serverBaseUrls = config.hostnames
     .map<[number, string]>(host => [Math.random(), host])
@@ -45,14 +45,14 @@ async function main(config: Config): Promise<void> {
   const fromServer = serverBaseUrls[0]
   const otherServers = serverBaseUrls.slice(1)
 
-  await initializeRepo(fromServer, repoId)
-  await doUpdate(fromServer, repoId)
+  await initializeRepo(fromServer, syncKey)
+  await doUpdate(fromServer, syncKey)
 
   const checkStartTs = Date.now()
 
   const results: Result[] = await Promise.all(
     otherServers.map(serverUrl =>
-      pingForUpdate(serverUrl, repoId).then(({ attempts, checkUpdateTs }) => {
+      pingForUpdate(serverUrl, syncKey).then(({ attempts, checkUpdateTs }) => {
         const checkEndTs = Date.now()
         const timeElapsed = checkEndTs - checkStartTs
 
@@ -77,14 +77,14 @@ async function main(config: Config): Promise<void> {
 
 async function initializeRepo(
   serverUrl: string,
-  repoId: string
+  syncKey: string
 ): Promise<number> {
   try {
     const getUpdatesRes = await request(
       'POST',
       `${serverUrl}/api/v3/getUpdates`,
       {
-        repoId,
+        syncKey,
         timestamp: 0
       }
     )
@@ -98,7 +98,7 @@ async function initializeRepo(
     }
 
     const repoRes = await request('PUT', `${serverUrl}/api/v3/repo`, {
-      repoId
+      syncKey
     })
 
     repoStartTs = repoRes.data.timestamp
@@ -107,10 +107,10 @@ async function initializeRepo(
   }
 }
 
-async function doUpdate(serverUrl: string, repoId: string): Promise<void> {
+async function doUpdate(serverUrl: string, syncKey: string): Promise<void> {
   const body = {
     timestamp: repoStartTs,
-    repoId,
+    syncKey,
     paths: {
       '/file': {
         box: {
@@ -133,11 +133,11 @@ async function doUpdate(serverUrl: string, repoId: string): Promise<void> {
 
 function pingForUpdate(
   serverUrl: string,
-  repoId: string,
+  syncKey: string,
   attempts: number = 0
 ): Promise<{ attempts: number; checkUpdateTs: number }> {
   const body = {
-    repoId,
+    syncKey,
     timestamp: 0
   }
 
@@ -147,7 +147,9 @@ function pingForUpdate(
       ++attempts
 
       if (getUpdateTimestamp < repoUpdateTs) {
-        return delay(500).then(() => pingForUpdate(serverUrl, repoId, attempts))
+        return delay(500).then(() =>
+          pingForUpdate(serverUrl, syncKey, attempts)
+        )
       } else if (getUpdateTimestamp > repoUpdateTs) {
         throw new Error(
           `Assertion failed: other servers should not be ahead of update time`
@@ -160,7 +162,7 @@ function pingForUpdate(
       if (!repoNotFoundMessageRegex.test(error.response?.message)) {
         throw error
       }
-      return delay(500).then(() => pingForUpdate(serverUrl, repoId, attempts))
+      return delay(500).then(() => pingForUpdate(serverUrl, syncKey, attempts))
     })
 }
 

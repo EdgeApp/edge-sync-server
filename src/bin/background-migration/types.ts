@@ -9,5 +9,5 @@ export const asCheckpoint = asObject({
 export type ScanFile = ReturnType<typeof asScanFile>
 export const asScanFile = asObject({
   partitionHex: asString,
-  repoIds: asArray(asString)
+  syncKeys: asArray(asString)
 })

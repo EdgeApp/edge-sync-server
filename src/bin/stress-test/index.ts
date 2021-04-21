@@ -33,13 +33,13 @@ import {
   statusBarLine,
   statusBox
 } from './utils/printing'
-import { makeRepoId } from './utils/utils'
+import { makeSyncKey } from './utils/utils'
 
 // Types
 
 interface State {
   startTime: number
-  repoIds: string[]
+  syncKeys: string[]
   repos: RepoStateMap
   serverSyncInfoMap: ServerSyncInfoMap
   output: Output
@@ -47,7 +47,7 @@ interface State {
 
 type RepoStateMap = Map<string, RepoState>
 interface RepoState {
-  repoId: string
+  syncKey: string
   serverHost: string
   updateRequestTime: number
   repoTimestamp: TimestampRev
@@ -62,7 +62,7 @@ interface ServerSyncInfo {
   repos: RepoSyncInfoMap
 }
 interface RepoSyncInfoMap {
-  [repoId: string]: RepoSyncInfo
+  [syncKey: string]: RepoSyncInfo
 }
 interface RepoSyncInfo {
   inSync: boolean
@@ -130,7 +130,7 @@ async function main(): Promise<void> {
   // Initialize state
   state = {
     startTime: Date.now(),
-    repoIds: [],
+    syncKeys: [],
     repos: new Map(),
     serverSyncInfoMap: {},
     output: {
@@ -153,13 +153,13 @@ async function main(): Promise<void> {
 
   print(`Generating random repos...`)
   // Generate an array of unique repo IDs of configured repoCount length
-  const repoIds = generateRepoIds(config.repoPrefix, config.repoCount)
+  const syncKeys = generateSyncKeys(config.syncKeyPrefix, config.repoCount)
 
   // Generate Sync Server Info for each server and host
   state.serverSyncInfoMap = makeSyncInfoMap(serverUrls)
 
   if (config.verbose) {
-    print(`Repos:\n  ${repoIds.join('\n  ')}`)
+    print(`Repos:\n  ${syncKeys.join('\n  ')}`)
     print(`Servers:\n  ${serverUrls.join('\n  ')}`)
   }
 
@@ -196,14 +196,14 @@ async function main(): Promise<void> {
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
-  print(`Starting worker cluster routines (${repoIds.length})...`)
-  repoIds.forEach(repoId => startWorkerRoutine(workerCluster, repoId))
+  print(`Starting worker cluster routines (${syncKeys.length})...`)
+  syncKeys.forEach(syncKey => startWorkerRoutine(workerCluster, syncKey))
 
   const intervalIds: NodeJS.Timeout[] = []
 
   // Increase repo count every minute
   function repoCountIncreaser(): void {
-    const currentRepoCount = state.repoIds.length
+    const currentRepoCount = state.syncKeys.length
     // Use ceil because we want to increase by at least 1 if the rate > 1
     const newRepoCount = Math.ceil(
       currentRepoCount * config.repoCountIncreaseRatePerMin - currentRepoCount
@@ -212,9 +212,12 @@ async function main(): Promise<void> {
     printLog('repo-increase', newRepoCount)
 
     for (let i = 0; i < newRepoCount; ++i) {
-      const newRepoId = makeRepoId(state.repoIds.length, config.repoPrefix)
-      startWorkerRoutine(workerCluster, newRepoId)
-      printLog('new-repo', newRepoId)
+      const newSyncKey = makeSyncKey(
+        state.syncKeys.length,
+        config.syncKeyPrefix
+      )
+      startWorkerRoutine(workerCluster, newSyncKey)
+      printLog('new-repo', newSyncKey)
     }
   }
   intervalIds.push(setInterval(repoCountIncreaser, 60000))
@@ -265,11 +268,11 @@ async function main(): Promise<void> {
       ].join(' | '),
       statusBarLine(),
       [
-        `${countReposInSync()} / ${state.repoIds.length} repos in-sync`,
-        ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.repoId)
+        `${countReposInSync()} / ${state.syncKeys.length} repos in-sync`,
+        ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.syncKey)
           ? [
               `maximum ${maxRepoSyncTime}ms since repo out of sync`,
-              `stale repo ${mostStaleRepo.repoId}`
+              `stale repo ${mostStaleRepo.syncKey}`
             ]
           : [])
       ].join(' | ')
@@ -281,7 +284,7 @@ async function main(): Promise<void> {
         statusBarLine(),
         prettyPrintObject({
           'Total updates': `${totalRepoUpdates} / ${
-            config.maxUpdatesPerRepo * state.repoIds.length
+            config.maxUpdatesPerRepo * state.syncKeys.length
           }`,
           'Avg repo update time': `${repoUpdateTimeMetric.avg}ms`,
           'Avg repo update / sec': `${avgUpdatesPerSec}`,
@@ -317,7 +320,7 @@ async function main(): Promise<void> {
     // Exit cases
     if (
       config.maxUpdatesPerRepo > 0 &&
-      totalRepoUpdates >= config.maxUpdatesPerRepo * state.repoIds.length &&
+      totalRepoUpdates >= config.maxUpdatesPerRepo * state.syncKeys.length &&
       getIsNetworkInSync(serverCount)
     ) {
       exitGracefully('completed max operations')
@@ -344,10 +347,13 @@ async function main(): Promise<void> {
   }
 }
 
-function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
+function startWorkerRoutine(
+  workerCluster: ChildProcess,
+  syncKey: string
+): void {
   const workerConfig: WorkerConfig = {
     clusters: config.clusters,
-    repoId,
+    syncKey,
     repoUpdatesPerMin: config.repoUpdatesPerMin,
     repoReadsPerMin: config.repoReadsPerMin,
     repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
@@ -357,8 +363,8 @@ function startWorkerRoutine(workerCluster: ChildProcess, repoId: string): void {
   }
   workerCluster.send(workerConfig)
 
-  state.repoIds.push(repoId)
-  addRepoToSyncInfoMap(repoId)
+  state.syncKeys.push(syncKey)
+  addRepoToSyncInfoMap(syncKey)
 }
 
 function onEvent(event: AllEvents): void {
@@ -401,17 +407,17 @@ function onEvent(event: AllEvents): void {
 }
 
 function onReadyEvent(readyEvent: ReadyEvent): void {
-  const { requestTime, serverHost, repoId, serverRepoTimestamp } = readyEvent
+  const { requestTime, serverHost, syncKey, serverRepoTimestamp } = readyEvent
 
-  state.repos.set(repoId, {
-    repoId,
+  state.repos.set(syncKey, {
+    syncKey,
     serverHost,
     updateRequestTime: requestTime,
     repoTimestamp: serverRepoTimestamp,
     syncTimeInstrument: makeInstrument()
   })
 
-  printLog('ready', serverHost, repoId, requestTime)
+  printLog('ready', serverHost, syncKey, requestTime)
 }
 
 function onUpdateEvent(updateEvent: UpdateEvent): void {
@@ -424,19 +430,19 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
   const {
     requestTime,
     serverHost,
-    repoId,
+    syncKey,
     serverRepoTimestamp,
     payloadSize
   } = updateEvent
 
-  const repoState = state.repos.get(repoId)
+  const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
     throw new Error('Missing repo state')
   }
 
   if (gt(serverRepoTimestamp, repoState.repoTimestamp)) {
-    state.repos.set(repoId, {
+    state.repos.set(syncKey, {
       ...repoState,
       updateRequestTime: requestTime,
       repoTimestamp: serverRepoTimestamp,
@@ -462,14 +468,14 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     if (networkSyncInstrument.start === null) {
       startInstrument(networkSyncInstrument, updateEvent.requestTime)
     }
-    setIsRepoInSyncWithServer(host, repoId, false)
+    setIsRepoInSyncWithServer(host, syncKey, false)
   })
 
   printLog(
     'write',
     requestTime,
     serverHost,
-    repoId,
+    syncKey,
     serverRepoTimestamp,
     payloadSize != null ? `${payloadSize} bytes` : ''
   )
@@ -479,11 +485,11 @@ function onCheckEvent(
   checkEvent: CheckEvent,
   onEvent: (output: AllEvents) => void
 ): void {
-  const { serverHost, repoId } = checkEvent
-  const repoState = state.repos.get(repoId)
+  const { serverHost, syncKey } = checkEvent
+  const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
-    printLog('checker', 'repo not ready', repoId)
+    printLog('checker', 'repo not ready', syncKey)
     return
   }
 
@@ -495,8 +501,8 @@ function onCheckEvent(
       : 'conflicting'
     : 'behind'
 
-  const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, repoId)
-  const wasRepoInSync = getIsRepoSynced(repoId)
+  const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, syncKey)
+  const wasRepoInSync = getIsRepoSynced(syncKey)
   const wasServerInSync = getIsServerInSync(serverHost)
   const wasNetworkInSync = getIsNetworkInSync(serverCount)
 
@@ -505,10 +511,10 @@ function onCheckEvent(
       type: 'replication',
       timestamp: checkEvent.requestTime,
       serverHost,
-      repoId
+      syncKey
     })
 
-    const isRepoSynced = getIsRepoSynced(repoId)
+    const isRepoSynced = getIsRepoSynced(syncKey)
     const isServerInSync = getIsServerInSync(serverHost)
     const isNetworkInSync = getIsNetworkInSync(serverCount)
 
@@ -517,7 +523,7 @@ function onCheckEvent(
       onEvent({
         type: 'repo-sync',
         timestamp: checkEvent.requestTime,
-        repoId
+        syncKey
       })
     }
     // If server is now in-sync, emit a server-sync event
@@ -551,33 +557,33 @@ function onCheckEvent(
       startInstrument(networkSyncInstrument, checkEvent.requestTime)
     }
 
-    setIsRepoInSyncWithServer(serverHost, repoId, false)
+    setIsRepoInSyncWithServer(serverHost, syncKey, false)
 
-    printLog('behind', serverHost, repoId, checkEvent.requestTime)
+    printLog('behind', serverHost, syncKey, checkEvent.requestTime)
   } else if (['ahead', 'conflicting'].includes(status)) {
-    printLog(status, serverHost, repoId, checkEvent.requestTime)
+    printLog(status, serverHost, syncKey, checkEvent.requestTime)
   }
 }
 
 // Repo replicated from server where it was updated to another server
 function onReplication(syncEvent: ReplicationEvent): void {
-  const { timestamp, serverHost, repoId } = syncEvent
-  const repoState = state.repos.get(repoId)
+  const { timestamp, serverHost, syncKey } = syncEvent
+  const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
-    printLog('worker', 'repo not ready', repoId)
+    printLog('worker', 'repo not ready', syncKey)
     return
   }
 
   const repoReplicationTime = timestamp - repoState.updateRequestTime
 
   addToMetric(repoReplicationTimeMetric, repoReplicationTime)
-  setIsRepoInSyncWithServer(serverHost, repoId, true)
+  setIsRepoInSyncWithServer(serverHost, syncKey, true)
 
   printLog(
     'replication',
     serverHost,
-    repoId,
+    syncKey,
     timestamp,
     `${repoReplicationTime}ms`
   )
@@ -585,11 +591,11 @@ function onReplication(syncEvent: ReplicationEvent): void {
 
 // Repo is now in-sync with all servers
 function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
-  const { timestamp, repoId } = repoSyncEvent
-  const repoState = state.repos.get(repoId)
+  const { timestamp, syncKey } = repoSyncEvent
+  const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
-    printLog('worker', 'repo not ready', repoId)
+    printLog('worker', 'repo not ready', syncKey)
     return
   }
 
@@ -597,7 +603,7 @@ function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
 
   addToMetric(repoSyncTimeMetric, repoSyncTime)
 
-  printLog('repo-sync', repoId, timestamp)
+  printLog('repo-sync', syncKey, timestamp)
 }
 
 // Server is now in-sync with every repo
@@ -621,20 +627,20 @@ function onNetworkSync(networkSyncEvent: NetworkSyncEvent): void {
 
 function setIsRepoInSyncWithServer(
   serverHost: string,
-  repoId: string,
+  syncKey: string,
   inSync: boolean
 ): void {
   const serverSyncInfo = state.serverSyncInfoMap[serverHost]
-  const repoSyncInfo = serverSyncInfo.repos[repoId]
+  const repoSyncInfo = serverSyncInfo.repos[syncKey]
   repoSyncInfo.inSync = inSync
   setIsServerInSync(serverHost)
 }
 function getIsRepoInSyncWithServer(
   serverHost: string,
-  repoId: string
+  syncKey: string
 ): boolean {
   const serverSyncInfo = state.serverSyncInfoMap[serverHost]
-  const repoSyncInfo = serverSyncInfo.repos[repoId]
+  const repoSyncInfo = serverSyncInfo.repos[syncKey]
   return repoSyncInfo.inSync
 }
 
@@ -661,24 +667,24 @@ function countServersInSync(): number {
 
 function countReposInSync(): number {
   let count = 0
-  state.repos.forEach((_, repoId) => {
-    count += getIsRepoSynced(repoId) ? 1 : 0
+  state.repos.forEach((_, syncKey) => {
+    count += getIsRepoSynced(syncKey) ? 1 : 0
   })
   return count
 }
 
-const getIsRepoSynced = (repoId: string): boolean => {
+const getIsRepoSynced = (syncKey: string): boolean => {
   return Object.keys(state.serverSyncInfoMap).every(serverHost =>
-    getIsRepoInSyncWithServer(serverHost, repoId)
+    getIsRepoInSyncWithServer(serverHost, syncKey)
   )
 }
 
 const checkmarkify = (bool: boolean): string => (bool ? '✓' : '𐄂')
 
-const generateRepoIds = (repoPrefix: string, count: number): string[] => {
+const generateSyncKeys = (syncKeyPrefix: string, count: number): string[] => {
   const arr = []
   for (let i = 0; i < count; ++i) {
-    arr.push(makeRepoId(i, repoPrefix))
+    arr.push(makeSyncKey(i, syncKeyPrefix))
   }
   return arr
 }
@@ -698,12 +704,12 @@ const makeSyncInfoMap = (serverUrls: string[]): ServerSyncInfoMap => {
   return map
 }
 
-const addRepoToSyncInfoMap = (repoId: string): void => {
+const addRepoToSyncInfoMap = (syncKey: string): void => {
   Object.values(state.serverSyncInfoMap).forEach(serverSyncInfo => {
-    if (serverSyncInfo.repos[repoId] != null) {
-      throw new Error(`Repo already exist in state: ${repoId}`)
+    if (serverSyncInfo.repos[syncKey] != null) {
+      throw new Error(`Repo already exist in state: ${syncKey}`)
     }
-    serverSyncInfo.repos[repoId] = { inSync: true }
+    serverSyncInfo.repos[syncKey] = { inSync: true }
   })
 }
 
@@ -714,7 +720,7 @@ const takeSnapshot = (): Snapshot => {
     timestamp,
     datetime,
     repos: {
-      count: state.repoIds.length
+      count: state.syncKeys.length
     },
     payloads: {
       totalBytes: bytesMetric.sum,
