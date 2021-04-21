@@ -4,6 +4,7 @@ import PromiseRouter from 'express-promise-router'
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { AppState } from '../../server'
 import { asTimestampRev } from '../../types'
+import { syncKeyToRepoId } from '../../util/security'
 import { makeApiClientError, makeApiResponse } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'
 import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
@@ -11,7 +12,7 @@ import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
 export const putStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
 
-  router.put('/store/:storeId', whitelistIps(appState), async (req, res) => {
+  router.put('/store/:syncKey', whitelistIps(appState), async (req, res) => {
     let params: PutStoreParams
 
     // Request body validation
@@ -21,14 +22,17 @@ export const putStoreRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, error.message)
     }
 
-    if (await checkRepoExists(appState)(params.storeId)) {
+    const { syncKey } = params
+    const repoId = syncKeyToRepoId(syncKey)
+
+    if (await checkRepoExists(appState)(repoId)) {
       throw makeApiClientError(409, 'Datastore already exists')
     }
 
     // Create new repo
     const timestamp = asTimestampRev(Date.now())
 
-    await createRepoDocument(appState)(params.storeId, {
+    await createRepoDocument(appState)(repoId, {
       timestamp
     })
 

@@ -12,8 +12,8 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
-  const repoId = '0000000000000000000000000000000000000000'
-  const otherRepoId = '1111111111111111111111111111111111111111'
+  const syncKey = '0000000000000000000000000000000000000000'
+  const otherSyncKey = '1111111111111111111111111111111111111111'
   let repoTimestamp: TimestampRev = asTimestampRev(0)
   let oldestTs: TimestampRev = asTimestampRev(0)
   let latestTs: TimestampRev = asTimestampRev(0)
@@ -33,7 +33,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     // Create test repo
     let res = await agent
       .put('/api/v3/repo')
-      .send({ repoId })
+      .send({ syncKey })
       .expect(res => isSuccessfulResponse(res))
     expect(res.body.data.timestamp).to.be.a('string')
 
@@ -43,7 +43,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/file1': CONTENT.file1,
@@ -60,7 +60,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/deletedFile': null,
@@ -77,7 +77,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/file2': CONTENT.file2,
@@ -91,12 +91,12 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     // Other repo control (should not be returned)
     res = await agent
       .put('/api/v3/repo')
-      .send({ repoId: otherRepoId })
+      .send({ syncKey: otherSyncKey })
       .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId: otherRepoId,
+        syncKey: otherSyncKey,
         timestamp: res.body.data.timestamp,
         paths: {
           '/file1.ignore': CONTENT.file1,
@@ -109,7 +109,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId: otherRepoId,
+        syncKey: otherSyncKey,
         timestamp: res.body.data.timestamp,
         paths: {
           '/deletedFile.ignore': null,
@@ -133,7 +133,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths
       })
@@ -161,7 +161,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/file1': oldestTs
@@ -178,7 +178,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/file1': sub(oldestTs, '1')
@@ -200,7 +200,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths: {
           '/dir': 0
@@ -226,7 +226,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/dir': 0
@@ -250,7 +250,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/dir': oldestTs
@@ -273,7 +273,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/dir': latestTs
@@ -293,7 +293,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths: {
           '/': 0
@@ -320,7 +320,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/': 0
@@ -345,7 +345,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/': oldestTs
@@ -369,7 +369,7 @@ apiSuite('/api/v3/getFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/': latestTs

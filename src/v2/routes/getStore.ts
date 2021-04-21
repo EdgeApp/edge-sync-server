@@ -5,6 +5,7 @@ import { getRepoUpdates } from '../../api/getUpdates'
 import { migrateRepo } from '../../api/migrations'
 import { checkRepoExists } from '../../api/repo'
 import { AppState } from '../../server'
+import { syncKeyToRepoId } from '../../util/security'
 import { makeApiClientError } from '../../util/utils'
 import {
   asGetStoreParams,
@@ -20,7 +21,7 @@ import {
 export const getStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
 
-  router.get('/store/:storeId/:hash?', async (req, res) => {
+  router.get('/store/:syncKey/:hash?', async (req, res) => {
     let params: GetStoreParams
 
     // Request body validation
@@ -30,15 +31,16 @@ export const getStoreRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, error.message)
     }
 
-    const repoId = params.storeId
+    const { syncKey } = params
+    const repoId = syncKeyToRepoId(syncKey)
 
     // Deprecate after migrations
     if (!(await checkRepoExists(appState)(repoId))) {
       try {
-        await migrateRepo(appState)(repoId)
+        await migrateRepo(appState)(syncKey)
       } catch (error) {
         if (error.message === 'Repo not found') {
-          throw makeApiClientError(404, `Repo '${repoId}' not found`)
+          throw makeApiClientError(404, `Repo not found`)
         }
         throw error
       }

@@ -9,6 +9,7 @@ import {
   PutRepoBody,
   PutRepoResponse
 } from '../types'
+import { syncKeyToRepoId } from '../util/security'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 import { whitelistAll } from '../whitelisting'
 
@@ -25,14 +26,17 @@ export const repoRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, error.message)
     }
 
-    if (await checkRepoExists(appState)(body.repoId)) {
+    const { syncKey } = body
+    const repoId = syncKeyToRepoId(syncKey)
+
+    if (await checkRepoExists(appState)(repoId)) {
       throw makeApiClientError(409, 'Datastore already exists')
     }
 
     // Create new repo
     const timestamp = asTimestampRev(Date.now())
 
-    await createRepoDocument(appState)(body.repoId, {
+    await createRepoDocument(appState)(repoId, {
       timestamp
     })
 

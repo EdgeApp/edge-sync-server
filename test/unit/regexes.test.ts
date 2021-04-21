@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 
-import { VALID_PATH_REGEX, VALID_REPO_ID_REGEX } from '../../src/types'
+import { VALID_PATH_REGEX, VALID_SYNC_KEY_REGEX } from '../../src/types'
 
 describe('Unit: Regexes', () => {
   it('VALID_PATH_REGEX', () => {
@@ -27,13 +27,13 @@ describe('Unit: Regexes', () => {
       expect(VALID_PATH_REGEX.test(path), `invalid path: ${path}`).equals(false)
     )
   })
-  it('VALID_REPO_ID_REGEX', () => {
-    const validRepoIds = [
+  it('VALID_SYNC_KEY_REGEX', () => {
+    const validSyncKeys = [
       '0123456789012345678901234567890123456789',
       'abcdefabcdefabcdefabcdefabcdefabcdefabcd',
       'abcdef0123456789abcdef0123456789abcdef01'
     ]
-    const invalidRepoIds = [
+    const invalidSyncKeys = [
       '01234567890123456789012345678901234567891',
       '012345678901234567890123456789',
       'xxxdefabcdefabcdefabcdefabcdefabcdefabcd',
@@ -44,17 +44,17 @@ describe('Unit: Regexes', () => {
       '01234567890123456789\n1234567890123456789'
     ]
 
-    validRepoIds.forEach(repoId =>
+    validSyncKeys.forEach(syncKey =>
       expect(
-        VALID_REPO_ID_REGEX.test(repoId),
-        `valid repoId: ${repoId}`
+        VALID_SYNC_KEY_REGEX.test(syncKey),
+        `valid syncKey: ${syncKey}`
       ).equals(true)
     )
 
-    invalidRepoIds.forEach(repoId =>
+    invalidSyncKeys.forEach(syncKey =>
       expect(
-        VALID_REPO_ID_REGEX.test(repoId),
-        `invalid repoId: ${repoId}`
+        VALID_SYNC_KEY_REGEX.test(syncKey),
+        `invalid syncKey: ${syncKey}`
       ).equals(false)
     )
   })

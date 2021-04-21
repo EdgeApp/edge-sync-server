@@ -16,8 +16,8 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
-  const repoId = '0000000000000000000000000000000000000000'
-  const otherRepoId = '1111111111111111111111111111111111111111'
+  const syncKey = '0000000000000000000000000000000000000000'
+  const otherSyncKey = '1111111111111111111111111111111111111111'
   let repoTimestamp: TimestampRev = asTimestampRev(0)
   let oldestTs: TimestampRev = asTimestampRev(0)
   let deletionTs: TimestampRev = asTimestampRev(0)
@@ -38,7 +38,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     // Create test repo
     let res = await agent
       .put('/api/v3/repo')
-      .send({ repoId })
+      .send({ syncKey })
       .expect(res => isSuccessfulResponse(res))
 
     repoTimestamp = res.body.data.timestamp
@@ -47,7 +47,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/file1': CONTENT.file1,
@@ -64,7 +64,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/deletedFile': null,
@@ -81,7 +81,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           '/file2': CONTENT.file2,
@@ -95,12 +95,12 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     // Other repo control (should not be returned)
     res = await agent
       .put('/api/v3/repo')
-      .send({ repoId: otherRepoId })
+      .send({ syncKey: otherSyncKey })
       .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId: otherRepoId,
+        syncKey: otherSyncKey,
         timestamp: res.body.data.timestamp,
         paths: {
           '/file1.ignore': CONTENT.file1,
@@ -113,7 +113,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId: otherRepoId,
+        syncKey: otherSyncKey,
         timestamp: res.body.data.timestamp,
         paths: {
           '/deletedFile.ignore': null,
@@ -126,17 +126,15 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
   // Tests:
 
   it('will return 404 for non-existing repos', async () => {
-    const unknownRepoId = 'e7707e7707e7707e7707e7707e7707e7707e7707'
+    const unknownSyncKey = 'e7707e7707e7707e7707e7707e7707e7707e7707'
     await agent
-      .get(`/api/v2/store/${unknownRepoId}/0`)
-      .expect(res =>
-        isErrorResponse(404, `Repo '${unknownRepoId}' not found`)(res)
-      )
+      .get(`/api/v2/store/${unknownSyncKey}/0`)
+      .expect(res => isErrorResponse(404, `Repo not found`)(res))
   })
 
   it('can get updates with no hash parameter', async () => {
     await agent
-      .get(`/api/v2/store/${repoId}/`)
+      .get(`/api/v2/store/${syncKey}/`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
@@ -153,7 +151,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
 
   it('can get updates with hash parameter', async () => {
     await agent
-      .get(`/api/v2/store/${repoId}/abcdef1234567890abcdef1234567890`)
+      .get(`/api/v2/store/${syncKey}/abcdef1234567890abcdef1234567890`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
@@ -170,7 +168,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
 
   it('can get updates with 0 timestamp parameter', async () => {
     await agent
-      .get(`/api/v2/store/${repoId}/0`)
+      .get(`/api/v2/store/${syncKey}/0`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
@@ -187,7 +185,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
 
   it('can get updates with specific timestamp', async () => {
     await agent
-      .get(`/api/v2/store/${repoId}/${oldestTs}`)
+      .get(`/api/v2/store/${syncKey}/${oldestTs}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
@@ -199,7 +197,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
         })
       })
     await agent
-      .get(`/api/v2/store/${repoId}/${deletionTs}`)
+      .get(`/api/v2/store/${syncKey}/${deletionTs}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
@@ -209,7 +207,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
         })
       })
     await agent
-      .get(`/api/v2/store/${repoId}/${latestTs}`)
+      .get(`/api/v2/store/${syncKey}/${latestTs}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())

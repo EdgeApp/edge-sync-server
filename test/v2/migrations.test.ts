@@ -18,7 +18,7 @@ apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
     supertest.agent(`https://${hostname}`)
   )
 
-  const repoId = appState.config.testMigrationRepo
+  const syncKey = appState.config.testMigrationSyncKey
   let repoStoreContent: GetStoreResponse
 
   // Fixtures:
@@ -26,7 +26,7 @@ apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
   before(async () => {
     // Get the repo/store data from one of the V2 servers
     const responses = await Promise.all(
-      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${repoId}`))
+      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${syncKey}`))
     )
 
     const successfulResponse = responses.find(res => res.status === 200)
@@ -44,7 +44,7 @@ apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
 
   it('GET /api/v2/store passive migration', async () => {
     const res = await agent
-      .get(`/api/v2/store/${repoId}`)
+      .get(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
 
     expect(res.body.changes).to.deep.equal(repoStoreContent.changes)
