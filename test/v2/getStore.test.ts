@@ -39,7 +39,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     let res = await agent
       .put('/api/v3/repo')
       .send({ repoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     repoTimestamp = res.body.data.timestamp
 
@@ -56,7 +56,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
           '/dir/deletedFile': CONTENT.dirDeletedFile
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     oldestTs = repoTimestamp = res.body.data.timestamp
 
@@ -71,7 +71,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
           '/dir/deletedFile': null
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     deletionTs = repoTimestamp = res.body.data.timestamp
 
@@ -88,7 +88,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
           '/dir/file2': CONTENT.dirFile2
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
 
     latestTs = repoTimestamp = res.body.data.timestamp
 
@@ -96,7 +96,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     res = await agent
       .put('/api/v3/repo')
       .send({ repoId: otherRepoId })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -109,7 +109,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
           '/dir/deletedFile.ignore': CONTENT.dirDeletedFile
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
     res = await agent
       .post('/api/v3/updateFiles')
       .send({
@@ -120,7 +120,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
           '/dir/deletedFile.ignore': null
         }
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
   })
 
   // Tests:
@@ -129,13 +129,15 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
     const unknownRepoId = 'e7707e7707e7707e7707e7707e7707e7707e7707'
     await agent
       .get(`/api/v2/store/${unknownRepoId}/0`)
-      .expect(isErrorResponse(404, `Repo '${unknownRepoId}' not found`))
+      .expect(res =>
+        isErrorResponse(404, `Repo '${unknownRepoId}' not found`)(res)
+      )
   })
 
   it('can get updates with no hash parameter', async () => {
     await agent
       .get(`/api/v2/store/${repoId}/`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
@@ -152,7 +154,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
   it('can get updates with hash parameter', async () => {
     await agent
       .get(`/api/v2/store/${repoId}/abcdef1234567890abcdef1234567890`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
@@ -169,7 +171,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
   it('can get updates with 0 timestamp parameter', async () => {
     await agent
       .get(`/api/v2/store/${repoId}/0`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
@@ -186,7 +188,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
   it('can get updates with specific timestamp', async () => {
     await agent
       .get(`/api/v2/store/${repoId}/${oldestTs}`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
@@ -198,7 +200,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
       })
     await agent
       .get(`/api/v2/store/${repoId}/${deletionTs}`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({
@@ -208,7 +210,7 @@ apiSuite('GET /api/v2/store', (appState: AppState) => {
       })
     await agent
       .get(`/api/v2/store/${repoId}/${latestTs}`)
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(res => {
         expect(res.body.hash).equals(repoTimestamp.toString())
         expect(res.body.changes).deep.equals({})

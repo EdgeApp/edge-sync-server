@@ -73,8 +73,6 @@ export const replicationSuite = (
   }
 
   describe(name, function () {
-    this.timeout(20000)
-
     before(async () => {
       try {
         await appStateA.dbServer.db.create(configA.couchDatabase)

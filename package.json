@@ -30,7 +30,7 @@
     "setup": "configure",
     "start": "node -r sucrase/register src/index.ts",
     "start.dev": "nodemon",
-    "test": "NODE_ENV=test mocha 'test/**/*.test.ts'",
+    "test": "NODE_ENV=test mocha 'test/**/*.test.ts' --timeout 20000",
     "posttest": "nyc report --reporter=cobertura --reporter=html",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
     "test.report": "yarn test.with-report && yarn test.post-report",

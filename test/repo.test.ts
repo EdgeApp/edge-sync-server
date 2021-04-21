@@ -16,7 +16,7 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
     await agent
       .put('/api/v3/repo')
       .send()
-      .expect(isErrorResponse(400, 'Expected a string at .repoId'))
+      .expect(res => isErrorResponse(400, 'Expected a string at .repoId')(res))
   })
 
   it('Can validate repo ID', async () => {
@@ -27,8 +27,11 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
       .send({
         repoId: invalidRepoId
       })
-      .expect(
-        isErrorResponse(400, `Invalid repo ID '${invalidRepoId}' at .repoId`)
+      .expect(res =>
+        isErrorResponse(
+          400,
+          `Invalid repo ID '${invalidRepoId}' at .repoId`
+        )(res)
       )
   })
 
@@ -38,7 +41,7 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
       .send({
         repoId
       })
-      .expect(isSuccessfulResponse)
+      .expect(res => isSuccessfulResponse(res))
       .expect(201)
       .expect(res => {
         expect(res.body.success).to.equal(true, 'res.body.success')
@@ -53,6 +56,6 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
       .send({
         repoId
       })
-      .expect(isErrorResponse(409))
+      .expect(res => isErrorResponse(409)(res))
   })
 })
