@@ -19,8 +19,8 @@ import { randomBytes, randomPath } from './utils/utils'
 export class SyncClient {
   baseUrl: string
   clusterName: string
-  repoTimestamps: { [repoId: string]: TimestampRev }
-  repoFilePaths: { [repoId: string]: Set<string> }
+  repoTimestamps: { [syncKey: string]: TimestampRev }
+  repoFilePaths: { [syncKey: string]: Set<string> }
   host: string
 
   constructor(baseUrl: string, clusterName: string = '') {
@@ -39,7 +39,7 @@ export class SyncClient {
     method: string,
     path: string,
     data: {
-      repoId: any
+      syncKey: any
       ignoreTimestamps?: boolean
       paths?: any
       timestamp?: TimestampRev
@@ -113,36 +113,36 @@ export class SyncClient {
     return responseJson
   }
 
-  async createRepo(repoId: string): Promise<any> {
+  async createRepo(syncKey: string): Promise<any> {
     const response = await this.request<PutRepoResponse>(
       'PUT',
       '/api/v3/repo',
       {
-        repoId
+        syncKey
       }
     )
 
-    this.saveRepoTimestamp(repoId, response.data.timestamp)
+    this.saveRepoTimestamp(syncKey, response.data.timestamp)
 
     return response
   }
 
   async updateFiles(
-    repoId: string,
+    syncKey: string,
     changeSet: ChangeSet
   ): Promise<ApiResponse<UpdateFilesResponse>> {
     const response = await withRetries(
       async () => {
         // Get updates for this repo in-case client is out of sync
-        await this.getUpdates(repoId)
+        await this.getUpdates(syncKey)
 
         // Get the repo's timestamp
-        const timestamp = this.getRepoTimestamp(repoId)
+        const timestamp = this.getRepoTimestamp(syncKey)
 
         // Prepare the update body
         const body: UpdateFilesBody = {
           timestamp,
-          repoId,
+          syncKey,
           paths: changeSet
         }
 
@@ -157,7 +157,7 @@ export class SyncClient {
     )
 
     // Save the new repo timestamp
-    this.saveRepoTimestamp(repoId, response.data.timestamp)
+    this.saveRepoTimestamp(syncKey, response.data.timestamp)
 
     // Save the file paths
     const [paths, deleted] = Object.entries(changeSet).reduce<
@@ -174,15 +174,15 @@ export class SyncClient {
       },
       [[], []]
     )
-    this.saveRepoFilePaths(repoId, paths, deleted)
+    this.saveRepoFilePaths(syncKey, paths, deleted)
 
     // Return response
     return response
   }
 
-  async getUpdates(repoId: string): Promise<ApiResponse<GetUpdatesResponse>> {
-    const timestamp = this.getRepoTimestamp(repoId)
-    const body = { repoId, timestamp }
+  async getUpdates(syncKey: string): Promise<ApiResponse<GetUpdatesResponse>> {
+    const timestamp = this.getRepoTimestamp(syncKey)
+    const body = { syncKey, timestamp }
     const response = await this.request<GetUpdatesResponse>(
       'POST',
       '/api/v3/getUpdates',
@@ -191,12 +191,12 @@ export class SyncClient {
     const data = response.data
 
     if (gt(data.timestamp, timestamp)) {
-      this.saveRepoTimestamp(repoId, data.timestamp)
+      this.saveRepoTimestamp(syncKey, data.timestamp)
     }
 
     // Save the file paths
     this.saveRepoFilePaths(
-      repoId,
+      syncKey,
       Object.keys(response.data.paths),
       Object.keys(response.data.deleted)
     )
@@ -205,7 +205,7 @@ export class SyncClient {
   }
 
   async randomChangeSet(
-    repoId: string,
+    syncKey: string,
     fileCount: number,
     fileByteSizeRange: number[]
   ): Promise<ChangeSet> {
@@ -223,7 +223,7 @@ export class SyncClient {
       }
     }
 
-    const existingFilePaths = this.repoFilePaths[repoId]
+    const existingFilePaths = this.repoFilePaths[syncKey]
 
     // Sprinkle in some random deletions
     if (existingFilePaths != null) {
@@ -237,24 +237,24 @@ export class SyncClient {
     return changeSet
   }
 
-  getRepoTimestamp(repoId: string): TimestampRev {
-    return this.repoTimestamps[repoId] ?? '0'
+  getRepoTimestamp(syncKey: string): TimestampRev {
+    return this.repoTimestamps[syncKey] ?? '0'
   }
 
-  saveRepoTimestamp(repoId: string, timestamp: TimestampRev): void {
-    this.repoTimestamps[repoId] = timestamp
+  saveRepoTimestamp(syncKey: string, timestamp: TimestampRev): void {
+    this.repoTimestamps[syncKey] = timestamp
   }
 
-  saveRepoFilePaths(repoId: string, paths: string[], deleted: string[]): void {
+  saveRepoFilePaths(syncKey: string, paths: string[], deleted: string[]): void {
     for (const path of paths) {
-      if (this.repoFilePaths[repoId] == null)
-        this.repoFilePaths[repoId] = new Set()
-      this.repoFilePaths[repoId].add(path)
+      if (this.repoFilePaths[syncKey] == null)
+        this.repoFilePaths[syncKey] = new Set()
+      this.repoFilePaths[syncKey].add(path)
     }
     for (const path of deleted) {
-      if (this.repoFilePaths[repoId] == null)
-        this.repoFilePaths[repoId] = new Set()
-      this.repoFilePaths[repoId].delete(path)
+      if (this.repoFilePaths[syncKey] == null)
+        this.repoFilePaths[syncKey] = new Set()
+      this.repoFilePaths[syncKey].delete(path)
     }
   }
 }

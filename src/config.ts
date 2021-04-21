@@ -40,7 +40,7 @@ export const asConfig = asObject({
     'https://git-eusa.edge.app/repos/'
   ]),
   migrationTmpDir: asOptional(asString, '/tmp/app/edge-sync-server/'),
-  testMigrationRepo: asOptional(
+  testMigrationSyncKey: asOptional(
     asString,
     '000000000000000000000000000000000ed9e123'
   )

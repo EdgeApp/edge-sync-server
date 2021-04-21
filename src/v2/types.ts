@@ -1,6 +1,11 @@
 import { asEither, asNull, asObject, asOptional, asString } from 'cleaners'
 
-import { asEdgeBox, asNonEmptyString, asRepoId, asTimestampRev } from '../types'
+import {
+  asEdgeBox,
+  asNonEmptyString,
+  asSyncKey,
+  asTimestampRev
+} from '../types'
 
 export type FileChangeV2 = ReturnType<typeof asFileChangeV2>
 export const asFileChangeV2 = asEither(asEdgeBox, asNull)
@@ -10,7 +15,7 @@ export const asChangeSetV2 = asObject(asFileChangeV2)
 
 export type GetStoreParams = ReturnType<typeof asGetStoreParams>
 export const asGetStoreParams = asObject({
-  storeId: asRepoId,
+  syncKey: asSyncKey,
   hash: asOptional(asNonEmptyString)
 })
 export type GetStoreResponse = ReturnType<typeof asGetStoreResponse>
@@ -21,7 +26,7 @@ export const asGetStoreResponse = asObject({
 
 export type PostStoreParams = ReturnType<typeof asPostStoreParams>
 export const asPostStoreParams = asObject({
-  storeId: asRepoId,
+  syncKey: asSyncKey,
   hash: asOptional(asNonEmptyString)
 })
 export type PostStoreBody = ReturnType<typeof asPostStoreBody>
@@ -36,7 +41,7 @@ export const asPostStoreResponse = asObject({
 
 export type PutStoreParams = ReturnType<typeof asPutStoreParams>
 export const asPutStoreParams = asObject({
-  storeId: asRepoId
+  syncKey: asSyncKey
 })
 export type PutStoreResponse = ReturnType<typeof asPutStoreResponse>
 export const asPutStoreResponse = asObject({

@@ -9,9 +9,9 @@ import {
 export const checkRepoExists = (appState: AppState) => async (
   repoId: string
 ): Promise<boolean> => {
-  const repoKey = `${repoId}:/`
+  const repoDocKey = `${repoId}:/`
   try {
-    await appState.dataStore.head(repoKey)
+    await appState.dataStore.head(repoDocKey)
     return true
   } catch (error) {
     // Throw response errors other than 404
@@ -27,7 +27,7 @@ export const createRepoDocument = (appState: AppState) => async (
   data: Pick<StoreRepo, 'timestamp' | 'lastGitHash' | 'lastGitTime'> &
     Partial<Pick<StoreRepo, 'paths' | 'deleted'>>
 ): Promise<void> => {
-  const repoKey = `${repoId}:/`
+  const repoDocKey = `${repoId}:/`
 
   const { paths = {}, deleted = {} } = data
 
@@ -45,7 +45,7 @@ export const createRepoDocument = (appState: AppState) => async (
       sizeLastCreated: 0,
       maxSize: 0
     },
-    repoKey
+    repoDocKey
   )
 }
 
@@ -54,11 +54,11 @@ export const getRepoDocument = (appState: AppState) => async (
 ): Promise<
   StoreRepoDocument & { conflicts: Array<{ _id: string; _rev: string }> }
 > => {
-  const repoKey = `${repoId}:/`
+  const repoDocKey = `${repoId}:/`
 
   // Validate request body timestamp
   try {
-    const repoResults = await getConflictFreeDocuments(appState)([repoKey])
+    const repoResults = await getConflictFreeDocuments(appState)([repoDocKey])
     const repoResult = repoResults[0]
 
     if ('doc' in repoResult) {
@@ -68,7 +68,7 @@ export const getRepoDocument = (appState: AppState) => async (
       }
     } else {
       if (repoResult.error === 'not_found') {
-        throw makeApiClientError(404, `Repo '${repoId}' not found`)
+        throw makeApiClientError(404, `Repo not found`)
       }
       throw repoResult
     }

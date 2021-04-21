@@ -10,6 +10,7 @@ import {
   UpdateFilesBody,
   UpdateFilesResponse
 } from '../types'
+import { syncKeyToRepoId } from '../util/security'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 export const updateFilesRouter = (appState: AppState): Router => {
@@ -29,14 +30,14 @@ export const updateFilesRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, error.message)
     }
 
+    const { syncKey } = body
+    const repoId = syncKeyToRepoId(syncKey)
+
     // Validate request body timestamp
-    await validateRepoTimestamp(appState)(body.repoId, body.timestamp)
+    await validateRepoTimestamp(appState)(repoId, body.timestamp)
 
     // Update files
-    const updateTimestamp = await updateDocuments(appState)(
-      body.repoId,
-      body.paths
-    )
+    const updateTimestamp = await updateDocuments(appState)(repoId, body.paths)
 
     // Response:
 

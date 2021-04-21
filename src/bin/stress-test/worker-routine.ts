@@ -39,7 +39,7 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   )
 
   // Create repos
-  await getRepoReady(randomElement(syncClients), config.repoId)
+  await getRepoReady(randomElement(syncClients), config.syncKey)
 
   // Run updater
   updater(config, syncClients).catch(errHandler)
@@ -51,10 +51,10 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
 // Creates repo if it does not exist.
 const getRepoReady = async (
   sync: SyncClient,
-  repoId: string
+  syncKey: string
 ): Promise<void> => {
   try {
-    const response = await sync.createRepo(repoId)
+    const response = await sync.createRepo(syncKey)
     const requestTime = Date.now()
     const serverRepoTimestamp: TimestampRev = response.data.timestamp
 
@@ -63,7 +63,7 @@ const getRepoReady = async (
     const workerOutput: ReadyEvent = {
       type: 'ready',
       serverHost: sync.host,
-      repoId,
+      syncKey,
       requestTime,
       serverRepoTimestamp
     }
@@ -74,14 +74,14 @@ const getRepoReady = async (
       throw error
     }
 
-    const response = await sync.getUpdates(repoId)
+    const response = await sync.getUpdates(syncKey)
     const requestTime = Date.now()
     const serverRepoTimestamp = response.data.timestamp
 
     const workerOutput: ReadyEvent = {
       type: 'ready',
       serverHost: sync.host,
-      repoId,
+      syncKey,
       requestTime,
       serverRepoTimestamp
     }
@@ -115,14 +115,14 @@ async function updateRepo(
   const sync = randomElement(syncClients)
 
   const serverHost = sync.host
-  const repoId = config.repoId
+  const syncKey = config.syncKey
 
   const fileCount = randomInt(
     config.fileCountRange[0],
     config.fileCountRange[1] + 1
   )
   const changeSet = await sync.randomChangeSet(
-    repoId,
+    syncKey,
     fileCount,
     config.fileByteSizeRange
   )
@@ -131,10 +131,10 @@ async function updateRepo(
   try {
     // Make sure the worker is up-to-date with the repo in order to successfully
     // write update.
-    await sync.getUpdates(repoId)
+    await sync.getUpdates(syncKey)
 
     // Write update
-    const response = await sync.updateFiles(repoId, changeSet)
+    const response = await sync.updateFiles(syncKey, changeSet)
 
     const serverRepoTimestamp = response.data.timestamp
     const requestTime = Date.now()
@@ -146,7 +146,7 @@ async function updateRepo(
     return {
       type: 'update',
       serverHost,
-      repoId,
+      syncKey,
       requestTime,
       serverRepoTimestamp,
       payloadSize
@@ -173,9 +173,9 @@ const checker = async (
     syncClients
       .filter(
         syncClient =>
-          syncClient.repoTimestamps[config.repoId] !== lastUpdateTimestamp
+          syncClient.repoTimestamps[config.syncKey] !== lastUpdateTimestamp
       )
-      .map(sync => checkServerStatus({ sync, repoId: config.repoId }))
+      .map(sync => checkServerStatus({ sync, syncKey: config.syncKey }))
   )
     .then(checkResponses => {
       const checkEvents = checkResponses.filter(
@@ -215,24 +215,24 @@ const checker = async (
 
 interface CheckServerStatusProps {
   sync: SyncClient
-  repoId: string
+  syncKey: string
 }
 
 async function checkServerStatus({
   sync,
-  repoId
+  syncKey
 }: CheckServerStatusProps): Promise<CheckEvent | undefined> {
   const requestTime = Date.now()
 
   try {
-    const response = await sync.getUpdates(repoId)
+    const response = await sync.getUpdates(syncKey)
 
     const serverRepoTimestamp: TimestampRev = response.data.timestamp
 
     return {
       type: 'check',
       serverHost: sync.host,
-      repoId,
+      syncKey,
       requestTime,
       serverRepoTimestamp
     }
@@ -245,7 +245,7 @@ async function checkServerStatus({
       return {
         type: 'check',
         serverHost: sync.host,
-        repoId,
+        syncKey,
         requestTime,
         serverRepoTimestamp: asTimestampRev(0)
       }

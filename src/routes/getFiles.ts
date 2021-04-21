@@ -7,6 +7,7 @@ import { checkRepoExists } from '../api/repo'
 import { config } from '../config'
 import { AppState } from '../server'
 import { asGetFilesBody, GetFilesBody, GetFilesResponse } from '../types'
+import { syncKeyToRepoId } from '../util/security'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
 
 export const getFilesRouter = (appState: AppState): Router => {
@@ -22,7 +23,8 @@ export const getFilesRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, err.message)
     }
 
-    const { repoId, paths, ignoreTimestamps = false } = body
+    const { syncKey, paths, ignoreTimestamps = false } = body
+    const repoId = syncKeyToRepoId(syncKey)
 
     // Use max page size config to limit the paths processed
     if (Object.keys(paths).length > config.maxPageSize) {
@@ -36,10 +38,10 @@ export const getFilesRouter = (appState: AppState): Router => {
     // Deprecate after migrations
     if (!(await checkRepoExists(appState)(repoId))) {
       try {
-        await migrateRepo(appState)(repoId)
+        await migrateRepo(appState)(syncKey)
       } catch (error) {
         if (error.message === 'Repo not found') {
-          throw makeApiClientError(404, `Repo '${repoId}' not found`)
+          throw makeApiClientError(404, `Repo not found`)
         }
         throw error
       }

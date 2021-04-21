@@ -16,13 +16,13 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
-  const repoId = '0000000000000000000000000000000000000000'
+  const syncKey = '0000000000000000000000000000000000000000'
   let repoTimestamp: TimestampRev = asTimestampRev(0)
 
   before(async () => {
     const res = await agent
       .put('/api/v3/repo')
-      .send({ repoId })
+      .send({ syncKey })
       .expect(res => isSuccessfulResponse(res))
     expect(res.body.data.timestamp).to.be.a('string')
     repoTimestamp = res.body.data.timestamp
@@ -43,11 +43,11 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
   it('Can validate request body', async () => {
     await agent
       .post('/api/v3/updateFiles')
-      .expect(res => isErrorResponse(400, 'Expected a string at .repoId')(res))
+      .expect(res => isErrorResponse(400, 'Expected a string at .syncKey')(res))
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId
+        syncKey
       })
       .expect(res =>
         isErrorResponse(
@@ -58,7 +58,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp
       })
       .expect(res => isErrorResponse(400, 'Expected an object at .paths')(res))
@@ -66,12 +66,14 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
       .post('/api/v3/updateFiles')
       .send({
         timestamp: repoTimestamp,
-        repoId: '',
+        syncKey: '',
         paths: {
           '/file': null
         }
       })
-      .expect(res => isErrorResponse(400, `Invalid repo ID '' at .repoId`)(res))
+      .expect(res =>
+        isErrorResponse(400, `Invalid sync key '' at .syncKey`)(res)
+      )
   })
 
   it('Can validate paths', async () => {
@@ -87,7 +89,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
       await agent
         .post('/api/v3/updateFiles')
         .send({
-          repoId,
+          syncKey,
           timestamp: 0,
           paths: {
             [path]: makeMockStoreFile({ text: 'content' })
@@ -101,7 +103,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: 0,
         paths: {
           '/file': { wrong: 'shape' }
@@ -118,7 +120,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -134,7 +136,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -145,7 +147,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -161,7 +163,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -178,7 +180,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -189,7 +191,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [dirPath]: makeMockStoreFile({ text: 'content' })
@@ -211,7 +213,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -222,7 +224,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [badFilePath]: makeMockStoreFile({ text: 'content' })
@@ -243,7 +245,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -254,7 +256,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: null
@@ -270,7 +272,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: null
@@ -290,7 +292,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: makeMockStoreFile({ text: 'content' })
@@ -301,7 +303,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: null
@@ -312,7 +314,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamp,
         paths: {
           [filePath]: null
@@ -330,7 +332,7 @@ apiSuite('POST /api/v3/updateFiles', (appState: AppState) => {
     await agent
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: sub(repoTimestamp, '1'),
         paths: {
           '/file': makeMockStoreFile({ text: 'content' })

@@ -6,6 +6,7 @@ import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
 import { AppState } from '../../server'
 import { asPath, ChangeSet } from '../../types'
+import { syncKeyToRepoId } from '../../util/security'
 import { makeApiClientError } from '../../util/utils'
 import {
   asPostStoreBody,
@@ -23,7 +24,7 @@ import {
 export const postStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
 
-  router.post('/store/:storeId/:hash?', async (req, res) => {
+  router.post('/store/:syncKey/:hash?', async (req, res) => {
     let body: PostStoreBody
     let params: PostStoreParams
 
@@ -38,7 +39,8 @@ export const postStoreRouter = (appState: AppState): Router => {
       throw makeApiClientError(400, error.message)
     }
 
-    const repoId = params.storeId
+    const { syncKey } = params
+    const repoId = syncKeyToRepoId(syncKey)
     const clientTimestamp = await getTimestampRevFromHashParam(appState)(
       repoId,
       params.hash

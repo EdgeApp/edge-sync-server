@@ -37,30 +37,30 @@ async function main(): Promise<void> {
     const partitionHex = checkpoint.partition.toString(16).padStart(2, '0')
 
     const scanFile = await getScanFile(partitionHex)
-    const { repoIds } = scanFile
+    const { syncKeys } = scanFile
 
-    for (let index = checkpoint.index; index < repoIds.length; ) {
+    for (let index = checkpoint.index; index < syncKeys.length; ) {
       await Promise.all(
-        repoIds.slice(index, index + concurrency).map((repoId, j) =>
-          migrateRepo(repoId)
+        syncKeys.slice(index, index + concurrency).map((syncKey, j) =>
+          migrateRepo(syncKey)
             .then(async res => {
               const status = res.status
               const body = await res.json()
 
               if (status < 200 || status >= 300) {
-                console.error(`${repoId} ${status} response:`, body)
-                await logFailedRepo(repoId, { status, body })
+                console.error(`${syncKey} ${status} response:`, body)
+                await logFailedRepo(syncKey, { status, body })
               } else {
                 console.log(
-                  `Migrated ${repoId} (partition ${partitionHex} at index ${
+                  `Migrated ${syncKey} (partition ${partitionHex} at index ${
                     index + j
                   })`
                 )
               }
             })
             .catch(async (error: Error) => {
-              console.error(`${repoId} failed:`, error)
-              await logFailedRepo(repoId, {
+              console.error(`${syncKey} failed:`, error)
+              await logFailedRepo(syncKey, {
                 error: { message: error.message, stack: error.stack }
               })
             })
@@ -138,14 +138,14 @@ async function getScanFile(partitionHex: string): Promise<ScanFile> {
 }
 
 async function scanRemotesForScanFile(partitionHex: string): Promise<ScanFile> {
-  const repoIdArrays = await Promise.all(
+  const syncKeyArrays = await Promise.all(
     sshHosts.map(sshHost =>
       lsRemote(sshHost, join(remoteReposDir, partitionHex))
     )
   )
-  const repoIds = mergeArrays(...repoIdArrays)
+  const syncKeys = mergeArrays(...syncKeyArrays)
 
-  return { partitionHex, repoIds }
+  return { partitionHex, syncKeys }
 }
 
 function mergeArrays<T>(...arrays: T[][]): T[] {
@@ -178,17 +178,17 @@ async function getCleanFile<T>(
   return rtn
 }
 
-async function migrateRepo(repoId: string): Promise<Response> {
+async function migrateRepo(syncKey: string): Promise<Response> {
   const response = await fetch(
-    `${syncServer}${migrationEndpoint.replace(':repoId', repoId)}`
+    `${syncServer}${migrationEndpoint.replace(':syncKey', syncKey)}`
   )
 
   return response
 }
 
-async function logFailedRepo(repoId: string, reason: any): Promise<void> {
+async function logFailedRepo(syncKey: string, reason: any): Promise<void> {
   await appendFile(
     join(dataDir, 'failed-repos.log'),
-    JSON.stringify({ repoId, timestamp: Date.now(), reason }) + '\n'
+    JSON.stringify({ syncKey, timestamp: Date.now(), reason }) + '\n'
   )
 }

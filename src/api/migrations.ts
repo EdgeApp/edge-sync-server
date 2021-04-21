@@ -10,6 +10,7 @@ import {
   ChangeSet,
   StoreFileTimestampMap
 } from '../types'
+import { syncKeyToRepoId } from '../util/security'
 import { withRetries } from '../util/utils'
 import { createRepoDocument } from './repo'
 import { updateFilesAndDirectories } from './updateFiles'
@@ -25,26 +26,27 @@ const pathExists = async (path: string): Promise<boolean> => {
   return true
 }
 
-// For security purposes, we must validate repoId strings before using as input
-// to exec.
-const validateRepoId = (repoId: string): void => {
-  if (!/^[a-f0-9]+$/i.test(repoId)) {
-    throw new Error(`Invalid repoId '${repoId}`)
+// For security purposes, we must validate syncKey strings before using as input
+// to exec. We use this validation funciton of asSyncKey because we don't care
+// about length.
+const validateSyncKey = (syncKey: string): void => {
+  if (!/^[a-f0-9]+$/i.test(syncKey)) {
+    throw new Error(`Invalid sync key '${syncKey}`)
   }
 }
 
 const cloneRepo = ({ config }: AppState) => async (
   originUrl: string,
-  repoId: string
+  syncKey: string
 ): Promise<string> => {
-  validateRepoId(repoId)
+  validateSyncKey(syncKey)
 
   const host = new URL(originUrl).host
-  const repoUrl = `${originUrl}${repoId}/`
+  const repoUrl = `${originUrl}${syncKey}/`
   const randomStuff = Math.random().toString().split('.')[1]
   const repoDir = join(
     config.migrationTmpDir,
-    `${repoId}_${host}_${randomStuff}`
+    `${syncKey}_${host}_${randomStuff}`
   )
 
   try {
@@ -60,11 +62,11 @@ const cloneRepo = ({ config }: AppState) => async (
 }
 
 const cloneRepoWithAbSync = (appState: AppState) => async (
-  repoId: string
+  syncKey: string
 ): Promise<string> => {
   const repoDirs = await Promise.allSettled(
     appState.config.migrationOriginServers.map(url =>
-      cloneRepo(appState)(url, repoId)
+      cloneRepo(appState)(url, syncKey)
     )
   ).then(results =>
     results
@@ -152,9 +154,10 @@ const getRepoFilePathsRecursively = async (
 }
 
 export const migrateRepo = (appState: AppState) => async (
-  repoId: string
+  syncKey: string
 ): Promise<void> => {
-  const repoDir = await cloneRepoWithAbSync(appState)(repoId)
+  const repoDir = await cloneRepoWithAbSync(appState)(syncKey)
+  const repoId = syncKeyToRepoId(syncKey)
 
   try {
     const filePaths = await getRepoFilePathsRecursively(repoDir)
@@ -205,7 +208,7 @@ export const migrateRepo = (appState: AppState) => async (
           // Silence conflict errors
           if (err.error === 'conflict') {
             console.log(
-              `Conflict migrating repo ID ${repoId}. ` +
+              `Conflict migrating repo with repoId '${repoId}'. ` +
                 `Migration was already completed by another process.`
             )
           } else {

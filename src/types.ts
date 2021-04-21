@@ -11,7 +11,7 @@ import {
 
 // Regexes:
 export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
-export const VALID_REPO_ID_REGEX = /^[a-f0-9]{40}$/
+export const VALID_SYNC_KEY_REGEX = /^[a-f0-9]{40}$/
 
 // Primitive Types
 
@@ -35,14 +35,14 @@ export const asPath = (raw: any): string => {
   return path
 }
 
-export const asRepoId = (raw: any): string => {
-  const repoId = asString(raw)
+export const asSyncKey = (raw: any): string => {
+  const syncKey = asString(raw)
 
-  if (!VALID_REPO_ID_REGEX.test(repoId)) {
-    throw new Error(`Invalid repo ID '${repoId}'`)
+  if (!VALID_SYNC_KEY_REGEX.test(syncKey)) {
+    throw new TypeError(`Invalid sync key '${syncKey}'`)
   }
 
-  return repoId
+  return syncKey
 }
 
 // Document Types:
@@ -224,7 +224,7 @@ export const asConfigGetResponse = asObject({
 
 export type GetFilesBody = ReturnType<typeof asGetFilesBody>
 export const asGetFilesBody = asObject({
-  repoId: asRepoId,
+  syncKey: asSyncKey,
   ignoreTimestamps: asOptional(asBoolean),
   paths: asStoreFileTimestampMap
 })
@@ -236,7 +236,7 @@ export const asGetFilesResponse = asObject({
 
 export type GetUpdatesBody = ReturnType<typeof asGetUpdatesBody>
 export const asGetUpdatesBody = asObject({
-  repoId: asRepoId,
+  syncKey: asSyncKey,
   timestamp: asTimestampRev
 })
 export type GetUpdatesResponse = ReturnType<typeof asGetUpdatesResponse>
@@ -248,7 +248,7 @@ export const asGetUpdatesResponse = asObject({
 
 export type PutRepoBody = ReturnType<typeof asPutRepoBody>
 export const asPutRepoBody = asObject({
-  repoId: asRepoId
+  syncKey: asSyncKey
 })
 export type PutRepoResponse = ReturnType<typeof asPutRepoResponse>
 export const asPutRepoResponse = asObject({
@@ -257,7 +257,7 @@ export const asPutRepoResponse = asObject({
 
 export type UpdateFilesBody = ReturnType<typeof asUpdateFilesBody>
 export const asUpdateFilesBody = asObject({
-  repoId: asRepoId,
+  syncKey: asSyncKey,
   timestamp: asTimestampRev,
   paths: asChangeSet
 })

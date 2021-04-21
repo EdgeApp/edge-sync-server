@@ -302,7 +302,7 @@ export const updateRepoDocument = (appState: AppState) => async (
   repoId: string,
   repoModification: DirLikeModification
 ): Promise<void> => {
-  const repoKey = `${repoId}:/`
+  const repoDocKey = `${repoId}:/`
   let storeRepoDocument: StoreRepoDocument
   const conflictDocs: Array<{ _id: string; _rev: string }> = []
 
@@ -328,7 +328,8 @@ export const updateRepoDocument = (appState: AppState) => async (
     if (error instanceof TypeError) {
       throw makeApiClientError(
         422,
-        `Unable to write files under '${repoKey}'. ` + `Document is not a repo.`
+        `Unable to write files under '${repoDocKey}'. ` +
+          `Document is not a repo.`
       )
     }
     throw error

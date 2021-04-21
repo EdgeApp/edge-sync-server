@@ -47,7 +47,7 @@ export const randomBytes = (bytes: number): Buffer => {
   return Buffer.from(randomHex(Math.ceil(bytes / 2)), 'hex')
 }
 
-export const makeRepoId = (
+export const makeSyncKey = (
   index: number,
   prefix: string = '00000000000000000000'
 ): string => {
@@ -76,7 +76,7 @@ export const isAcceptableError = (err: any): boolean =>
 export const isOutOfDateError = (err: any): boolean =>
   err?.response.message === 'Failed due to out-of-date timestamp'
 export const isRepoNotFoundError = (err: any): boolean =>
-  /^Repo '[a-f0-9]+' not found$/.test(err?.response.message)
+  /^Repo not found$/.test(err?.response.message)
 
 // Waits some time before calling a function
 export const throttle = <T>(fn: () => Promise<T>, ms: number): Promise<T> =>

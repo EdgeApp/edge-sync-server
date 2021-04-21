@@ -10,27 +10,27 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
-  const repoId = '0000000000000000000000000000000000000000'
+  const syncKey = '0000000000000000000000000000000000000000'
 
   it('Can validate request body', async () => {
     await agent
       .put('/api/v3/repo')
       .send()
-      .expect(res => isErrorResponse(400, 'Expected a string at .repoId')(res))
+      .expect(res => isErrorResponse(400, 'Expected a string at .syncKey')(res))
   })
 
   it('Can validate repo ID', async () => {
-    const invalidRepoId = 'invalid'
+    const invalidSyncKey = 'invalid'
 
     await agent
       .put('/api/v3/repo')
       .send({
-        repoId: invalidRepoId
+        syncKey: invalidSyncKey
       })
       .expect(res =>
         isErrorResponse(
           400,
-          `Invalid repo ID '${invalidRepoId}' at .repoId`
+          `Invalid sync key '${invalidSyncKey}' at .syncKey`
         )(res)
       )
   })
@@ -39,7 +39,7 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
     await agent
       .put('/api/v3/repo')
       .send({
-        repoId
+        syncKey
       })
       .expect(res => isSuccessfulResponse(res))
       .expect(201)
@@ -54,7 +54,7 @@ apiSuite('PUT /api/v3/repo', (appState: AppState) => {
     await agent
       .put('/api/v3/repo')
       .send({
-        repoId
+        syncKey
       })
       .expect(res => isErrorResponse(409)(res))
   })

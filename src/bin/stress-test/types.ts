@@ -68,7 +68,7 @@ export const asMessageEvent = asObject({
 export type WorkerConfig = ReturnType<typeof asWorkerConfig>
 export const asWorkerConfig = asObject({
   clusters: asMap(asArray(asString)),
-  repoId: asString,
+  syncKey: asString,
   repoUpdatesPerMin: asNumber,
   repoReadsPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
@@ -83,7 +83,7 @@ export type ReadyEvent = ReturnType<typeof asReadyEvent>
 export const asReadyEvent = asObject({
   type: asLiteral('ready'),
   serverHost: asString,
-  repoId: asString,
+  syncKey: asString,
   requestTime: asNumber,
   serverRepoTimestamp: asTimestampRev
 })
@@ -92,7 +92,7 @@ export type UpdateEvent = ReturnType<typeof asUpdateEvent>
 export const asUpdateEvent = asObject({
   type: asLiteral('update'),
   serverHost: asString,
-  repoId: asString,
+  syncKey: asString,
   requestTime: asNumber,
   serverRepoTimestamp: asTimestampRev,
   payloadSize: asNumber
@@ -102,7 +102,7 @@ export type CheckEvent = ReturnType<typeof asCheckEvent>
 export const asCheckEvent = asObject({
   type: asLiteral('check'),
   serverHost: asString,
-  repoId: asString,
+  syncKey: asString,
   requestTime: asNumber,
   serverRepoTimestamp: asTimestampRev
 })
@@ -111,7 +111,7 @@ export type ReplicationEvent = ReturnType<typeof asReplicationEvent>
 export const asReplicationEvent = asObject({
   type: asLiteral('replication'),
   timestamp: asNumber,
-  repoId: asString,
+  syncKey: asString,
   serverHost: asString
 })
 
@@ -119,7 +119,7 @@ export type RepoSyncEvent = ReturnType<typeof asRepoSyncEvent>
 export const asRepoSyncEvent = asObject({
   type: asLiteral('repo-sync'),
   timestamp: asNumber,
-  repoId: asString
+  syncKey: asString
 })
 
 export type ServerSyncEvent = ReturnType<typeof asServerSyncEvent>

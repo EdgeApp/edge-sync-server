@@ -20,7 +20,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
   // Map of repo timestamps
   const repoTimestamps: { [K: string]: TimestampRev } = {}
 
-  const repoId = '0000000000000000000000000000000000000000'
+  const syncKey = '0000000000000000000000000000000000000000'
   const CONTENT = {
     mergeBaseContent: makeMockStoreFile({ text: 'Merge base content' }),
     updateAContent: makeMockStoreFile({ text: 'Update A content' }),
@@ -36,7 +36,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     // Create test repo with initial non-conflicting files (merge base)
     await agentA
       .put('/api/v3/repo')
-      .send({ repoId })
+      .send({ syncKey })
       .expect(res => isSuccessfulResponse(res))
       .expect(res => expect(res.body.data.timestamp).to.be.a('string'))
       .expect(res => (repoTimestamps.mergedBase = getResponseTimestamp(res)))
@@ -44,7 +44,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedBase,
         paths: {
           '/mergeBaseFile': CONTENT.mergeBaseContent,
@@ -63,7 +63,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedBase,
         paths: {
           '/nonConflictFile': CONTENT.updateAContent,
@@ -80,7 +80,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedBase,
         paths: {
           '/conflictFile': CONTENT.updateBContent,
@@ -129,7 +129,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths: {
           '/nonConflictFile': 0,
@@ -144,7 +144,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths: {
           '/nonConflictFile': 0,
@@ -173,7 +173,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/conflictDir': 0
@@ -185,7 +185,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: false,
         paths: {
           '/conflictDir': 0
@@ -211,7 +211,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: 0
       })
       .expect(res => isSuccessfulResponse(res))
@@ -220,7 +220,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: 0
       })
       .expect(res => isSuccessfulResponse(res))
@@ -241,7 +241,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.updateB
       })
       .expect(res => isSuccessfulResponse(res))
@@ -250,7 +250,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.updateB
       })
       .expect(res => isSuccessfulResponse(res))
@@ -276,7 +276,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: nonLatestTimestampRev
       })
       .expect(res => isSuccessfulResponse(res))
@@ -285,7 +285,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: nonLatestTimestampRev
       })
       .expect(res => isSuccessfulResponse(res))
@@ -301,7 +301,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedRev
       })
       .expect(res => isSuccessfulResponse(res))
@@ -310,7 +310,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedRev
       })
       .expect(res => isSuccessfulResponse(res))
@@ -321,7 +321,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentA
       .post('/api/v3/updateFiles')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedRev,
         paths: {
           '/conflictFile': CONTENT.updateAContent,
@@ -342,7 +342,7 @@ replicationSuite('Conflict resolution', (appStateA, appStateB) => {
     await agentB
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: repoTimestamps.mergedBase
       })
       .expect(res => isSuccessfulResponse(res))

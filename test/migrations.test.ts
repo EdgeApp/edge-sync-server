@@ -22,7 +22,7 @@ apiSuite('Migrations (v3 getFiles)', (appState: AppState) => {
     supertest.agent(`https://${hostname}`)
   )
 
-  const repoId = appState.config.testMigrationRepo
+  const syncKey = appState.config.testMigrationSyncKey
   let repoStoreContent: GetStoreResponse
   const paths: { [path: string]: number } = {}
 
@@ -31,7 +31,7 @@ apiSuite('Migrations (v3 getFiles)', (appState: AppState) => {
   before(async () => {
     // Get the repo/store data from one of the V2 servers
     const responses = await Promise.all(
-      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${repoId}`))
+      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${syncKey}`))
     )
 
     const successfulResponse = responses.find(res => res.status === 200)
@@ -56,7 +56,7 @@ apiSuite('Migrations (v3 getFiles)', (appState: AppState) => {
     const res = await agent
       .post('/api/v3/getFiles')
       .send({
-        repoId,
+        syncKey,
         ignoreTimestamps: true,
         paths
       })
@@ -97,7 +97,7 @@ apiSuite('Migrations (v3 getUpdates)', (appState: AppState) => {
     supertest.agent(`https://${hostname}`)
   )
 
-  const repoId = appState.config.testMigrationRepo
+  const syncKey = appState.config.testMigrationSyncKey
   const paths: string[] = []
 
   // Fixtures:
@@ -105,7 +105,7 @@ apiSuite('Migrations (v3 getUpdates)', (appState: AppState) => {
   before(async () => {
     // Get the repo/store data from one of the V2 servers
     const responses = await Promise.all(
-      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${repoId}`))
+      v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${syncKey}`))
     )
 
     const successfulResponse = responses.find(res => res.status === 200)
@@ -128,7 +128,7 @@ apiSuite('Migrations (v3 getUpdates)', (appState: AppState) => {
     const res = await agent
       .post('/api/v3/getUpdates')
       .send({
-        repoId,
+        syncKey,
         timestamp: 0
       })
       .expect(res => isSuccessfulResponse(res))

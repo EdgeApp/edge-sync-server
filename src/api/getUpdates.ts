@@ -24,14 +24,14 @@ export const getRepoUpdates = (appState: AppState) => async (
   repoId: string,
   timestamp: TimestampRev
 ): Promise<RepoUpdates> => {
-  const repoKey = `${repoId}:/`
+  const repoDocKey = `${repoId}:/`
 
   let repoDocument: StoreRepoDocument
   try {
     repoDocument = await getRepoDocument(appState)(repoId)
   } catch (err) {
     if (err.error === 'not_found') {
-      throw makeApiClientError(404, `Repo '${repoId}' not found`)
+      throw makeApiClientError(404, `Repo not found`)
     } else {
       throw err
     }
@@ -42,7 +42,7 @@ export const getRepoUpdates = (appState: AppState) => async (
 
   if (lt(timestamp, repoDocument.timestamp)) {
     const filePointers = await getDirectoryUpdates(appState)(
-      repoKey.slice(0, -1),
+      repoDocKey.slice(0, -1),
       repoDocument,
       timestamp
     )
@@ -59,7 +59,7 @@ export const getRepoUpdates = (appState: AppState) => async (
 }
 
 export const getDirectoryUpdates = (appState: AppState) => async (
-  dirKey: string,
+  docKey: string,
   dir: FilePointers,
   searchTimestamp: TimestampRev,
   isConsistent: boolean = true
@@ -71,18 +71,18 @@ export const getDirectoryUpdates = (appState: AppState) => async (
   }
 
   // For repo keys, trim the trailing slash; dirs don't have trailing slashes
-  if (dirKey[dirKey.length - 1] === '/') {
-    dirKey = dirKey.substr(0, dirKey.length - 1)
+  if (docKey[docKey.length - 1] === '/') {
+    docKey = docKey.substr(0, docKey.length - 1)
   }
 
   // Filter out keys based on timestamp
   const pathsKeys = Object.entries(dir.paths)
     .filter(([_, documentTimestamp]) => gt(documentTimestamp, searchTimestamp))
-    .map(([path]) => [dirKey, path].join('/'))
+    .map(([path]) => [docKey, path].join('/'))
 
   const deletedKeys = Object.entries(dir.deleted)
     .filter(([_, documentTimestamp]) => gt(documentTimestamp, searchTimestamp))
-    .map(([path]) => [dirKey, path].join('/'))
+    .map(([path]) => [docKey, path].join('/'))
 
   const keysMap = {
     paths: pathsKeys,

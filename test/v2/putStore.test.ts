@@ -10,7 +10,7 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
-  const repoId = '0000000000000000000000000000000000000000'
+  const syncKey = '0000000000000000000000000000000000000000'
 
   it('Missing request parameter', async () => {
     await agent
@@ -21,7 +21,7 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
 
   it('Can create new repo', async () => {
     await agent
-      .put(`/api/v2/store/${repoId}`)
+      .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(201)
       .expect(res => {
@@ -33,7 +33,7 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
 
   it('Will error for existing repo', async () => {
     await agent
-      .put(`/api/v2/store/${repoId}`)
+      .put(`/api/v2/store/${syncKey}`)
       .expect(res => isErrorResponse(409)(res))
   })
 })
