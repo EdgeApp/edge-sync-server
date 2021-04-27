@@ -58,8 +58,7 @@ export function makeServer(appState: AppState): Express {
       method: req.method,
       url: req.url,
       query: req.query,
-      params: req.params,
-      body: req.body
+      params: req.params
     })
 
     // response
