@@ -33,7 +33,7 @@ import {
   statusBarLine,
   statusBox
 } from './utils/printing'
-import { makeSyncKey } from './utils/utils'
+import { makeSyncKey, msToPerSeconds } from './utils/utils'
 
 // Types
 
@@ -80,30 +80,23 @@ interface Snapshot {
   repos: {
     count: number
   }
-  payloads: {
-    totalBytes: number
-    avgBytes: number
-    minBytes: number
-    maxBytes: number
-  }
-  updates: {
-    total: number
-    avgPerSec: number
-    avgTimeInMs: number
-    maxTimeInMs: number
-  }
-  repoReplications: {
-    total: number
-    avgPerSec: number
-    avgTimeInMs: number
-    maxTimeInMs: number
-  }
-  repoSyncs: {
-    total: number
-    avgPerSec: number
-    avgTimeInMs: number
-    maxTimeInMs: number
-  }
+  payloadBytes: SnapshotSizeMetrics
+  updates: SnapshotTimeMetrics
+  reads: SnapshotTimeMetrics
+  repoReplications: SnapshotTimeMetrics
+  repoSyncs: SnapshotTimeMetrics
+}
+interface SnapshotSizeMetrics {
+  total: number
+  avg: number
+  min: number
+  max: number
+}
+interface SnapshotTimeMetrics {
+  total: number
+  avgPerSec: number
+  avgTimeInMs: number
+  maxTimeInMs: number
 }
 
 // State:
@@ -114,6 +107,7 @@ let serverCount: number = 0
 // Metrics
 const bytesMetric = makeMetric()
 const repoUpdateTimeMetric = makeMetric()
+const repoReadTimeMetric = makeMetric()
 const repoReplicationTimeMetric = makeMetric()
 const repoSyncTimeMetric = makeMetric()
 const serverSyncMetric = makeMetric()
@@ -121,6 +115,7 @@ const networkSyncMetric = makeMetric()
 
 // Instruments
 const repoUpdateTimeInstrument = makeInstrument()
+const repoReadTimeInstrument = makeInstrument()
 const serverSyncInstrument = makeInstrument()
 const networkSyncInstrument = makeInstrument()
 
@@ -241,9 +236,6 @@ async function main(): Promise<void> {
       networkSyncInstrument,
       now
     )
-    const totalRepoUpdates = repoUpdateTimeMetric.total
-    const avgUpdatesPerSec =
-      repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0
 
     // Most stale repo is the repo with the largest out of sync time
     const repoStates = Array.from(state.repos.values())
@@ -290,12 +282,20 @@ async function main(): Promise<void> {
         ...statusHeader,
         statusBarLine(),
         prettyPrintObject({
-          'Total updates': `${totalRepoUpdates} / ${
+          'Total updates': `${repoUpdateTimeMetric.total} / ${
             config.maxUpdatesPerRepo * state.syncKeys.length
           }`,
           'Avg repo update time': `${repoUpdateTimeMetric.avg}ms`,
-          'Avg repo update / sec': `${avgUpdatesPerSec}`,
+          'Avg repo update / sec': `${msToPerSeconds(
+            repoUpdateTimeMetric.avg
+          )}`,
           'Total bytes sent': `${bytesMetric.sum}`
+        }),
+        statusBarLine(),
+        prettyPrintObject({
+          'Total reads': `${repoReadTimeMetric.total}`,
+          'Avg repo read time': `${repoReadTimeMetric.avg}ms`,
+          'Avg repo read / sec': `${msToPerSeconds(repoReadTimeMetric.avg)}`
         }),
         statusBarLine(),
         prettyPrintObject({
@@ -327,7 +327,8 @@ async function main(): Promise<void> {
     // Exit cases
     if (
       config.maxUpdatesPerRepo > 0 &&
-      totalRepoUpdates >= config.maxUpdatesPerRepo * state.syncKeys.length &&
+      repoUpdateTimeMetric.total >=
+        config.maxUpdatesPerRepo * state.syncKeys.length &&
       getIsNetworkInSync(serverCount)
     ) {
       exitGracefully('completed max operations')
@@ -495,6 +496,11 @@ function onCheckEvent(
 ): void {
   const { serverHost, syncKey } = checkEvent
   const repoState = state.repos.get(syncKey)
+
+  const repoReadTime = endInstrument(repoReadTimeInstrument, Date.now())
+  startInstrument(repoReadTimeInstrument, Date.now())
+
+  addToMetric(repoReadTimeMetric, repoReadTime)
 
   if (repoState == null) {
     printLog('checker', 'repo not ready', syncKey)
@@ -730,11 +736,11 @@ const takeSnapshot = (): Snapshot => {
     repos: {
       count: state.syncKeys.length
     },
-    payloads: {
-      totalBytes: bytesMetric.sum,
-      avgBytes: bytesMetric.avg,
-      minBytes: bytesMetric.min,
-      maxBytes: bytesMetric.max
+    payloadBytes: {
+      total: bytesMetric.sum,
+      avg: bytesMetric.avg,
+      min: bytesMetric.min,
+      max: bytesMetric.max
     },
     updates: {
       total: repoUpdateTimeMetric.total,
@@ -742,6 +748,13 @@ const takeSnapshot = (): Snapshot => {
         repoUpdateTimeMetric.avg !== 0 ? 1000 / repoUpdateTimeMetric.avg : 0,
       avgTimeInMs: repoUpdateTimeMetric.avg,
       maxTimeInMs: repoUpdateTimeMetric.max
+    },
+    reads: {
+      total: repoReadTimeMetric.total,
+      avgPerSec:
+        repoReadTimeMetric.avg !== 0 ? 1000 / repoReadTimeMetric.avg : 0,
+      avgTimeInMs: repoReadTimeMetric.avg,
+      maxTimeInMs: repoReadTimeMetric.max
     },
     repoReplications: {
       total: repoReplicationTimeMetric.total,

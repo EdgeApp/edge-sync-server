@@ -96,3 +96,7 @@ export const addToAverage = (
 ): number => {
   return (avg * count + amount) / (count + 1)
 }
+
+export const msToPerSeconds = (ms: number): number => {
+  return ms !== 0 ? 1000 / ms : 0
+}
