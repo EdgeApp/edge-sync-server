@@ -3,16 +3,23 @@ import { asArray, asBoolean, asNumber, asObject, asString } from 'cleaners'
 export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
   verbose: asBoolean,
+  // Servers
   clusters: asObject(asArray(asString)),
+  // Sync Key
+  syncKeyPrefix: asString,
+  // Repo count
   repoCount: asNumber,
   maxRepoCount: asNumber,
-  syncKeyPrefix: asString,
-  repoUpdatesPerMin: asNumber,
-  repoReadsPerMin: asNumber,
   repoCountIncreaseRatePerMin: asNumber,
+  // Update
+  repoUpdatesPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
-  maxUpdatesPerRepo: asNumber,
+  // Read
+  repoReadsPerMin: asNumber,
+  // Exit conditions
   repoSyncTimeout: asNumber,
+  maxUpdatesPerRepo: asNumber,
+  // Payload
   fileByteSizeRange: asArray(asNumber),
   fileCountRange: asArray(asNumber)
 })
@@ -33,15 +40,15 @@ export const configSample: Config = {
       'https://sync-eu4.edge.app'
     ]
   },
+  syncKeyPrefix: 'ed9e',
   repoCount: 10,
   maxRepoCount: 2000,
-  syncKeyPrefix: 'ed9e',
-  repoUpdatesPerMin: 2,
-  repoReadsPerMin: 12,
   repoCountIncreaseRatePerMin: 1.5,
+  repoUpdatesPerMin: 2,
   repoUpdateIncreaseRate: 1.1,
-  maxUpdatesPerRepo: 100,
+  repoReadsPerMin: 12,
   repoSyncTimeout: 60000,
+  maxUpdatesPerRepo: 100,
   fileByteSizeRange: [1, 4],
   fileCountRange: [1, 10]
 }
