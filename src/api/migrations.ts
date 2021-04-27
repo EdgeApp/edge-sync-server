@@ -3,6 +3,7 @@ import { access, readFile } from 'fs/promises'
 import { join } from 'path'
 import { promisify } from 'util'
 
+import { logger } from '../logger'
 import { AppState } from '../server'
 import {
   asFileChange,
@@ -207,7 +208,7 @@ export const migrateRepo = (appState: AppState) => async (
         } catch (err) {
           // Silence conflict errors
           if (err.error === 'conflict') {
-            console.log(
+            logger.info(
               `Conflict migrating repo with repoId '${repoId}'. ` +
                 `Migration was already completed by another process.`
             )

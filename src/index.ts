@@ -3,6 +3,7 @@ import { cpus } from 'os'
 
 import { config } from './config'
 import { getCouchSchema, getCouchUri, getDataStore, getDbServer } from './db'
+import { logger } from './logger'
 import { makeServer } from './server'
 import { initStoreSettings } from './storeSettings'
 import { setupCouchDatabase } from './util/couch'
@@ -27,10 +28,10 @@ if (cluster.isMaster) {
 
       // Restart workers when they exit
       cluster.on('exit', (worker, code, signal) => {
-        console.log(
+        logger.info(
           `Worker ${worker.process.pid} died with code ${code} and signal ${signal}`
         )
-        console.log(`Forking new worker process...`)
+        logger.info(`Forking new worker process...`)
         cluster.fork()
       })
     })
@@ -42,13 +43,13 @@ if (cluster.isMaster) {
 
   // Instantiate server
   app.listen(config.httpPort, () => {
-    console.log(
+    logger.info(
       `Worker process ${process.pid} started and listening on ${config.httpPort}.`
     )
   })
 }
 
 function failStartup(err: any): void {
-  console.error(err)
+  logger.error(err)
   process.exit(1)
 }
