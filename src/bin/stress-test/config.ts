@@ -5,6 +5,7 @@ export const asConfig = asObject({
   verbose: asBoolean,
   clusters: asObject(asArray(asString)),
   repoCount: asNumber,
+  maxRepoCount: asNumber,
   syncKeyPrefix: asString,
   repoUpdatesPerMin: asNumber,
   repoReadsPerMin: asNumber,
@@ -33,6 +34,7 @@ export const configSample: Config = {
     ]
   },
   repoCount: 10,
+  maxRepoCount: 2000,
   syncKeyPrefix: 'ed9e',
   repoUpdatesPerMin: 2,
   repoReadsPerMin: 12,

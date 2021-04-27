@@ -203,15 +203,22 @@ async function main(): Promise<void> {
 
   // Increase repo count every minute
   function repoCountIncreaser(): void {
-    const currentRepoCount = state.syncKeys.length
-    // Use ceil because we want to increase by at least 1 if the rate > 1
-    const newRepoCount = Math.ceil(
-      currentRepoCount * config.repoCountIncreaseRatePerMin - currentRepoCount
+    const numOfExistingRepos = state.syncKeys.length
+    const numOfExistingReposUpdated = Math.min(
+      numOfExistingRepos * config.repoCountIncreaseRatePerMin,
+      config.maxRepoCount
+    )
+    const numOfNewRepos = Math.round(
+      numOfExistingReposUpdated - numOfExistingRepos
     )
 
-    printLog('repo-increase', newRepoCount)
+    if (numOfExistingRepos + numOfNewRepos > config.maxRepoCount) {
+      return
+    }
 
-    for (let i = 0; i < newRepoCount; ++i) {
+    printLog('repo-increase', numOfNewRepos)
+
+    for (let i = 0; i < numOfNewRepos; ++i) {
       const newSyncKey = makeSyncKey(
         state.syncKeys.length,
         config.syncKeyPrefix
