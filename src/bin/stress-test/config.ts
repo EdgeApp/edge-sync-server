@@ -15,6 +15,7 @@ export const asConfig = asObject({
   repoUpdatesPerMin: asNumber,
   repoUpdateIncreaseRate: asNumber,
   // Read
+  repoReadsPerMin: asNumber,
   repoCheckDelayInSeconds: asNumber,
   // Exit conditions
   repoSyncTimeout: asNumber,
@@ -46,6 +47,7 @@ export const configSample: Config = {
   repoCountIncreaseRatePerMin: 1.5,
   repoUpdatesPerMin: 2,
   repoUpdateIncreaseRate: 1.1,
+  repoReadsPerMin: 12,
   repoCheckDelayInSeconds: 5,
   repoSyncTimeout: 60000,
   maxUpdatesPerRepo: 100,

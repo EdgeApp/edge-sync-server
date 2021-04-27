@@ -362,6 +362,7 @@ function startWorkerRoutine(
     clusters: config.clusters,
     syncKey,
     repoUpdatesPerMin: config.repoUpdatesPerMin,
+    repoReadsPerMin: config.repoReadsPerMin,
     repoCheckDelayInSeconds: config.repoCheckDelayInSeconds,
     repoUpdateIncreaseRate: config.repoUpdateIncreaseRate,
     maxUpdatesPerRepo: config.maxUpdatesPerRepo,

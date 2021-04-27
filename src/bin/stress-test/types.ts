@@ -70,6 +70,7 @@ export const asWorkerConfig = asObject({
   clusters: asMap(asArray(asString)),
   syncKey: asString,
   repoUpdatesPerMin: asNumber,
+  repoReadsPerMin: asNumber,
   repoCheckDelayInSeconds: asNumber,
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,

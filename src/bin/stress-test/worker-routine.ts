@@ -44,6 +44,9 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   // Run updater
   updater(config, syncClients).catch(errHandler)
 
+  // Run reader
+  reader(config, syncClients).catch(errHandler)
+
   // Run the checker
   checker(config, syncClients).catch(errHandler)
 }
@@ -152,6 +155,56 @@ async function updateRepo(
 
     // Try again
     return await throttle(() => updateRepo(config, syncClients), 500)
+  }
+}
+
+const reader = (
+  config: WorkerConfig,
+  syncClients: SyncClient[]
+): Promise<void> => {
+  return readRepo(config, syncClients)
+    .then(send)
+    .then(() => {
+      if (isMaxUpdatesReach(config)) {
+        return delay((60 / config.repoReadsPerMin) * 1000).then(() =>
+          reader(config, syncClients)
+        )
+      }
+    })
+}
+
+async function readRepo(
+  config: WorkerConfig,
+  syncClients: SyncClient[]
+): Promise<CheckEvent> {
+  const sync = randomElement(syncClients)
+  const serverHost = sync.host
+  const syncKey = config.syncKey
+
+  try {
+    // Read repo
+    const response = await sync.getUpdates(syncKey)
+    const serverRepoTimestamp = response.data.timestamp
+    const requestTime = Date.now()
+
+    lastUpdateTimestamp = serverRepoTimestamp
+
+    // Send a check event just because we can.
+    // We might as well use the response to help with metrics.
+    return {
+      type: 'check',
+      serverHost,
+      syncKey,
+      requestTime,
+      serverRepoTimestamp
+    }
+  } catch (error) {
+    if (!isAcceptableError(error)) {
+      throw error
+    }
+
+    // Try again
+    return await throttle(() => readRepo(config, syncClients), 500)
   }
 }
 
