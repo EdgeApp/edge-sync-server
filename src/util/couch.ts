@@ -1,5 +1,7 @@
 import nano from 'nano'
 
+import { logger } from '../logger'
+
 /**
  * Describes a single database that should exist.
  */
@@ -59,10 +61,11 @@ export async function setupCouchDatabase(
         db: db.name,
         qs: { q, n, partitioned }
       })
-      console.log(
-        `Created Database ${db.name}` +
+      logger.info({
+        msg:
+          `Created Database ${db.name}` +
           (q != null && n != null ? ` with params q=${q} n=${n}` : '')
-      )
+      })
     }
     // create indexes/views
     const currentDb: nano.DocumentScope<any> = nanoDb.db.use(db.name)
@@ -70,10 +73,10 @@ export async function setupCouchDatabase(
       for (const dbIndex of db.indexes) {
         try {
           await currentDb.get(`_design/${dbIndex.ddoc}`)
-          console.log(`${db.name} already has '${dbIndex.name}' index.`)
+          logger.info(`${db.name} already has '${dbIndex.name}' index.`)
         } catch {
           await currentDb.createIndex(dbIndex)
-          console.log(`Created '${dbIndex.name}' index for ${db.name}.`)
+          logger.info(`Created '${dbIndex.name}' index for ${db.name}.`)
         }
       }
     }
@@ -81,16 +84,16 @@ export async function setupCouchDatabase(
       for (const dbView of db.views) {
         try {
           await currentDb.get(`_design/${dbView.name}`)
-          console.log(`${db.name} already has '${dbView.name}' view.`)
+          logger.info(`${db.name} already has '${dbView.name}' view.`)
         } catch {
           await currentDb.insert({
             _id: `_design/${dbView.name}`,
             views: dbView.views
           })
-          console.log(`Created '${dbView.name}' view for ${db.name}.`)
+          logger.info(`Created '${dbView.name}' view for ${db.name}.`)
         }
       }
     }
   }
-  console.log('Finished Database Setup.')
+  logger.info('Finished Database Setup.')
 }

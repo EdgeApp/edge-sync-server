@@ -5,6 +5,7 @@ import PromiseRouter from 'express-promise-router'
 import { getDirectoryUpdates } from '../api/getUpdates'
 import { migrateRepo } from '../api/migrations'
 import { checkRepoExists, getRepoDocument } from '../api/repo'
+import { logger } from '../logger'
 import { asGetUpdatesBody, GetUpdatesBody, GetUpdatesResponse } from '../types'
 import { syncKeyToRepoId } from '../util/security'
 import { makeApiClientError, makeApiResponse } from '../util/utils'
@@ -58,6 +59,8 @@ export const getUpdatesRouter = (appState: any): Router => {
 
       if (isConsistent) {
         responseData.timestamp = repoDocument.timestamp
+      } else {
+        logger.warn({ msg: `Inconsistent repo ${repoId}`, repoId })
       }
 
       responseData.paths = paths

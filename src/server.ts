@@ -4,6 +4,7 @@ import express, { Express, NextFunction, Request, Response } from 'express'
 import nano from 'nano'
 
 import { Config } from './config'
+import { logger } from './logger'
 import { ApiClientError, ApiErrorResponse, StoreData } from './types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
@@ -51,16 +52,14 @@ export function makeServer(appState: AppState): Express {
   // Server Error Route
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     // logging
-    if (process.env.NODE_ENV !== 'test') {
-      console.error({
-        err,
-        method: req.method,
-        url: req.url,
-        query: req.query,
-        params: req.params,
-        body: req.body
-      })
-    }
+    logger.error({
+      msg: 'Internal Server Error',
+      err,
+      method: req.method,
+      url: req.url,
+      query: req.query,
+      params: req.params
+    })
 
     // response
     const response: ApiErrorResponse = {
