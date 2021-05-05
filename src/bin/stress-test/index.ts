@@ -1,6 +1,6 @@
 import { eq, gt, toFixed } from 'biggystring'
 import { ChildProcess, fork } from 'child_process'
-import { readFileSync } from 'fs'
+import { makeConfig } from 'cleaner-config'
 import minimist from 'minimist'
 import { join } from 'path'
 
@@ -784,18 +784,29 @@ const takeSnapshot = (): Snapshot => {
 try {
   const argv = minimist(process.argv.slice(2))
   const jsonArg = argv._[0]
-  let configJson: string | undefined = jsonArg
-  const configFile = argv.config
+  const configJson: string | undefined = jsonArg
+  const configFile = argv.config ?? 'config.stress.json'
 
-  if (configFile != null) {
-    configJson = readFileSync(join(process.cwd(), configFile), 'utf-8')
-  }
+  try {
+    if (configJson == null) {
+      config = makeConfig(asConfig, configFile)
+    } else {
+      config = asConfig(JSON.parse(configJson))
+    }
 
-  if (configJson == null) {
+    process.env.VERBOSE = config.verbose ? '1' : '0'
+
+    main().catch(errHandler)
+  } catch (err) {
+    const errMessage = err instanceof Error ? err.message : JSON.stringify(err)
+
     errHandler(
       [
+        `Config error: ${errMessage}`,
+        ``,
         `Usage:`,
-        `  yarn test.stress --config=config.stress.json`,
+        `  yarn test.stress`,
+        `  CONFIG=config.custom.json yarn test.stress`,
         `  yarn test.stress $json`,
         ``,
         `Example JSON Config:`,
@@ -803,12 +814,6 @@ try {
       ].join('\n')
     )
   }
-
-  config = asConfig(JSON.parse(configJson))
-
-  process.env.VERBOSE = config.verbose ? '1' : '0'
-
-  main().catch(errHandler)
 } catch (error) {
   if (error instanceof TypeError) {
     errHandler(`Invalid config: ${error.message}`)
