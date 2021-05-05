@@ -47,12 +47,14 @@ async function main(): Promise<void> {
     } catch (err) {
       updateRepoPrefix()
 
+      const output = asMaybe(asJSON(asUnknown), err.stdout)(err.stdout)
+      const error = asMaybe(asJSON(asUnknown), err.stderror)(err.stderr)
+
+      logger.info({ msg: 'finished stress test', output, error })
+
       logger.error({
         msg: 'failed stress test',
-        err,
-        message: err.message,
-        stack: err.stack,
-        name: err.name
+        err
       })
     }
   }
