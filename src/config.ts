@@ -6,7 +6,9 @@ import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
 const {
   NODE_ENV = 'production',
   COUCH_HOSTNAME = 'localhost',
-  COUCH_PASSWORD = 'password'
+  COUCH_PASSWORD = 'password',
+  COUCH_DB_Q = '4',
+  COUCH_DB_N = '3'
 } = process.env
 
 const isDev = NODE_ENV === 'dev'
@@ -26,8 +28,8 @@ export const asConfig = asObject({
       n: asNumber
     }),
     {
-      q: 16,
-      n: 3
+      q: parseInt(COUCH_DB_Q),
+      n: parseInt(COUCH_DB_N)
     }
   ),
   httpPort: asOptional(asNumber, 8008),
