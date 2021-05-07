@@ -34,7 +34,8 @@
     "posttest": "nyc report --reporter=cobertura --reporter=html",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
     "test.report": "yarn test.with-report && yarn test.post-report",
-    "test.stress": "node -r sucrase/register src/bin/stress-test/index.ts ",
+    "test.stress": "node -r sucrase/register src/bin/stress-test/index.ts",
+    "test.stress.console": "LOG_LEVEL=trace node -r sucrase/register src/bin/stress-test/index.ts | node -r sucrase/register src/bin/stress-test/console.ts",
     "test.stress.continuous": "node -r sucrase/register src/bin/continuous-stress-test/index.ts | pino-pretty",
     "test.watch": "yarn test --watch --watch-files 'src/**/*, test/**/*'",
     "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json"

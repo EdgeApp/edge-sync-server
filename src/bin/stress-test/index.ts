@@ -3,6 +3,7 @@ import { ChildProcess, fork } from 'child_process'
 import { makeConfig } from 'cleaner-config'
 import minimist from 'minimist'
 import { join } from 'path'
+import pino from 'pino'
 
 import { TimestampRev } from '../../types'
 import { asConfig, Config, configSample } from './config'
@@ -26,14 +27,12 @@ import {
   startInstrument
 } from './utils/instrument'
 import { addToMetric, makeMetric } from './utils/metric'
-import {
-  prettyPrintObject,
-  print,
-  printLog,
-  statusBarLine,
-  statusBox
-} from './utils/printing'
+import { prettyPrintObject } from './utils/printing'
 import { makeSyncKey, msToPerSeconds } from './utils/utils'
+
+const logger = pino({
+  level: process.env.LOG_LEVEL ?? 'info'
+})
 
 // Types
 
@@ -42,7 +41,6 @@ interface State {
   syncKeys: string[]
   repos: RepoStateMap
   serverSyncInfoMap: ServerSyncInfoMap
-  output: Output
 }
 
 type RepoStateMap = Map<string, RepoState>
@@ -68,15 +66,7 @@ interface RepoSyncInfo {
   inSync: boolean
 }
 
-interface Output {
-  reason: string
-  errors: any[]
-  config: Config
-  snapshots: Snapshot[]
-}
 interface Snapshot {
-  timestamp: number
-  datetime: string
   repos: {
     count: number
   }
@@ -122,21 +112,15 @@ const networkSyncInstrument = makeInstrument()
 let state: State
 
 async function main(): Promise<void> {
+  logger.info({ msg: 'starting stress test', config })
+
   // Initialize state
   state = {
     startTime: Date.now(),
     syncKeys: [],
     repos: new Map(),
-    serverSyncInfoMap: {},
-    output: {
-      reason: 'unknown',
-      config,
-      snapshots: [],
-      errors: []
-    }
+    serverSyncInfoMap: {}
   }
-
-  print(`Verbosity: ${String(config.verbose)}`)
 
   const serverUrls = Object.values(config.clusters).reduce<string[]>(
     (allUrls, urls) => {
@@ -146,21 +130,16 @@ async function main(): Promise<void> {
   )
   serverCount = serverUrls.length
 
-  print(`Generating random repos...`)
   // Generate an array of unique repo IDs of configured repoCount length
   const syncKeys = generateSyncKeys(config.syncKeyPrefix, config.repoCount)
 
   // Generate Sync Server Info for each server and host
   state.serverSyncInfoMap = makeSyncInfoMap(serverUrls)
 
-  if (config.verbose) {
-    print(`Repos:\n  ${syncKeys.join('\n  ')}`)
-    print(`Servers:\n  ${serverUrls.join('\n  ')}`)
-  }
+  logger.debug({ msg: 'syncKeys generated', syncKeys })
 
   // Worker Cluster Process
   // ---------------------------------------------------------------------
-  print(`Forking worker cluster processes...`)
   // spawn
   const workerCluster = fork(join(__dirname, 'worker-cluster.ts'))
   // events
@@ -170,7 +149,7 @@ async function main(): Promise<void> {
       onEvent(output)
     } catch (error) {
       if (error instanceof TypeError) {
-        print('!!! worker payload', { payload })
+        logger.debug('worker payload', { payload })
         exit(
           'worker exception',
           new Error(`Invalid worker cluster output: ${error.message}`)
@@ -186,12 +165,10 @@ async function main(): Promise<void> {
         new Error(`Worker cluster process exited with code ${String(code)}`)
       )
     }
-    print('! worker cluster process finished')
   })
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
-  print(`Starting worker cluster routines (${syncKeys.length})...`)
   syncKeys.forEach(syncKey => startWorkerRoutine(workerCluster, syncKey))
 
   const intervalIds: NodeJS.Timeout[] = []
@@ -211,7 +188,7 @@ async function main(): Promise<void> {
       return
     }
 
-    printLog('repo-increase', numOfNewRepos)
+    logger.debug({ msg: 'repo-increase', numOfNewRepos })
 
     for (let i = 0; i < numOfNewRepos; ++i) {
       const newSyncKey = makeSyncKey(
@@ -219,16 +196,13 @@ async function main(): Promise<void> {
         config.syncKeyPrefix
       )
       startWorkerRoutine(workerCluster, newSyncKey)
-      printLog('new-repo', newSyncKey)
+      logger.debug({ msg: 'new-repo', newSyncKey })
     }
   }
   intervalIds.push(setInterval(repoCountIncreaser, 60000))
 
-  // Take a snapshot every 30 seconds
-  function snapshotTaker(): void {
-    takeSnapshot()
-  }
-  intervalIds.push(setInterval(snapshotTaker, 30000))
+  // Log a snapshot every 30 seconds
+  intervalIds.push(setInterval(logSnapshot, 30000))
 
   function statusUpdater(): void {
     const now = Date.now()
@@ -258,14 +232,12 @@ async function main(): Promise<void> {
         `${checkmarkify(getIsNetworkInSync(serverCount))} network in-sync`,
         `${timeSinceNetworkOutOfSync}ms since network sync `
       ].join(' | '),
-      statusBarLine(),
       [
         `${countServersInSync()} / ${serverCount} servers in-sync`,
         ...Object.entries(state.serverSyncInfoMap).map(
           ([serverHost, { inSync }]) => `${checkmarkify(inSync)} ${serverHost}`
         )
       ].join(' | '),
-      statusBarLine(),
       [
         `${countReposInSync()} / ${state.syncKeys.length} repos in-sync`,
         ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.syncKey)
@@ -277,10 +249,10 @@ async function main(): Promise<void> {
       ].join(' | ')
     ]
 
-    statusBox(
-      [
+    logger.trace({
+      msg: 'status',
+      status: [
         ...statusHeader,
-        statusBarLine(),
         prettyPrintObject({
           'Total updates': `${repoUpdateTimeMetric.total} / ${
             config.maxUpdatesPerRepo * state.syncKeys.length
@@ -291,38 +263,33 @@ async function main(): Promise<void> {
           )}`,
           'Total bytes sent': `${bytesMetric.sum}`
         }),
-        statusBarLine(),
         prettyPrintObject({
           'Total reads': `${repoReadTimeMetric.total}`,
           'Avg repo read time': `${repoReadTimeMetric.avg}ms`,
           'Avg repo read / sec': `${msToPerSeconds(repoReadTimeMetric.avg)}`
         }),
-        statusBarLine(),
         prettyPrintObject({
           'Total repo replications': `${repoReplicationTimeMetric.total}`,
           'Avg repo replication time': `${repoReplicationTimeMetric.avg}ms`,
           'Max repo replication time': `${repoReplicationTimeMetric.max}ms`
         }),
-        statusBarLine(),
         prettyPrintObject({
           'Total repo syncs': `${repoSyncTimeMetric.total}`,
           'Avg repo sync time': `${repoSyncTimeMetric.avg}ms`,
           'Max repo sync time': `${repoSyncTimeMetric.max}ms`
         }),
-        statusBarLine(),
         prettyPrintObject({
           'Total server syncs': `${serverSyncMetric.total}`,
           'Avg server sync time': `${serverSyncMetric.avg}ms`,
           'Max server sync time': `${serverSyncMetric.max}ms`
         }),
-        statusBarLine(),
         prettyPrintObject({
           'Total network syncs': `${networkSyncMetric.total}`,
           'Avg network sync time': `${networkSyncMetric.avg}ms`,
           'Max network sync time': `${networkSyncMetric.max}ms`
         })
-      ].join('\n')
-    )
+      ]
+    })
 
     // Exit cases
     if (
@@ -379,17 +346,10 @@ function startWorkerRoutine(
 function onEvent(event: AllEvents): void {
   switch (event.type) {
     case 'error':
-      printLog('error', event.process, event.message)
-      state.output.errors.push(event)
-      if (config.verbose)
-        print({
-          stack: event.stack,
-          request: JSON.stringify(event.request, null, 2),
-          response: JSON.stringify(event.response, null, 2)
-        })
+      logger.warn({ msg: 'error event', event })
       break
     case 'message':
-      printLog('message', event.process, event.message)
+      logger.info({ msg: 'message', event })
       break
     case 'ready':
       onReadyEvent(event)
@@ -426,7 +386,7 @@ function onReadyEvent(readyEvent: ReadyEvent): void {
     syncTimeInstrument: makeInstrument()
   })
 
-  printLog('ready', serverHost, syncKey, requestTime)
+  logger.debug({ msg: 'ready', serverHost, syncKey, requestTime })
 }
 
 function onUpdateEvent(updateEvent: UpdateEvent): void {
@@ -480,14 +440,14 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     setIsRepoInSyncWithServer(host, syncKey, false)
   })
 
-  printLog(
-    'write',
+  logger.debug({
+    msg: 'write',
     requestTime,
     serverHost,
     syncKey,
     serverRepoTimestamp,
-    payloadSize != null ? `${payloadSize} bytes` : ''
-  )
+    payloadSize: payloadSize != null ? `${payloadSize} bytes` : undefined
+  })
 }
 
 function onCheckEvent(
@@ -503,7 +463,11 @@ function onCheckEvent(
   addToMetric(repoReadTimeMetric, repoReadTime)
 
   if (repoState == null) {
-    printLog('checker', 'repo not ready', syncKey)
+    logger.error({
+      msg: 'repo not ready',
+      event: checkEvent,
+      syncKey
+    })
     return
   }
 
@@ -573,9 +537,19 @@ function onCheckEvent(
 
     setIsRepoInSyncWithServer(serverHost, syncKey, false)
 
-    printLog('behind', serverHost, syncKey, checkEvent.requestTime)
+    logger.debug({
+      msg: 'behind',
+      serverHost,
+      syncKey,
+      requestTime: checkEvent.requestTime
+    })
   } else if (['ahead', 'conflicting'].includes(status)) {
-    printLog(status, serverHost, syncKey, checkEvent.requestTime)
+    logger.debug({
+      msg: status,
+      serverHost,
+      syncKey,
+      requestTime: checkEvent.requestTime
+    })
   }
 }
 
@@ -585,7 +559,11 @@ function onReplication(syncEvent: ReplicationEvent): void {
   const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
-    printLog('worker', 'repo not ready', syncKey)
+    logger.error({
+      msg: 'repo not ready',
+      event: syncEvent,
+      syncKey
+    })
     return
   }
 
@@ -594,13 +572,13 @@ function onReplication(syncEvent: ReplicationEvent): void {
   addToMetric(repoReplicationTimeMetric, repoReplicationTime)
   setIsRepoInSyncWithServer(serverHost, syncKey, true)
 
-  printLog(
-    'replication',
+  logger.debug({
+    msg: 'replication',
     serverHost,
     syncKey,
     timestamp,
-    `${repoReplicationTime}ms`
-  )
+    replicationTime: `${repoReplicationTime}ms`
+  })
 }
 
 // Repo is now in-sync with all servers
@@ -609,7 +587,11 @@ function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
   const repoState = state.repos.get(syncKey)
 
   if (repoState == null) {
-    printLog('worker', 'repo not ready', syncKey)
+    logger.debug({
+      msg: 'repo not ready',
+      event: repoSyncEvent,
+      syncKey
+    })
     return
   }
 
@@ -617,7 +599,7 @@ function onRepoSync(repoSyncEvent: RepoSyncEvent): void {
 
   addToMetric(repoSyncTimeMetric, repoSyncTime)
 
-  printLog('repo-sync', syncKey, timestamp)
+  logger.debug({ msg: 'repo-sync', syncKey, timestamp })
 }
 
 // Server is now in-sync with every repo
@@ -626,7 +608,12 @@ function onServerSync(serverSyncEvent: ServerSyncEvent): void {
   const serverSyncTime = endInstrument(serverSyncInstrument, timestamp)
   addToMetric(serverSyncMetric, serverSyncTime)
 
-  printLog('server-sync', serverHost, timestamp, `${serverSyncTime}ms`)
+  logger.debug({
+    msg: 'server-sync',
+    serverHost,
+    timestamp,
+    serverSyncTime: `${serverSyncTime}ms`
+  })
 }
 
 // Each server is now in-sync with each other server (no inconsistent state)
@@ -636,7 +623,11 @@ function onNetworkSync(networkSyncEvent: NetworkSyncEvent): void {
 
   addToMetric(networkSyncMetric, networkSyncTime)
 
-  printLog('net-sync', timestamp, `${networkSyncTime}ms`)
+  logger.debug({
+    msg: 'net-sync',
+    timestamp,
+    networkSyncTime: `${networkSyncTime}ms`
+  })
 }
 
 function setIsRepoInSyncWithServer(
@@ -727,12 +718,8 @@ const addRepoToSyncInfoMap = (syncKey: string): void => {
   })
 }
 
-const takeSnapshot = (): Snapshot => {
-  const timestamp = Date.now()
-  const datetime = new Date(timestamp).toLocaleString()
+const logSnapshot = (): void => {
   const snapshot: Snapshot = {
-    timestamp,
-    datetime,
     repos: {
       count: state.syncKeys.length
     },
@@ -774,9 +761,7 @@ const takeSnapshot = (): Snapshot => {
     }
   }
 
-  state.output.snapshots.push(snapshot)
-
-  return snapshot
+  logger.info({ msg: 'snapshot', ...snapshot })
 }
 
 // Startup
@@ -793,8 +778,6 @@ try {
     } else {
       config = asConfig(JSON.parse(configJson))
     }
-
-    process.env.VERBOSE = config.verbose ? '1' : '0'
 
     main().catch(errHandler)
   } catch (err) {
@@ -837,24 +820,16 @@ function errHandler(err: Error | string): void {
 }
 
 function exit(reason: string, error?: Error): void {
-  // Print reason for exiting
-  print(`!!! ${reason}`)
-
   // Final output snapshot
-  takeSnapshot()
+  logSnapshot()
 
-  state.output.reason = reason
-
+  // Log error if passed
   if (error != null) {
-    state.output.errors.push({
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    })
+    logger.error(error)
   }
 
-  console.log(
-    JSON.stringify(state.output, null, process.env.VERBOSE === '1' ? 2 : 0)
-  )
+  // Log reason for exiting
+  logger.info({ msg: 'finished stress tests', reason })
+
   process.exit(error == null ? 0 : 1)
 }

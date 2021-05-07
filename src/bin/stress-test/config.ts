@@ -1,8 +1,7 @@
-import { asArray, asBoolean, asNumber, asObject, asString } from 'cleaners'
+import { asArray, asNumber, asObject, asString } from 'cleaners'
 
 export type Config = ReturnType<typeof asConfig>
 export const asConfig = asObject({
-  verbose: asBoolean,
   // Servers
   clusters: asObject(asArray(asString)),
   // Sync Key
@@ -26,7 +25,6 @@ export const asConfig = asObject({
 })
 
 export const configSample: Config = {
-  verbose: false,
   clusters: {
     us: [
       'https://sync-us1.edge.app',
