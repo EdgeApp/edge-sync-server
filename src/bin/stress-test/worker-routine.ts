@@ -44,6 +44,9 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   // Run updater
   updater(config, syncClients).catch(errHandler)
 
+  // Run reader
+  reader(config, syncClients).catch(errHandler)
+
   // Run the checker
   checker(config, syncClients).catch(errHandler)
 }
@@ -97,10 +100,7 @@ const updater = (
   return updateRepo(config, syncClients)
     .then(send)
     .then(() => {
-      if (
-        config.maxUpdatesPerRepo === 0 ||
-        updatesDone < config.maxUpdatesPerRepo
-      ) {
+      if (isMaxUpdatesReach(config)) {
         return delay((60 / config.repoUpdatesPerMin) * 1000).then(() =>
           updater(config, syncClients)
         )
@@ -113,10 +113,8 @@ async function updateRepo(
   syncClients: SyncClient[]
 ): Promise<UpdateEvent> {
   const sync = randomElement(syncClients)
-
   const serverHost = sync.host
   const syncKey = config.syncKey
-
   const fileCount = randomInt(
     config.fileCountRange[0],
     config.fileCountRange[1] + 1
@@ -135,7 +133,6 @@ async function updateRepo(
 
     // Write update
     const response = await sync.updateFiles(syncKey, changeSet)
-
     const serverRepoTimestamp = response.data.timestamp
     const requestTime = Date.now()
 
@@ -161,11 +158,61 @@ async function updateRepo(
   }
 }
 
+const reader = (
+  config: WorkerConfig,
+  syncClients: SyncClient[]
+): Promise<void> => {
+  return readRepo(config, syncClients)
+    .then(send)
+    .then(() => {
+      if (isMaxUpdatesReach(config)) {
+        return delay((60 / config.repoReadsPerMin) * 1000).then(() =>
+          reader(config, syncClients)
+        )
+      }
+    })
+}
+
+async function readRepo(
+  config: WorkerConfig,
+  syncClients: SyncClient[]
+): Promise<CheckEvent> {
+  const sync = randomElement(syncClients)
+  const serverHost = sync.host
+  const syncKey = config.syncKey
+
+  try {
+    // Read repo
+    const response = await sync.getUpdates(syncKey)
+    const serverRepoTimestamp = response.data.timestamp
+    const requestTime = Date.now()
+
+    lastUpdateTimestamp = serverRepoTimestamp
+
+    // Send a check event just because we can.
+    // We might as well use the response to help with metrics.
+    return {
+      type: 'check',
+      serverHost,
+      syncKey,
+      requestTime,
+      serverRepoTimestamp
+    }
+  } catch (error) {
+    if (!isAcceptableError(error)) {
+      throw error
+    }
+
+    // Try again
+    return await throttle(() => readRepo(config, syncClients), 500)
+  }
+}
+
 const checker = async (
   config: WorkerConfig,
   syncClients: SyncClient[]
 ): Promise<void> => {
-  await delay((60 / config.repoReadsPerMin) * 1000)
+  await delay(config.repoCheckDelayInSeconds * 1000)
 
   return await Promise.all(
     // Only check for updates on servers where the client's timestamp does
@@ -203,11 +250,7 @@ const checker = async (
       }
     })
     .then(() => {
-      if (
-        config.maxUpdatesPerRepo === 0 ||
-        updatesDone < config.maxUpdatesPerRepo ||
-        !isRepoSynced
-      ) {
+      if (isMaxUpdatesReach(config) || !isRepoSynced) {
         return checker(config, syncClients)
       }
     })
@@ -253,6 +296,12 @@ async function checkServerStatus({
 
     send(error)
   }
+}
+
+function isMaxUpdatesReach(config: WorkerConfig): boolean {
+  return (
+    config.maxUpdatesPerRepo === 0 || updatesDone < config.maxUpdatesPerRepo
+  )
 }
 
 // Startup:

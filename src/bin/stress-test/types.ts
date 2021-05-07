@@ -71,6 +71,7 @@ export const asWorkerConfig = asObject({
   syncKey: asString,
   repoUpdatesPerMin: asNumber,
   repoReadsPerMin: asNumber,
+  repoCheckDelayInSeconds: asNumber,
   repoUpdateIncreaseRate: asNumber,
   maxUpdatesPerRepo: asNumber,
   fileByteSizeRange: asArray(asNumber),

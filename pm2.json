@@ -4,7 +4,7 @@
       "name": "server",
       "script": "lib/index.js",
       "error_file": "logs/server/error.log",
-      "out_file": "logs/server/log.log"
+      "out_file": "logs/server/out.log"
     }
   ]
 }
