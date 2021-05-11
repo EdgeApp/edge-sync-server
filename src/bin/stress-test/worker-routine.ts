@@ -38,7 +38,7 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   )
 
   // Create repos
-  await getRepoReady(randomElement(syncClients), config.syncKey)
+  send(await getRepoReady(randomElement(syncClients), config.syncKey))
 
   // Run updater
   updater(config, syncClients).catch(errHandler)
@@ -54,7 +54,7 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
 const getRepoReady = async (
   sync: SyncClient,
   syncKey: string
-): Promise<void> => {
+): Promise<ReadyEvent> => {
   try {
     await sync.createRepo(syncKey)
     const requestTime = Date.now()
@@ -62,33 +62,29 @@ const getRepoReady = async (
 
     lastUpdateHash = serverRepoHash
 
-    const workerOutput: ReadyEvent = {
+    return {
       type: 'ready',
       serverHost: sync.host,
       syncKey,
       requestTime,
       serverRepoHash
     }
-
-    send(workerOutput)
   } catch (error) {
-    if (error?.response?.message !== 'Datastore already exists') {
-      throw error
+    if (error?.response?.message === 'Datastore already exists') {
+      const response = await sync.getUpdates(syncKey)
+      const requestTime = Date.now()
+      const serverRepoHash: string = response.hash
+
+      return {
+        type: 'ready',
+        serverHost: sync.host,
+        syncKey,
+        requestTime,
+        serverRepoHash
+      }
     }
 
-    const response = await sync.getUpdates(syncKey)
-    const requestTime = Date.now()
-    const serverRepoHash = response.hash
-
-    const workerOutput: ReadyEvent = {
-      type: 'ready',
-      serverHost: sync.host,
-      syncKey,
-      requestTime,
-      serverRepoHash
-    }
-
-    send(workerOutput)
+    throw error
   }
 }
 
