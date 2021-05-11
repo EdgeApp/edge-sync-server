@@ -345,7 +345,7 @@ function startWorkerRoutine(
 function onEvent(event: AllEvents): void {
   switch (event.type) {
     case 'error':
-      logger.warn({ msg: 'error event', event })
+      logger.warn({ err: event.err, process: event.process })
       break
     case 'message':
       logger.info({ msg: 'message', event })
