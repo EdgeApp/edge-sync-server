@@ -75,7 +75,7 @@ export const criticalError = (err: any): void => {
 
 // Error handlers
 
-export const isAcceptableError = (err: any): boolean =>
+export const isErrorWorthRetry = (err: any): boolean =>
   err?.response != null ? isRepoNotFoundError(err) : false
 export const isRepoNotFoundError = (err: any): boolean =>
   /^Repo not found$/.test(err?.response.message)

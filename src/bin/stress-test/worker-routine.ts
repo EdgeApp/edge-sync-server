@@ -10,7 +10,7 @@ import {
 } from './types'
 import {
   delay,
-  isAcceptableError,
+  isErrorWorthRetry,
   isRepoNotFoundError,
   randomElement,
   send,
@@ -144,7 +144,7 @@ async function updateRepo(
       payloadSize
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 
@@ -194,7 +194,7 @@ async function readRepo(
       serverRepoHash
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 
@@ -274,7 +274,7 @@ async function checkServerStatus({
       serverRepoHash
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 
