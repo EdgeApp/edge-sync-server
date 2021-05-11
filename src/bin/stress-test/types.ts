@@ -5,19 +5,34 @@ import {
   asNumber,
   asObject,
   asString,
-  asUnknown,
   asValue
 } from 'cleaners'
+
+export interface ErrorObj extends Error {
+  [key: string]: any
+}
+export const asErrorObj = (raw: any): ErrorObj => {
+  const clean = asObject({
+    name: asString,
+    message: asString,
+    stack: asString
+  }).withRest(raw)
+  const out: ErrorObj = new Error(clean.message)
+  out.message = clean.message
+  out.stack = clean.stack
+  out.name = clean.name
+  Object.entries(clean).forEach(function ([key, value]) {
+    out[key] = value
+  })
+  return out
+}
 
 // Shared error output type
 export type ErrorEvent = ReturnType<typeof asErrorEvent>
 export const asErrorEvent = asObject({
   type: asValue('error'),
   process: asString,
-  message: asString,
-  stack: asString,
-  request: asUnknown,
-  response: asUnknown
+  err: asErrorObj
 })
 
 export type MessageEvent = ReturnType<typeof asMessageEvent>

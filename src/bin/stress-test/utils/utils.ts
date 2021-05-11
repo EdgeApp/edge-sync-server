@@ -16,17 +16,23 @@ export const send = (...args: Array<AllEvents | string | Error>): void => {
         ? {
             type: 'error',
             process: process.title,
-            message: arg.message,
-            stack: arg.stack,
-            request: arg.request,
-            response: arg.response
+            err: {
+              name: arg.name,
+              message: arg.message,
+              stack: arg.stack,
+              request: arg.request,
+              response: arg.response
+            }
           }
         : arg instanceof Error
         ? {
             type: 'error',
             process: process.title,
-            message: arg.message,
-            stack: arg.stack
+            err: {
+              name: arg.name,
+              message: arg.message,
+              stack: arg.stack
+            }
           }
         : arg
     )
