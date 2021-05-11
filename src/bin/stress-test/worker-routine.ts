@@ -94,6 +94,9 @@ const updater = (
 ): Promise<void> => {
   return updateRepo(config, syncClients)
     .then(send)
+    .catch(err => {
+      send(err)
+    })
     .then(() => {
       if (isMaxUpdatesReach(config)) {
         return delay((60 / config.repoUpdatesPerMin) * 1000).then(() =>
@@ -159,6 +162,9 @@ const reader = (
 ): Promise<void> => {
   return readRepo(config, syncClients)
     .then(send)
+    .catch(err => {
+      send(err)
+    })
     .then(() => {
       if (isMaxUpdatesReach(config)) {
         return delay((60 / config.repoReadsPerMin) * 1000).then(() =>
@@ -242,6 +248,9 @@ const checker = async (
         config.repoUpdatesPerMin =
           config.repoUpdatesPerMin * config.repoUpdateIncreaseRate
       }
+    })
+    .catch(err => {
+      send(err)
     })
     .then(() => {
       if (isMaxUpdatesReach(config) || !isRepoSynced) {
