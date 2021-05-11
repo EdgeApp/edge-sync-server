@@ -264,6 +264,7 @@ export class RequestError extends Error {
   constructor(request: any, response: ServerErrorResponse) {
     const url: string = request.url.href
     super(`Request to '${url}' failed: ${response.message}`)
+    this.name = 'RequestError'
     this.request = request
     this.response = response
   }
