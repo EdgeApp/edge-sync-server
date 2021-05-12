@@ -111,7 +111,7 @@ const networkSyncInstrument = makeInstrument()
 let state: State
 
 async function main(): Promise<void> {
-  logger.info({ msg: 'starting stress test', config })
+  logger.info({ msg: 'starting repo-sync test', config })
 
   // Initialize state
   state = {
@@ -757,7 +757,7 @@ try {
   const argv = minimist(process.argv.slice(2))
   const jsonArg = argv._[0]
   const configJson: string | undefined = jsonArg
-  const configFile = argv.config ?? 'config.stress.json'
+  const configFile = process.env.CONFIG ?? 'config.test.repo-sync.json'
 
   try {
     if (configJson == null) {
@@ -775,9 +775,9 @@ try {
         `Config error: ${errMessage}`,
         ``,
         `Usage:`,
-        `  yarn test.stress`,
-        `  CONFIG=config.custom.json yarn test.stress`,
-        `  yarn test.stress $json`,
+        `  yarn test.repo-sync`,
+        `  CONFIG=config.custom.json yarn test.repo-sync`,
+        `  yarn test.repo-sync $json`,
         ``,
         `Example JSON Config:`,
         JSON.stringify(configSample, null, 2)
@@ -816,7 +816,7 @@ function exit(reason: string, error?: Error): void {
   }
 
   // Log reason for exiting
-  logger.info({ msg: 'finished stress tests', reason })
+  logger.info({ msg: 'finished repo-sync tests', reason })
 
   process.exit(error == null ? 0 : 1)
 }

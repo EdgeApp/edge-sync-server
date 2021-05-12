@@ -1,0 +1,11 @@
+{
+  "apps": [
+    {
+      "name": "repo-sync-test",
+      "script": "lib/bin/repo-sync-test/continuous.js",
+      "error_file": "logs/repo-sync-test/error.log",
+      "out_file": "logs/repo-sync-test/out.log",
+      "node_args": "--max-old-space-size=16384"
+    }
+  ]
+}
