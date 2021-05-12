@@ -1,21 +1,15 @@
-import { exec as execCb } from 'child_process'
+import { spawn } from 'child_process'
 import { makeConfig } from 'cleaner-config'
-import { asJSON, asMaybe, asUnknown } from 'cleaners'
 import pino from 'pino'
-import { promisify } from 'util'
 
 import { asConfig } from '../stress-test/config'
 
-const exec = promisify(execCb)
 const logger = pino()
 
 // Config:
 
 const configFile = process.env.CONFIG ?? 'config.stress.json'
 const config = makeConfig(asConfig, configFile)
-
-// Force non-verbosity
-config.verbose = false
 
 // Manage repo prefix
 let prefixCounter = 0
@@ -29,35 +23,30 @@ updateRepoPrefix()
 // Main:
 
 async function main(): Promise<void> {
-  while (true) {
-    logger.info({ msg: 'running stress test', config })
+  const child = spawn('yarn', [
+    '-s',
+    'test.stress',
+    `${JSON.stringify(config)}`
+  ])
 
-    try {
-      const { stdout, stderr } = await exec(
-        `yarn -s test.stress '${JSON.stringify(config)}'`,
-        {
-          encoding: 'utf-8'
-        }
-      )
+  child.stdout.setEncoding('utf8')
+  child.stdout.pipe(process.stdout)
+  child.stderr.pipe(process.stderr)
 
-      const output = asMaybe(asJSON(asUnknown), stdout)(stdout)
-      const error = asMaybe(asJSON(asUnknown), stderr)(stderr)
-
-      logger.info({ msg: 'finished stress test', output, error })
-    } catch (err) {
-      updateRepoPrefix()
-
-      const output = asMaybe(asJSON(asUnknown), err.stdout)(err.stdout)
-      const error = asMaybe(asJSON(asUnknown), err.stderror)(err.stderr)
-
-      logger.info({ msg: 'finished stress test', output, error })
-
-      logger.error({
-        msg: 'failed stress test',
-        err
-      })
+  // events
+  child.on('exit', (code): void => {
+    if (code !== null && code !== 0) {
+      throw new Error(`Stress test process exited with code ${String(code)}`)
     }
-  }
+  })
+  child.on('error', (err): void => {
+    throw err
+  })
+  child.on('close', (): void => {
+    main().catch(err => {
+      throw err
+    })
+  })
 }
 
 main().catch(err => {
