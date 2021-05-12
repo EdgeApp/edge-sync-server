@@ -3,10 +3,7 @@ import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
-import {
-  asServerErrorResponse,
-  ServerErrorResponse
-} from '../../types/primitive-types'
+import { asServerErrorResponse } from '../../types/primitive-types'
 import { trial } from '../../util/trial'
 import { withRetries } from '../../util/with-retries'
 import {
@@ -19,8 +16,8 @@ import {
   PostStoreResponse,
   PutStoreResponse
 } from '../../v2/types'
-import { compareHash } from './utils/repo-hash'
-import { randomBytes, randomPath } from './utils/utils'
+import { compareHash } from '../utils/repo-hash'
+import { randomBytes, randomPath, RequestError } from '../utils/utils'
 
 export class SyncClient {
   baseUrl: string
@@ -254,18 +251,5 @@ export class SyncClient {
         this.repoFilePaths[syncKey] = new Set()
       this.repoFilePaths[syncKey].delete(path)
     }
-  }
-}
-
-export class RequestError extends Error {
-  response: ServerErrorResponse
-  request: any
-
-  constructor(request: any, response: ServerErrorResponse) {
-    const url: string = request.url.href
-    super(`Request to '${url}' failed: ${response.message}`)
-    this.name = 'RequestError'
-    this.request = request
-    this.response = response
   }
 }

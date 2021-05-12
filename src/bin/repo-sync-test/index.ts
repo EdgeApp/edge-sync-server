@@ -4,6 +4,17 @@ import minimist from 'minimist'
 import { join } from 'path'
 import pino from 'pino'
 
+import {
+  endInstrument,
+  Instrument,
+  makeInstrument,
+  measureInstrument,
+  startInstrument
+} from '../utils/instrument'
+import { addToMetric, makeMetric } from '../utils/metric'
+import { prettyPrintObject } from '../utils/printing'
+import { compareHash } from '../utils/repo-hash'
+import { makeSyncKey, msToPerSeconds } from '../utils/utils'
 import { asConfig, Config, configSample } from './config'
 import {
   AllEvents,
@@ -17,17 +28,6 @@ import {
   UpdateEvent,
   WorkerConfig
 } from './types'
-import {
-  endInstrument,
-  Instrument,
-  makeInstrument,
-  measureInstrument,
-  startInstrument
-} from './utils/instrument'
-import { addToMetric, makeMetric } from './utils/metric'
-import { prettyPrintObject } from './utils/printing'
-import { compareHash } from './utils/repo-hash'
-import { makeSyncKey, msToPerSeconds } from './utils/utils'
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? 'info'
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
     ]
 
     logger.trace({
-      msg: 'status',
+      msg: 'console',
       status: [
         ...statusHeader,
         prettyPrintObject({

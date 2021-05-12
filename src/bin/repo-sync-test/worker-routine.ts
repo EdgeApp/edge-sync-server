@@ -1,5 +1,13 @@
 import { randomInt } from 'crypto'
 
+import {
+  delay,
+  isErrorWorthRetry,
+  isRepoNotFoundError,
+  randomElement,
+  send,
+  throttle
+} from '../utils/utils'
 import { SyncClient } from './SyncClient'
 import {
   asWorkerConfig,
@@ -8,14 +16,6 @@ import {
   UpdateEvent,
   WorkerConfig
 } from './types'
-import {
-  delay,
-  isErrorWorthRetry,
-  isRepoNotFoundError,
-  randomElement,
-  send,
-  throttle
-} from './utils/utils'
 
 process.title = 'worker'
 

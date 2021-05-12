@@ -34,7 +34,7 @@
     "posttest": "nyc report --reporter=cobertura --reporter=html",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
     "test.repo-sync": "node -r sucrase/register src/bin/repo-sync-test/index.ts",
-    "test.repo-sync.console": "LOG_LEVEL=trace node -r sucrase/register src/bin/repo-sync-test/index.ts | node -r sucrase/register src/bin/repo-sync-test/console.ts",
+    "test.repo-sync.console": "LOG_LEVEL=trace node -r sucrase/register src/bin/repo-sync-test/index.ts | node -r sucrase/register src/bin/utils/console.ts",
     "test.repo-sync.continuous": "node -r sucrase/register src/bin/repo-sync-test/continuous.ts | pino-pretty",
     "test.report": "yarn test.with-report && yarn test.post-report",
     "test.watch": "yarn test --watch --watch-files 'src/**/*, test/**/*'",

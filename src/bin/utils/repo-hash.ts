@@ -1,4 +1,4 @@
-import { Checkpoint } from '../../../types/checkpoints'
+import { Checkpoint } from '../../types/checkpoints'
 
 export function compareHash(
   hash: string,

@@ -2,8 +2,8 @@ import { asMaybe } from 'cleaners'
 import cluster from 'cluster'
 import os from 'os'
 
+import { send } from '../utils/utils'
 import { asWorkerConfig } from './types'
-import { send } from './utils/utils'
 import { workerRoutine } from './worker-routine'
 
 process.title = 'worker-cluster'
