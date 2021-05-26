@@ -4,8 +4,8 @@ import { asMaybe } from 'cleaners'
 import { AppState } from '../server'
 import {
   asStoreDirectoryDocument,
+  asStoreFile,
   asStoreFileDocument,
-  asStoreFileWithTimestamp,
   asStoreRepoDocument,
   GetFilesMap,
   StoreDirectoryDocument,
@@ -117,7 +117,7 @@ export const fetchGetFilesMap = (appState: AppState) => async (
       // Handle file document
       if (fileDocument != null) {
         return Object.assign(map, {
-          [documentPath]: asStoreFileWithTimestamp({
+          [documentPath]: asStoreFile({
             ...fileDocument
           })
         })

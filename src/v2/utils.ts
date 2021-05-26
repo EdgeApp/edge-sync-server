@@ -4,11 +4,7 @@ import { fetchGetFilesMap } from '../api/getFiles'
 import { RepoUpdates } from '../api/getUpdates'
 import { getRepoDocument } from '../api/repo'
 import { AppState } from '../server'
-import {
-  asStoreFileWithTimestamp,
-  asTimestampRev,
-  TimestampRev
-} from '../types'
+import { asStoreFile, asTimestampRev, TimestampRev } from '../types'
 import { ChangeSetV2 } from './types'
 
 export const getChangesFromRepoUpdates = (appState: AppState) => async (
@@ -26,7 +22,7 @@ export const getChangesFromRepoUpdates = (appState: AppState) => async (
   const changes: ChangeSetV2 = {}
 
   Object.entries(getFilesStoreFileMap).forEach(([path, fileOrDir]) => {
-    const file = asMaybe(asStoreFileWithTimestamp)(fileOrDir)
+    const file = asMaybe(asStoreFile)(fileOrDir)
 
     // File should never be a directory
     if (file != null) {

@@ -176,12 +176,6 @@ export type StoreDocument =
 
 // API Types:
 
-export type StoreFileWithTimestamp = ReturnType<typeof asStoreFileWithTimestamp>
-export const asStoreFileWithTimestamp = asObject({
-  ...asStoreFile.shape,
-  timestamp: asTimestampRev
-})
-
 export type StoreDirectoryPathWithTimestamp = ReturnType<
   typeof asStoreDirectoryPathWithTimestamp
 >
@@ -192,7 +186,7 @@ export const asStoreDirectoryPathWithTimestamp = asObject({
 
 export type GetFilesMap = ReturnType<typeof asGetFilesMap>
 export const asGetFilesMap = asObject(
-  asEither(asStoreFileWithTimestamp, asStoreDirectoryPathWithTimestamp)
+  asEither(asStoreFile, asStoreDirectoryPathWithTimestamp)
 )
 
 // API Responses
