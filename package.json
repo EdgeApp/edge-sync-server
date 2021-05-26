@@ -21,12 +21,12 @@
     "build.types": "tsc && cpr lib/src lib/ && rimraf lib/src",
     "clean": "rimraf dist lib",
     "fix": "npm run lint -- --fix",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx .",
+    "lint": "eslint .",
     "migration": "node -r sucrase/register src/bin/background-migration/index.ts",
     "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts",
     "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
     "precommit": "lint-staged && yarn test && yarn prepare",
-    "prepare": "configure && npm-run-all clean -p build.*",
+    "prepare": "husky install && configure && npm-run-all clean -p build.*",
     "setup": "configure",
     "start": "node -r sucrase/register src/index.ts",
     "start.dev": "nodemon | pino-pretty",
@@ -40,13 +40,8 @@
     "test.watch": "yarn test --watch --watch-files 'src/**/*, test/**/*'",
     "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn precommit"
-    }
-  },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": "eslint"
+    "*.{js,ts}": "eslint"
   },
   "dependencies": {
     "@types/cors": "^2.8.9",
@@ -86,7 +81,7 @@
     "eslint-plugin-prettier": "^3.3.1",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-simple-import-sort": "^7.0.0",
-    "husky": "^4.3.7",
+    "husky": "^6.0.0",
     "lint-staged": "^10.5.3",
     "log-update": "^4.0.0",
     "minimist": "^1.2.5",
