@@ -21,7 +21,7 @@
     "build.types": "tsc && cpr lib/src lib/ && rimraf lib/src",
     "clean": "rimraf dist lib",
     "fix": "npm run lint -- --fix",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx .",
+    "lint": "eslint .",
     "migration": "node -r sucrase/register src/bin/background-migration/index.ts",
     "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts",
     "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
@@ -41,7 +41,7 @@
     "test.with-report": "nyc yarn test --reporter mocha-multi-reporters --reporter-options configFile=./mocha-config.json"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": "eslint"
+    "*.{js,ts}": "eslint"
   },
   "dependencies": {
     "@types/cors": "^2.8.9",
