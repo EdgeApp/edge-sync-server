@@ -55,7 +55,7 @@
     "express": "^4.17.1",
     "express-promise-router": "^4.0.1",
     "mkdirp": "^1.0.4",
-    "nano": "^9.0.1",
+    "nano": "^9.0.3",
     "pino": "^6.11.3",
     "supertest": "^6.0.1"
   },
