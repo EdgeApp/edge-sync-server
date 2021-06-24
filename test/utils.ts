@@ -1,7 +1,8 @@
 import { assert, expect } from 'chai'
+import { asMaybe } from 'cleaners'
 import { Response } from 'superagent'
 
-import { EdgeBox } from '../src/types/primitive-types'
+import { asServerErrorResponse, EdgeBox } from '../src/types/primitive-types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -19,16 +20,21 @@ export const isErrorResponse = (status: number, message?: string) => (
 }
 
 export const isSuccessfulResponse = (res: Response): void => {
-  if (res.body.success === false || res.body.message !== undefined) {
+  if (res.status >= 200 && res.status < 300) return
+
+  const errorResponse = asMaybe(asServerErrorResponse)(res.body)
+
+  if (errorResponse != null) {
     throw new Error(
       `Not expecting error response: ${res.status} ${JSON.stringify(
-        res.body.message
-      )}${res.body.error != null ? `:\n${JSON.stringify(res.body.error)}` : ''}`
+        errorResponse.message
+      )}${errorResponse.stack != null ? `:\n${errorResponse.stack}` : ''}`
     )
   }
-  expect(res.body.error, 'res.body.error').to.be.a('undefined')
-  expect(res.status, 'res.status').to.be.least(200)
-  expect(res.status, 'res.status').to.be.below(300)
+
+  throw new Error(
+    `Not expecting response: ${res.status} ${JSON.stringify(res.body)}`
+  )
 }
 
 export const makeEdgeBox = (content: any): EdgeBox => ({
