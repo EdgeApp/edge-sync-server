@@ -5,7 +5,6 @@ import { promisify } from 'util'
 
 import { logger } from '../logger'
 import { AppState } from '../server'
-import { asTimestampRev } from '../types/old-types'
 import { asFileChangeV2, ChangeSetV2 } from '../v2/types'
 import { syncKeyToRepoId } from './security'
 import { createRepoDocument } from './store/repo'
@@ -178,7 +177,7 @@ export const migrateRepo = (appState: AppState) => async (
     // Update database
     await withRetries(
       async (): Promise<void> => {
-        const timestamp = asTimestampRev(lastGitTime ?? Date.now())
+        const timestamp = lastGitTime ?? Date.now()
 
         // Update files and directories
         if (filePaths.length > 0) {

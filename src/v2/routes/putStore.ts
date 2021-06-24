@@ -2,7 +2,6 @@ import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
-import { asTimestampRev } from '../../types/old-types'
 import { syncKeyToRepoId } from '../../util/security'
 import { checkRepoExists, createRepoDocument } from '../../util/store/repo'
 import { makeApiClientError } from '../../util/utils'
@@ -30,7 +29,7 @@ export const putStoreRouter = (appState: AppState): Router => {
     }
 
     // Create new repo
-    const timestamp = asTimestampRev(Date.now())
+    const timestamp = Date.now()
 
     await createRepoDocument(appState)(repoId, {
       timestamp

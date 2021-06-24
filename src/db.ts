@@ -6,7 +6,6 @@ import {
 import nano from 'nano'
 
 import { Config } from './config'
-import { StoreData as OldStoreData } from './types/old-types'
 import { StoreData } from './types/store-types'
 
 declare function emit(key?: unknown, value?: unknown): void
@@ -59,7 +58,5 @@ export const getCouchSetup = (config: Config): DatabaseSetup => {
 export const getDbServer = (config: Config): nano.ServerScope =>
   nano(config.couchUri)
 
-export const getDataStore = (
-  config: Config
-): nano.DocumentScope<StoreData | OldStoreData> =>
-  getDbServer(config).use<StoreData | OldStoreData>(config.couchDatabase)
+export const getDataStore = (config: Config): nano.DocumentScope<StoreData> =>
+  getDbServer(config).use<StoreData>(config.couchDatabase)
