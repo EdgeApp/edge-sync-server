@@ -1,14 +1,14 @@
-import { AppState } from '../server'
+import {
+  getConflictFreeDocuments,
+  makeTimestampHistory
+} from '../../api/conflictResolution'
+import { AppState } from '../../server'
 import {
   asStoreRepoDocument,
   StoreRepo,
   StoreRepoDocument
-} from '../types/old-types'
-import { makeApiClientError } from '../util/utils'
-import {
-  getConflictFreeDocuments,
-  makeTimestampHistory
-} from './conflictResolution'
+} from '../../types/old-types'
+import { makeApiClientError } from '../utils'
 
 export const checkRepoExists = (appState: AppState) => async (
   repoId: string

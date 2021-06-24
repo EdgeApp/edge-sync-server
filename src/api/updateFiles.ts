@@ -18,6 +18,7 @@ import {
   StoreRepoDocument,
   TimestampRev
 } from '../types/old-types'
+import { getRepoDocument } from '../util/store/repo'
 import {
   delay,
   getNameFromPath,
@@ -31,7 +32,6 @@ import {
   getConflictFreeDocuments,
   makeTimestampHistory
 } from './conflictResolution'
-import { getRepoDocument } from './repo'
 
 type DirLikeModification = Pick<
   StoreDirectory,

@@ -2,12 +2,12 @@ import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
-import { getRepoDocument } from '../../api/repo'
 import { updateDocuments } from '../../api/updateFiles'
 import { AppState } from '../../server'
 import { ChangeSet } from '../../types/old-types'
 import { asPath } from '../../types/primitive-types'
 import { syncKeyToRepoId } from '../../util/security'
+import { getRepoDocument } from '../../util/store/repo'
 import { makeApiClientError } from '../../util/utils'
 import {
   asPostStoreBody,

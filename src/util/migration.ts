@@ -3,6 +3,7 @@ import { access, readFile } from 'fs/promises'
 import { join } from 'path'
 import { promisify } from 'util'
 
+import { updateFilesAndDirectories } from '../api/updateFiles'
 import { logger } from '../logger'
 import { AppState } from '../server'
 import {
@@ -11,10 +12,9 @@ import {
   ChangeSet,
   StoreFileTimestampMap
 } from '../types/old-types'
-import { syncKeyToRepoId } from '../util/security'
-import { withRetries } from '../util/utils'
-import { createRepoDocument } from './repo'
-import { updateFilesAndDirectories } from './updateFiles'
+import { syncKeyToRepoId } from './security'
+import { createRepoDocument } from './store/repo'
+import { withRetries } from './utils'
 
 const exec = promisify(execOriginal)
 

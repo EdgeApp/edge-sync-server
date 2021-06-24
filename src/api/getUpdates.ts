@@ -10,9 +10,9 @@ import {
   StoreRepoDocument,
   TimestampRev
 } from '../types/old-types'
+import { getRepoDocument } from '../util/store/repo'
 import { getNameFromPath, makeApiClientError } from '../util/utils'
 import { getConflictFreeDocuments } from './conflictResolution'
-import { getRepoDocument } from './repo'
 
 export interface RepoUpdates {
   timestamp: TimestampRev
