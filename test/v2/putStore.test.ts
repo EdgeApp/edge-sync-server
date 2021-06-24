@@ -1,4 +1,3 @@
-import { expect } from 'chai'
 import { it } from 'mocha'
 import supertest from 'supertest'
 
@@ -24,11 +23,6 @@ apiSuite('PUT /api/v2/store', (appState: AppState) => {
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(201)
-      .expect(res => {
-        expect(res.body.success).to.equal(true, 'res.body.success')
-        expect(res.body.data).to.be.an('object')
-        expect(res.body.data.timestamp).to.be.a('string')
-      })
   })
 
   it('Will error for existing repo', async () => {

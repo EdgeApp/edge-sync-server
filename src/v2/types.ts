@@ -1,11 +1,13 @@
-import { asEither, asNull, asObject, asOptional, asString } from 'cleaners'
-
 import {
-  asEdgeBox,
-  asNonEmptyString,
-  asSyncKey,
-  asTimestampRev
-} from '../types'
+  asEither,
+  asNull,
+  asObject,
+  asOptional,
+  asString,
+  asUndefined
+} from 'cleaners'
+
+import { asEdgeBox, asNonEmptyString, asSyncKey } from '../types'
 
 export type FileChangeV2 = ReturnType<typeof asFileChangeV2>
 export const asFileChangeV2 = asEither(asEdgeBox, asNull)
@@ -44,6 +46,4 @@ export const asPutStoreParams = asObject({
   syncKey: asSyncKey
 })
 export type PutStoreResponse = ReturnType<typeof asPutStoreResponse>
-export const asPutStoreResponse = asObject({
-  timestamp: asTimestampRev
-})
+export const asPutStoreResponse = asUndefined
