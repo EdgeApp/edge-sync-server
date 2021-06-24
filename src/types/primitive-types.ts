@@ -1,4 +1,4 @@
-import { asNumber, asObject, asString } from 'cleaners'
+import { asNumber, asObject, asOptional, asString, asValue } from 'cleaners'
 
 import { normalizePath } from '../util/paths'
 
@@ -47,11 +47,12 @@ export const asEdgeBox = asObject({
 
 // Server Error Types:
 
-export interface ApiErrorResponse {
-  success: false
-  message: string
-  error?: string
-}
+export type ServerErrorResponse = ReturnType<typeof asServerErrorResponse>
+export const asServerErrorResponse = asObject({
+  success: asValue(false),
+  message: asString,
+  stack: asOptional(asString)
+})
 
 export class ApiClientError extends Error {
   status: number

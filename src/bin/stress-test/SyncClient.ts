@@ -2,7 +2,7 @@ import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
-import { ApiErrorResponse } from '../../types/primitive-types'
+import { ServerErrorResponse } from '../../types/primitive-types'
 import { withRetries } from '../../util/utils'
 import {
   ChangeSetV2,
@@ -41,7 +41,7 @@ export class SyncClient {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
 
-    let responseJson: ResponseType | ApiErrorResponse
+    let responseJson: ResponseType | ServerErrorResponse
 
     const response: FetchResponse | undefined = await withRetries(
       async () => {
@@ -246,10 +246,10 @@ export class SyncClient {
 }
 
 export class RequestError extends Error {
-  response: ApiErrorResponse
+  response: ServerErrorResponse
   request: any
 
-  constructor(request: any, response: ApiErrorResponse) {
+  constructor(request: any, response: ServerErrorResponse) {
     const url: string = request.url.href
     super(`Request to '${url}' failed: ${response.message}`)
     this.request = request
