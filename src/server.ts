@@ -8,7 +8,6 @@ import { logger } from './logger'
 import { ApiClientError, ApiErrorResponse, StoreData } from './types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
-import { v3Router } from './v3Router'
 
 export interface AppState {
   config: Config
@@ -29,7 +28,6 @@ export function makeServer(appState: AppState): Express {
 
   // Routes
   app.use('/api/v2', v2Router(appState))
-  app.use('/api/v3', v3Router(appState))
 
   // 404 Error Route
   app.use((_req, _res, next) => {

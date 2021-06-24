@@ -1,8 +1,7 @@
 import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
-import { AppState } from '../src/server'
-import { asTimestampRev, EdgeBox, StoreFile } from '../src/types'
+import { EdgeBox } from '../src/types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -32,39 +31,8 @@ export const isSuccessfulResponse = (res: Response): void => {
   expect(res.status, 'res.status').to.be.below(300)
 }
 
-export const makeMockStoreFile = (data: object): StoreFile => {
-  const dataBase64 = JSON.stringify(data)
-
-  return {
-    timestamp: asTimestampRev(Date.now()),
-    box: {
-      iv_hex: '',
-      encryptionType: 0,
-      data_base64: dataBase64
-    }
-  }
-}
-
 export const makeEdgeBox = (content: any): EdgeBox => ({
   iv_hex: '',
   encryptionType: 0,
   data_base64: typeof content === 'string' ? content : JSON.stringify(content)
 })
-
-export const synchronizeServers = async (
-  appStateSource: AppState,
-  appStateTarget: AppState
-): Promise<void> => {
-  try {
-    await appStateTarget.dbServer.request({
-      method: 'post',
-      path: '_replicate',
-      body: {
-        source: appStateSource.config.couchDatabase,
-        target: appStateTarget.config.couchDatabase
-      }
-    })
-  } catch (error) {
-    throw new Error([`Failed to synchronize servers:`, error].join(' '))
-  }
-}
