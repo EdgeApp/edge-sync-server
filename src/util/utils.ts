@@ -1,12 +1,3 @@
-import { ServerError } from '../types/primitive-types'
-
-export const makeApiClientError = (
-  status: number,
-  message: string
-): ServerError => {
-  return new ServerError(status, message)
-}
-
 /**
  * Wraps a function and invokes the function with rety attemps if error passes
  * a condition function.
