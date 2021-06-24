@@ -3,7 +3,6 @@ import { it } from 'mocha'
 import supertest from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
-import { asTimestampRev, TimestampRev } from '../../src/types'
 import { apiSuite } from '../suites'
 import {
   delay,
@@ -18,10 +17,10 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
 
   const syncKey = '0000000000000000000000000000000000000000'
   const otherSyncKey = '1111111111111111111111111111111111111111'
-  let repoTimestamp: TimestampRev = asTimestampRev(0)
-  let oldestTs: TimestampRev = asTimestampRev(0)
-  let deletionTs: TimestampRev = asTimestampRev(0)
-  let latestTs: TimestampRev = asTimestampRev(0)
+  let repoHash: string = ''
+  let oldestHash: string = ''
+  let deletionHash: string = ''
+  let latestHash: string = ''
 
   const CONTENT = {
     file1: makeEdgeBox('file1 content'),
@@ -40,11 +39,11 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
 
-    repoTimestamp = res.body.hash
+    repoHash = res.body.hash
 
     // Create test files/dirs (first files)
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           file1: CONTENT.file1,
@@ -55,11 +54,11 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    oldestTs = repoTimestamp = res.body.hash
+    oldestHash = repoHash = res.body.hash
 
     // Delete files
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           deletedFile: null,
@@ -68,13 +67,13 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    deletionTs = repoTimestamp = res.body.hash
+    deletionHash = repoHash = res.body.hash
 
     await delay(10)
 
     // Create test files/dir (second files)
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           file2: CONTENT.file2,
@@ -83,7 +82,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    latestTs = repoTimestamp = res.body.hash
+    latestHash = repoHash = res.body.hash
 
     // Other repo control (should not be returned)
     res = await agent
@@ -125,7 +124,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .get(`/api/v2/store/${syncKey}/`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -142,7 +141,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .get(`/api/v2/store/${syncKey}/abcdef1234567890abcdef1234567890`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -154,12 +153,12 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
   })
 
-  it('can get updates with 0 timestamp parameter', async () => {
+  it('can get updates with 0 hash parameter', async () => {
     await agent
       .get(`/api/v2/store/${syncKey}/0`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -171,12 +170,12 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
   })
 
-  it('can get updates with specific timestamp', async () => {
+  it('can get updates with specific hash', async () => {
     await agent
-      .get(`/api/v2/store/${syncKey}/${oldestTs}`)
+      .get(`/api/v2/store/${syncKey}/${oldestHash}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({
           'dir/file2': CONTENT.dirFile2,
           file2: CONTENT.file2,
@@ -185,20 +184,20 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
         })
       })
     await agent
-      .get(`/api/v2/store/${syncKey}/${deletionTs}`)
+      .get(`/api/v2/store/${syncKey}/${deletionHash}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({
           'dir/file2': CONTENT.dirFile2,
           file2: CONTENT.file2
         })
       })
     await agent
-      .get(`/api/v2/store/${syncKey}/${latestTs}`)
+      .get(`/api/v2/store/${syncKey}/${latestHash}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoTimestamp.toString())
+        expect(res.body.hash).equals(repoHash.toString())
         expect(res.body.changes).deep.equals({})
       })
   })

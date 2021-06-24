@@ -49,9 +49,5 @@ apiSuite('Component: Passive migration', (appState: AppState) => {
 
     expect(res.body.changes).to.deep.equal(repoStoreContent.changes)
     expect(res.body.hash != null, 'Missing hash field in response')
-    expect(
-      !isNaN(parseInt(res.body.hash)),
-      'Hash field should be a timestamp value'
-    )
   })
 })

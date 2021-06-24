@@ -3,7 +3,6 @@ import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
-import { asTimestampRev, TimestampRev } from '../../src/types'
 import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import { isErrorResponse, isSuccessfulResponse, makeEdgeBox } from '../utils'
@@ -13,7 +12,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   const agent = supertest.agent(app)
 
   const syncKey = '0000000000000000000000000000000000000000'
-  let repoTimestamp = 0
+  let repoHash = ''
 
   // Fixtures:
 
@@ -21,7 +20,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     const res = await agent
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
-    repoTimestamp = res.body.hash
+    repoHash = res.body.hash
   })
 
   const isPostStoreResponse = (
@@ -45,8 +44,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
   }
 
-  const updateRepoTimestamp = (res: Response): void => {
-    repoTimestamp = parseInt(res.body.hash)
+  const updateRepoHash = (res: Response): void => {
+    repoHash = res.body.hash
   }
 
   // Tests:
@@ -54,7 +53,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can validate syncKey body', async () => {
     const invalidSyncKey = 'invalid'
     await agent
-      .post(`/api/v2/store/${invalidSyncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${invalidSyncKey}/${repoHash}`)
       .expect(
         isErrorResponse(400, `Invalid sync key '${invalidSyncKey}' at .syncKey`)
       )
@@ -62,7 +61,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
 
   it('Can validate request body', async () => {
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .expect(res =>
         isErrorResponse(400, 'Expected an object at .changes')(res)
       )
@@ -78,7 +77,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
 
     for (const path of invalidPaths) {
       await agent
-        .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+        .post(`/api/v2/store/${syncKey}/${repoHash}`)
         .send({
           changes: {
             [path]: makeEdgeBox('content')
@@ -95,12 +94,12 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
   })
 
   it('Can update file', async () => {
@@ -113,19 +112,19 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
   })
 
   it('Can write file with directory', async () => {
@@ -135,12 +134,12 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
   })
 
   it('Cannot write file where there is a directory', async () => {
@@ -151,14 +150,14 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           [dirPath]: makeEdgeBox('content')
@@ -181,14 +180,14 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           [badFilePath]: makeEdgeBox('content')
@@ -213,26 +212,26 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
   })
 
   it('Cannot delete non-existing file', async () => {
     const filePath = 'nofile'
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           [filePath]: null
@@ -256,21 +255,21 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: {
           [filePath]: null
@@ -284,7 +283,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       )
   })
 
-  it('Can write files with out-of-date timestamp', async () => {
+  it('Can write files with out-of-date hash', async () => {
     const file1Path = `file1 ${Math.random()}`
     const file2Path = `file2 ${Math.random()}`
     const file3Path = `file3 ${Math.random()}`
@@ -307,17 +306,17 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       [file5Path]: makeEdgeBox(file5Path)
     }
 
-    let changesBTimestamp: TimestampRev = asTimestampRev(0)
+    let changesBHash: string = ''
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesB
       })
@@ -328,11 +327,11 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
         })
       )
       .expect(res => {
-        changesBTimestamp = asTimestampRev(res.body.hash)
+        changesBHash = res.body.hash
       })
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesC
       })
@@ -345,7 +344,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       )
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${changesBTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${changesBHash}`)
       .send({
         changes: changesD
       })
@@ -355,14 +354,14 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           ...changesD
         })
       )
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
+      .post(`/api/v2/store/${syncKey}/${repoHash}`)
       .send({
         changes: changesE
       })
       .expect(res => isPostStoreResponse(changesE)(res))
-      .then(updateRepoTimestamp)
+      .then(updateRepoHash)
   })
 })
