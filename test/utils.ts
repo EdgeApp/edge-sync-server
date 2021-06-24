@@ -2,7 +2,7 @@ import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
 import { AppState } from '../src/server'
-import { asTimestampRev, StoreFile } from '../src/types'
+import { asTimestampRev, EdgeBox, StoreFile } from '../src/types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -44,6 +44,12 @@ export const makeMockStoreFile = (data: object): StoreFile => {
     }
   }
 }
+
+export const makeEdgeBox = (content: any): EdgeBox => ({
+  iv_hex: '',
+  encryptionType: 0,
+  data_base64: typeof content === 'string' ? content : JSON.stringify(content)
+})
 
 export const synchronizeServers = async (
   appStateSource: AppState,

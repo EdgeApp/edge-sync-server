@@ -6,11 +6,7 @@ import { AppState, makeServer } from '../../src/server'
 import { asTimestampRev, TimestampRev } from '../../src/types'
 import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
-import {
-  isErrorResponse,
-  isSuccessfulResponse,
-  makeMockStoreFile
-} from '../utils'
+import { isErrorResponse, isSuccessfulResponse, makeEdgeBox } from '../utils'
 
 apiSuite('POST /api/v2/store', (appState: AppState) => {
   const app = makeServer(appState)
@@ -23,11 +19,9 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
 
   before(async () => {
     const res = await agent
-      .put('/api/v3/repo')
-      .send({ syncKey })
+      .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
-    expect(res.body.data.timestamp).to.be.a('string')
-    repoTimestamp = res.body.data.timestamp
+    repoTimestamp = res.body.hash
   })
 
   const isPostStoreResponse = (
@@ -87,7 +81,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
         .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
         .send({
           changes: {
-            [path]: makeMockStoreFile({ text: 'content' }).box
+            [path]: makeEdgeBox('content')
           }
         })
         .expect(res => isErrorResponse(400, `Invalid path '/${path}'`)(res))
@@ -97,7 +91,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can write file', async () => {
     const filePath = `file${Math.random()}`
     const changes = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
 
     await agent
@@ -112,10 +106,10 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can update file', async () => {
     const filePath = `file${Math.random()}`
     const changesA = {
-      [filePath]: makeMockStoreFile({ text: 'content A' }).box
+      [filePath]: makeEdgeBox('content A')
     }
     const changesB = {
-      [filePath]: makeMockStoreFile({ text: 'content B' }).box
+      [filePath]: makeEdgeBox('content B')
     }
 
     await agent
@@ -137,7 +131,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can write file with directory', async () => {
     const filePath = `dir/file${Math.random()}`
     const changes = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
 
     await agent
@@ -153,7 +147,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     const dirPath = 'dir'
     const filePath = `dir/file${Math.random()}`
     const changes = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
 
     await agent
@@ -167,7 +161,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
       .send({
         changes: {
-          [dirPath]: makeMockStoreFile({ text: 'content' }).box
+          [dirPath]: makeEdgeBox('content')
         }
       })
       .expect(res =>
@@ -183,7 +177,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     const filePath = `file${Math.random()}`
     const badFilePath = `${filePath}/file'`
     const changes = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
 
     await agent
@@ -197,7 +191,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       .post(`/api/v2/store/${syncKey}/${repoTimestamp}`)
       .send({
         changes: {
-          [badFilePath]: makeMockStoreFile({ text: 'content' }).box
+          [badFilePath]: makeEdgeBox('content')
         }
       })
       .expect(res =>
@@ -212,7 +206,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can delete file', async () => {
     const filePath = `file${Math.random()}`
     const changesA = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
     const changesB = {
       [filePath]: null
@@ -255,7 +249,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Cannot delete a file that was previously deleted', async () => {
     const filePath = `file${Math.random()}`
     const changesA = {
-      [filePath]: makeMockStoreFile({ text: 'content' }).box
+      [filePath]: makeEdgeBox('content')
     }
     const changesB = {
       [filePath]: null
@@ -298,19 +292,19 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     const file5Path = `file5 ${Math.random()}`
 
     const changesA = {
-      [file1Path]: makeMockStoreFile({ text: file1Path }).box
+      [file1Path]: makeEdgeBox(file1Path)
     }
     const changesB = {
-      [file2Path]: makeMockStoreFile({ text: file2Path }).box
+      [file2Path]: makeEdgeBox(file2Path)
     }
     const changesC = {
-      [file3Path]: makeMockStoreFile({ text: file3Path }).box
+      [file3Path]: makeEdgeBox(file3Path)
     }
     const changesD = {
-      [file4Path]: makeMockStoreFile({ text: file4Path }).box
+      [file4Path]: makeEdgeBox(file4Path)
     }
     const changesE = {
-      [file5Path]: makeMockStoreFile({ text: file5Path }).box
+      [file5Path]: makeEdgeBox(file5Path)
     }
 
     let changesBTimestamp: TimestampRev = asTimestampRev(0)

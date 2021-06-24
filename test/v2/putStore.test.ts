@@ -5,7 +5,7 @@ import { AppState, makeServer } from '../../src/server'
 import { apiSuite } from '../suites'
 import { isErrorResponse, isSuccessfulResponse } from '../utils'
 
-apiSuite('PUT /api/v2/store', (appState: AppState) => {
+apiSuite('Component: PUT /api/v2/store', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
