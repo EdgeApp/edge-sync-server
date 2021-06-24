@@ -5,7 +5,7 @@ import nano from 'nano'
 
 import { Config } from './config'
 import { logger } from './logger'
-import { ApiClientError, ServerErrorResponse } from './types/primitive-types'
+import { ServerError, ServerErrorResponse } from './types/primitive-types'
 import { StoreData } from './types/store-types'
 import { makeApiClientError } from './util/utils'
 import { makeRouter as makeV2Router } from './v2/routes/router'
@@ -37,7 +37,7 @@ export function makeServer(appState: AppState): Express {
 
   // Client Error Route
   app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
-    if (!(err instanceof ApiClientError)) {
+    if (!(err instanceof ServerError)) {
       return next(err)
     }
 

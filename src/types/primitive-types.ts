@@ -54,7 +54,7 @@ export const asServerErrorResponse = asObject({
   stack: asOptional(asString)
 })
 
-export class ApiClientError extends Error {
+export class ServerError extends Error {
   status: number
 
   constructor(status: number, message: string) {

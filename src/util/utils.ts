@@ -1,10 +1,10 @@
-import { ApiClientError } from '../types/primitive-types'
+import { ServerError } from '../types/primitive-types'
 
 export const makeApiClientError = (
   status: number,
   message: string
-): ApiClientError => {
-  return new ApiClientError(status, message)
+): ServerError => {
+  return new ServerError(status, message)
 }
 
 /**
