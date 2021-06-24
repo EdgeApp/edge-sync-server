@@ -9,7 +9,7 @@ import { asFileChangeV2, ChangeSetV2 } from '../v2/types'
 import { syncKeyToRepoId } from './security'
 import { createRepoDocument } from './store/repo'
 import { writeUpdates } from './store/syncing'
-import { withRetries } from './utils'
+import { withRetries } from './with-retries'
 
 const exec = promisify(execOriginal)
 

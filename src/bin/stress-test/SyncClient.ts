@@ -3,7 +3,7 @@ import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
 import { ServerErrorResponse } from '../../types/primitive-types'
-import { withRetries } from '../../util/utils'
+import { withRetries } from '../../util/with-retries'
 import {
   ChangeSetV2,
   GetStoreResponse,

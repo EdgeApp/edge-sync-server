@@ -6,7 +6,7 @@ import { Checkpoint, CheckpointArray } from '../../types/checkpoints'
 import { asStoreFileDocument, StoreFileDocument } from '../../types/store-types'
 import { ChangeSetV2 } from '../../v2/types'
 import { trial } from '../trial'
-import { withRetries } from '../utils'
+import { withRetries } from '../with-retries'
 import { equalCheckpoints, getCheckpointAt } from './checkpoints'
 import { checkDbResponseForErrors } from './error-checking'
 
