@@ -52,6 +52,7 @@
     "cleaner-config": "^0.1.4",
     "cleaners": "^0.3.9",
     "cors": "^2.8.5",
+    "edge-server-tools": "^0.2.0",
     "express": "^4.17.1",
     "express-promise-router": "^4.0.1",
     "mkdirp": "^1.0.4",
