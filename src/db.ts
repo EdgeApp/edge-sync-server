@@ -1,13 +1,15 @@
+import { DatabaseSetup } from 'edge-server-tools'
 import nano from 'nano'
 
 import { Config } from './config'
 import { StoreData } from './types'
-import { CouchDbInfo } from './util/couch'
 
-export const getCouchSchema = (config: Config): CouchDbInfo => ({
+export const getCouchSetup = (config: Config): DatabaseSetup => ({
   name: config.couchDatabase,
-  sharding: config.couchSharding,
-  partitioned: true
+  options: {
+    ...config.couchSharding,
+    partitioned: true
+  }
 })
 
 export const getDbServer = (config: Config): nano.ServerScope =>
