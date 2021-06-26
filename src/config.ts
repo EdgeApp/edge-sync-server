@@ -5,8 +5,10 @@ import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
 
 const {
   NODE_ENV = 'production',
-  COUCH_HOSTNAME = 'localhost',
+  COUCH_USERNAME = 'admin',
   COUCH_PASSWORD = 'password',
+  COUCH_HOSTNAME = 'localhost',
+  COUCH_PORT = '5984',
   COUCH_DB_Q = '4',
   COUCH_DB_N = '3'
 } = process.env
@@ -18,10 +20,11 @@ const isDev = NODE_ENV === 'dev'
 export type Config = ReturnType<typeof asConfig>
 
 export const asConfig = asObject({
+  couchUri: asOptional(
+    asString,
+    `http://${COUCH_USERNAME}:${COUCH_PASSWORD}@${COUCH_HOSTNAME}:${COUCH_PORT}`
+  ),
   couchDatabase: asOptional(asString, 'sync_datastore'),
-  couchUri: asOptional(asString, 'http://admin:{password}@{hostname}:5984'),
-  couchHostname: asOptional(asString, COUCH_HOSTNAME),
-  couchPassword: asOptional(asString, COUCH_PASSWORD),
   couchSharding: asOptional(
     asObject({
       q: asNumber,

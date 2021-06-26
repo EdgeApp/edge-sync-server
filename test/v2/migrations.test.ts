@@ -7,7 +7,7 @@ import { GetStoreResponse } from '../../src/types'
 import { apiSuite } from '../suites'
 import { isSuccessfulResponse } from '../utils'
 
-apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
+apiSuite('Component: Passive migration', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
@@ -49,9 +49,5 @@ apiSuite('Migrations (v2 getStore)', (appState: AppState) => {
 
     expect(res.body.changes).to.deep.equal(repoStoreContent.changes)
     expect(res.body.hash != null, 'Missing hash field in response')
-    expect(
-      !isNaN(parseInt(res.body.hash)),
-      'Hash field should be a timestamp value'
-    )
   })
 })

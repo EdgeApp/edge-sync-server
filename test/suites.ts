@@ -1,5 +1,7 @@
+import { setupDatabase } from 'edge-server-tools'
+
 import { config as baseConfig } from '../src/config'
-import { getDataStore, getDbServer } from '../src/db'
+import { getCouchSetup, getDataStore, getDbServer } from '../src/db'
 import { AppState } from '../src/server'
 import { initStoreSettings } from '../src/storeSettings'
 
@@ -21,9 +23,10 @@ export const apiSuite = (
   describe(name, () => {
     before(async () => {
       try {
-        await dbServer.db.create(config.couchDatabase)
-
-        // Initialize store settings
+        // Setup databases
+        await setupDatabase(config.couchUri, getCouchSetup(config), {
+          log: () => {}
+        })
         await initStoreSettings(config)
       } catch (error) {
         if (error.error !== 'file_exists') {
@@ -75,10 +78,14 @@ export const replicationSuite = (
   describe(name, function () {
     before(async () => {
       try {
-        await appStateA.dbServer.db.create(configA.couchDatabase)
+        // Setup databases
+        await setupDatabase(configA.couchUri, getCouchSetup(configA), {
+          log: () => {}
+        })
         await initStoreSettings(configA)
-
-        await appStateB.dbServer.db.create(configB.couchDatabase)
+        await setupDatabase(configB.couchUri, getCouchSetup(configB), {
+          log: () => {}
+        })
         await initStoreSettings(configB)
       } catch (error) {
         if (error.error !== 'file_exists') {

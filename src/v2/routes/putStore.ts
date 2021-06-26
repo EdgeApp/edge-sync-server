@@ -5,7 +5,7 @@ import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { AppState } from '../../server'
 import { asTimestampRev } from '../../types'
 import { syncKeyToRepoId } from '../../util/security'
-import { makeApiClientError, makeApiResponse } from '../../util/utils'
+import { makeApiClientError } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'
 import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
 
@@ -36,10 +36,10 @@ export const putStoreRouter = (appState: AppState): Router => {
       timestamp
     })
 
-    // Send response
-    res.status(201).json(
-      makeApiResponse<PutStoreResponse>({ timestamp })
-    )
+    // Response:
+
+    const responseData: PutStoreResponse = undefined
+    res.status(201).json(responseData)
   })
 
   return router

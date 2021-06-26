@@ -1,19 +1,18 @@
 import cluster from 'cluster'
+import { setupDatabase } from 'edge-server-tools'
 import { cpus } from 'os'
 
 import { config } from './config'
-import { getCouchSchema, getCouchUri, getDataStore, getDbServer } from './db'
+import { getCouchSetup, getDataStore, getDbServer } from './db'
 import { logger } from './logger'
 import { makeServer } from './server'
 import { initStoreSettings } from './storeSettings'
-import { setupCouchDatabase } from './util/couch'
 
 const numCPUs = cpus().length
-const couchUri = getCouchUri(config)
-const couchSchema = getCouchSchema(config)
+const couchSetup = getCouchSetup(config)
 
 if (cluster.isMaster) {
-  setupCouchDatabase(couchUri, [couchSchema])
+  setupDatabase(config.couchUri, couchSetup, { log: logger.info.bind(logger) })
     .then(() =>
       // Initialize store settings
       initStoreSettings(config)
