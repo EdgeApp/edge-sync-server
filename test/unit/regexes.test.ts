@@ -1,6 +1,9 @@
 import { expect } from 'chai'
 
-import { VALID_PATH_REGEX, VALID_SYNC_KEY_REGEX } from '../../src/types'
+import {
+  VALID_PATH_REGEX,
+  VALID_SYNC_KEY_REGEX
+} from '../../src/types/primitive-types'
 
 describe('Unit: Regexes', () => {
   it('VALID_PATH_REGEX', () => {

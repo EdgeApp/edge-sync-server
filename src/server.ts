@@ -5,13 +5,15 @@ import nano from 'nano'
 
 import { Config } from './config'
 import { logger } from './logger'
-import { ApiClientError, ApiErrorResponse, StoreData } from './types'
+import { StoreData as OldStoreData } from './types/old-types'
+import { ApiClientError, ApiErrorResponse } from './types/primitive-types'
+import { StoreData } from './types/store-types'
 import { makeApiClientError } from './util/utils'
 import { v2Router } from './v2Router'
 
 export interface AppState {
   config: Config
-  dataStore: nano.DocumentScope<StoreData>
+  dataStore: nano.DocumentScope<StoreData | OldStoreData>
   dbServer: nano.ServerScope
 }
 

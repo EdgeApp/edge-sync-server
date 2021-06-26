@@ -2,12 +2,12 @@ import { add, eq, gt } from 'biggystring'
 
 import { timestampSubVersion } from '../api/conflictResolution'
 import {
-  ApiClientError,
   ApiResponse,
   FilePointers,
   StoreFileTimestampMap,
   TimestampRev
-} from '../types'
+} from '../types/old-types'
+import { ApiClientError } from '../types/primitive-types'
 import { maxAll } from './math'
 
 export const makeApiClientError = (

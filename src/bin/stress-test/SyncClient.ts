@@ -2,15 +2,15 @@ import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
+import { ApiErrorResponse } from '../../types/primitive-types'
+import { withRetries } from '../../util/utils'
 import {
-  ApiErrorResponse,
   ChangeSetV2,
   GetStoreResponse,
   PostStoreBody,
   PostStoreResponse,
   PutStoreResponse
-} from '../../types'
-import { withRetries } from '../../util/utils'
+} from '../../v2/types'
 import { compareHash } from './utils/repo-hash'
 import { randomBytes, randomPath } from './utils/utils'
 

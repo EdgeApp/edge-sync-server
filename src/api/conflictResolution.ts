@@ -12,7 +12,7 @@ import {
   StoreDocument,
   TimestampHistory,
   TimestampRev
-} from '../types'
+} from '../types/old-types'
 import { mergeFilePointers } from '../util/utils'
 
 // External Conflict Resolution Result Types:

@@ -1,5 +1,9 @@
 import { AppState } from '../server'
-import { asStoreRepoDocument, StoreRepo, StoreRepoDocument } from '../types'
+import {
+  asStoreRepoDocument,
+  StoreRepo,
+  StoreRepoDocument
+} from '../types/old-types'
 import { makeApiClientError } from '../util/utils'
 import {
   getConflictFreeDocuments,

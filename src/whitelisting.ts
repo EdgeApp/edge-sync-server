@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
 import { getStoreSettings } from './storeSettings'
-import { StoreSettings } from './types'
+import { StoreSettings } from './types/store-types'
 import { makeApiClientError } from './util/utils'
 
 // Middleware:

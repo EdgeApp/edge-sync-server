@@ -10,7 +10,7 @@ import {
   asTimestampRev,
   ChangeSet,
   StoreFileTimestampMap
-} from '../types'
+} from '../types/old-types'
 import { syncKeyToRepoId } from '../util/security'
 import { withRetries } from '../util/utils'
 import { createRepoDocument } from './repo'

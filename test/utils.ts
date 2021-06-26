@@ -1,7 +1,7 @@
 import { assert, expect } from 'chai'
 import { Response } from 'superagent'
 
-import { EdgeBox } from '../src/types'
+import { EdgeBox } from '../src/types/primitive-types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))

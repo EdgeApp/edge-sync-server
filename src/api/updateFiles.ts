@@ -17,7 +17,7 @@ import {
   StoreFileDocument,
   StoreRepoDocument,
   TimestampRev
-} from '../types'
+} from '../types/old-types'
 import {
   delay,
   getNameFromPath,

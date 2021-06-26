@@ -10,7 +10,7 @@ import {
   GetFilesMap,
   StoreDirectoryDocument,
   StoreFileTimestampMap
-} from '../types'
+} from '../types/old-types'
 import {
   getNameFromPath,
   getParentPathsOfPath,

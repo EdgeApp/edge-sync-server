@@ -3,7 +3,7 @@ import PromiseRouter from 'express-promise-router'
 
 import { checkRepoExists, createRepoDocument } from '../../api/repo'
 import { AppState } from '../../server'
-import { asTimestampRev } from '../../types'
+import { asTimestampRev } from '../../types/old-types'
 import { syncKeyToRepoId } from '../../util/security'
 import { makeApiClientError } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'

@@ -9,7 +9,7 @@ import {
   StoreFileTimestampMap,
   StoreRepoDocument,
   TimestampRev
-} from '../types'
+} from '../types/old-types'
 import { getNameFromPath, makeApiClientError } from '../util/utils'
 import { getConflictFreeDocuments } from './conflictResolution'
 import { getRepoDocument } from './repo'

@@ -8,7 +8,7 @@ import {
   asStoreFileWithTimestamp,
   asTimestampRev,
   TimestampRev
-} from '../types'
+} from '../types/old-types'
 import { ChangeSetV2 } from './types'
 
 export const getChangesFromRepoUpdates = (appState: AppState) => async (
