@@ -30,7 +30,3 @@ export const withRetries = async <T>(
 
   return result
 }
-
-export const delay = (ms: number): Promise<void> => {
-  return new Promise((resolve, reject) => setTimeout(resolve, ms))
-}
