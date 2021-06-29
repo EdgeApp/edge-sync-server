@@ -1,26 +1,22 @@
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
-import { getRepoUpdates, RepoUpdates } from '../../api/getUpdates'
-import { updateDocuments } from '../../api/updateFiles'
 import { AppState } from '../../server'
-import { ChangeSet } from '../../types/old-types'
+import { wasCheckpointArray } from '../../types/checkpoints'
 import { asPath } from '../../types/primitive-types'
+import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
-import { getRepoDocument } from '../../util/store/repo'
+import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import { checkRepoExists } from '../../util/store/repo'
+import { readUpdates, writeUpdates } from '../../util/store/syncing'
 import { makeApiClientError } from '../../util/utils'
 import {
   asPostStoreBody,
   asPostStoreParams,
-  ChangeSetV2,
   PostStoreBody,
   PostStoreParams,
   PostStoreResponse
 } from '../types'
-import {
-  getChangesFromRepoUpdates,
-  getTimestampRevFromHashParam
-} from '../utils'
 
 export const postStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -35,48 +31,41 @@ export const postStoreRouter = (appState: AppState): Router => {
       body = asPostStoreBody(req.body)
 
       // Validate paths
-      Object.keys(body.changes).map(path => asPath('/' + path))
+      Object.keys(body.changes).map(path => asPath(path))
     } catch (error) {
       throw makeApiClientError(400, error.message)
     }
 
     const { syncKey } = params
     const repoId = syncKeyToRepoId(syncKey)
-    const clientTimestamp = await getTimestampRevFromHashParam(appState)(
-      repoId,
-      params.hash
-    )
+    const clientCheckpoints = getCheckpointsFromHash(params.hash)
 
-    // Check if repo document exists and is a valid document using getRepoDocument
-    await getRepoDocument(appState)(repoId)
+    // Check if repo document exists
+    if (!(await checkRepoExists(appState)(repoId))) {
+      try {
+        // Deprecate after migrations
+        await migrateRepo(appState)(syncKey)
+      } catch (error) {
+        if (error.message === 'Repo not found') {
+          throw makeApiClientError(404, `Repo not found`)
+        }
+        throw error
+      }
+    }
 
-    // Prepare changes for updateDocuments
-    const changes: ChangeSet = Object.entries(body.changes).reduce(
-      (changes: ChangeSet, [path, box]) => {
-        const compatiblePath = '/' + path
-        changes[compatiblePath] = box != null ? { box } : null
-        return changes
-      },
-      {}
-    )
-    // Update documents using changes (files, directories, and repo)
-    const updateTimestamp = await updateDocuments(appState)(repoId, changes)
+    // Update documents using changes
+    await writeUpdates(appState)(repoId, body.changes)
 
     // Get updates using the client timestamp from request body
-    const repoUpdates: RepoUpdates = await getRepoUpdates(appState)(
-      repoId,
-      clientTimestamp
-    )
-    // Convert updates into a V2 change set to send as response changes
-    const responseChanges: ChangeSetV2 = await getChangesFromRepoUpdates(
-      appState
-    )(repoId, repoUpdates)
+    const repoUpdates = await readUpdates(appState)(repoId, clientCheckpoints)
 
     // Response:
 
+    const hash = wasCheckpointArray(repoUpdates.checkpoints) as string
+
     const responseData: PostStoreResponse = {
-      hash: updateTimestamp.toString(),
-      changes: responseChanges
+      hash,
+      changes: repoUpdates.changeSet
     }
     res.status(200).json(responseData)
   })

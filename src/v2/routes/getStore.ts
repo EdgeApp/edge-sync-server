@@ -1,22 +1,15 @@
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
-import { getRepoUpdates } from '../../api/getUpdates'
 import { AppState } from '../../server'
+import { wasCheckpointArray } from '../../types/checkpoints'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
+import { getCheckpointsFromHash } from '../../util/store/checkpoints'
 import { checkRepoExists } from '../../util/store/repo'
+import { readUpdates } from '../../util/store/syncing'
 import { makeApiClientError } from '../../util/utils'
-import {
-  asGetStoreParams,
-  ChangeSetV2,
-  GetStoreParams,
-  GetStoreResponse
-} from '../types'
-import {
-  getChangesFromRepoUpdates,
-  getTimestampRevFromHashParam
-} from '../utils'
+import { asGetStoreParams, GetStoreParams, GetStoreResponse } from '../types'
 
 export const getStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
@@ -46,20 +39,15 @@ export const getStoreRouter = (appState: AppState): Router => {
       }
     }
 
-    const clientTimestamp = await getTimestampRevFromHashParam(appState)(
-      repoId,
-      params.hash
-    )
-    const repoChanges = await getRepoUpdates(appState)(repoId, clientTimestamp)
+    const clientCheckpoints = getCheckpointsFromHash(params.hash)
 
-    const changes: ChangeSetV2 = await getChangesFromRepoUpdates(appState)(
-      repoId,
-      repoChanges
-    )
+    const repoUpdates = await readUpdates(appState)(repoId, clientCheckpoints)
+
+    const hash = wasCheckpointArray(repoUpdates.checkpoints) as string
 
     const responseData: GetStoreResponse = {
-      hash: repoChanges.timestamp.toString(),
-      changes
+      hash,
+      changes: repoUpdates.changeSet
     }
 
     // Response:

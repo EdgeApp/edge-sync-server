@@ -1,7 +1,9 @@
 import { asNumber, asObject, asString } from 'cleaners'
 
+import { normalizePath } from '../util/paths'
+
 // Regexes:
-export const VALID_PATH_REGEX = /^(\/([^/ ]+([ ]+[^/ ]+)*)+)+\/?$/
+export const VALID_PATH_REGEX = /^[a-z0-9-_.]+(\/+[a-z0-9-_.]+)*$/i
 export const VALID_SYNC_KEY_REGEX = /^[a-f0-9]{40}$/
 
 // Primitive Types
@@ -19,11 +21,11 @@ export const asNonEmptyString = (raw: any): string => {
 export const asPath = (raw: any): string => {
   const path = asString(raw)
 
-  if (!VALID_PATH_REGEX.test(path)) {
-    throw new Error(`Invalid path '${path}'`)
-  }
+  try {
+    if (VALID_PATH_REGEX.test(path)) return normalizePath(path)
+  } catch (_) {}
 
-  return path
+  throw new Error(`Invalid path '${path}'`)
 }
 
 export const asSyncKey = (raw: any): string => {
