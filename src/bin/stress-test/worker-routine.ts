@@ -1,7 +1,5 @@
 import { randomInt } from 'crypto'
 
-import { asTimestampRev, TimestampRev } from '../../types'
-import { delay } from '../../util/utils'
 import { SyncClient } from './SyncClient'
 import {
   asWorkerConfig,
@@ -11,6 +9,7 @@ import {
   WorkerConfig
 } from './types'
 import {
+  delay,
   isAcceptableError,
   isRepoNotFoundError,
   randomElement,
@@ -22,7 +21,7 @@ process.title = 'worker'
 
 // State
 let updatesDone = 0
-let lastUpdateTimestamp: TimestampRev = asTimestampRev(0)
+let lastUpdateHash = ''
 let isRepoSynced: boolean = true
 
 // Main Function
@@ -59,16 +58,16 @@ const getRepoReady = async (
   try {
     const response = await sync.createRepo(syncKey)
     const requestTime = Date.now()
-    const serverRepoTimestamp: TimestampRev = response.data.timestamp
+    const serverRepoHash: string = response.hash
 
-    lastUpdateTimestamp = serverRepoTimestamp
+    lastUpdateHash = serverRepoHash
 
     const workerOutput: ReadyEvent = {
       type: 'ready',
       serverHost: sync.host,
       syncKey,
       requestTime,
-      serverRepoTimestamp
+      serverRepoHash
     }
 
     send(workerOutput)
@@ -79,14 +78,14 @@ const getRepoReady = async (
 
     const response = await sync.getUpdates(syncKey)
     const requestTime = Date.now()
-    const serverRepoTimestamp = response.data.timestamp
+    const serverRepoHash = response.hash
 
     const workerOutput: ReadyEvent = {
       type: 'ready',
       serverHost: sync.host,
       syncKey,
       requestTime,
-      serverRepoTimestamp
+      serverRepoHash
     }
 
     send(workerOutput)
@@ -133,10 +132,10 @@ async function updateRepo(
 
     // Write update
     const response = await sync.updateFiles(syncKey, changeSet)
-    const serverRepoTimestamp = response.data.timestamp
+    const serverRepoHash = response.hash
     const requestTime = Date.now()
 
-    lastUpdateTimestamp = serverRepoTimestamp
+    lastUpdateHash = serverRepoHash
 
     ++updatesDone
 
@@ -145,7 +144,7 @@ async function updateRepo(
       serverHost,
       syncKey,
       requestTime,
-      serverRepoTimestamp,
+      serverRepoHash,
       payloadSize
     }
   } catch (error) {
@@ -184,10 +183,10 @@ async function readRepo(
   try {
     // Read repo
     const response = await sync.getUpdates(syncKey)
-    const serverRepoTimestamp = response.data.timestamp
+    const serverRepoHash = response.hash
     const requestTime = Date.now()
 
-    lastUpdateTimestamp = serverRepoTimestamp
+    lastUpdateHash = serverRepoHash
 
     // Send a check event just because we can.
     // We might as well use the response to help with metrics.
@@ -196,7 +195,7 @@ async function readRepo(
       serverHost,
       syncKey,
       requestTime,
-      serverRepoTimestamp
+      serverRepoHash
     }
   } catch (error) {
     if (!isAcceptableError(error)) {
@@ -215,12 +214,11 @@ const checker = async (
   await delay(config.repoCheckDelayInSeconds * 1000)
 
   return await Promise.all(
-    // Only check for updates on servers where the client's timestamp does
-    // not equal the last update timestamp. This prevents redundant checks.
+    // Only check for updates on servers where the client's hash does
+    // not equal the last update hash. This prevents redundant checks.
     syncClients
       .filter(
-        syncClient =>
-          syncClient.repoTimestamps[config.syncKey] !== lastUpdateTimestamp
+        syncClient => syncClient.repoHashes[config.syncKey] !== lastUpdateHash
       )
       .map(sync => checkServerStatus({ sync, syncKey: config.syncKey }))
   )
@@ -232,15 +230,15 @@ const checker = async (
         send(checkEvent)
       })
 
-      const serverRepoTimestamps = checkEvents.map(
-        checkEvent => checkEvent.serverRepoTimestamp
+      const serverRepoHashes = checkEvents.map(
+        checkEvent => checkEvent.serverRepoHash
       )
 
       const wasRepoSynced = isRepoSynced
 
       // Update State
-      isRepoSynced = serverRepoTimestamps.every(
-        serverRepoTimestamp => serverRepoTimestamp === lastUpdateTimestamp
+      isRepoSynced = serverRepoHashes.every(
+        serverRepoHash => serverRepoHash === lastUpdateHash
       )
 
       // If repo has become synced across all servers, then increase update rate
@@ -270,14 +268,14 @@ async function checkServerStatus({
   try {
     const response = await sync.getUpdates(syncKey)
 
-    const serverRepoTimestamp: TimestampRev = response.data.timestamp
+    const serverRepoHash: string = response.hash
 
     return {
       type: 'check',
       serverHost: sync.host,
       syncKey,
       requestTime,
-      serverRepoTimestamp
+      serverRepoHash
     }
   } catch (error) {
     if (!isAcceptableError(error)) {
@@ -290,7 +288,7 @@ async function checkServerStatus({
         serverHost: sync.host,
         syncKey,
         requestTime,
-        serverRepoTimestamp: asTimestampRev(0)
+        serverRepoHash: ''
       }
     }
 

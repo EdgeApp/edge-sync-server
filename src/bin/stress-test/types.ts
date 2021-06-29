@@ -8,8 +8,6 @@ import {
   Cleaner
 } from 'cleaners'
 
-import { asTimestampRev } from '../../types'
-
 export const asLiteral = <T extends string | number | null | undefined | {}>(
   literal: T
 ) => (raw: any): T => {
@@ -86,7 +84,7 @@ export const asReadyEvent = asObject({
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
-  serverRepoTimestamp: asTimestampRev
+  serverRepoHash: asString
 })
 
 export type UpdateEvent = ReturnType<typeof asUpdateEvent>
@@ -95,7 +93,7 @@ export const asUpdateEvent = asObject({
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
-  serverRepoTimestamp: asTimestampRev,
+  serverRepoHash: asString,
   payloadSize: asNumber
 })
 
@@ -105,7 +103,7 @@ export const asCheckEvent = asObject({
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
-  serverRepoTimestamp: asTimestampRev
+  serverRepoHash: asString
 })
 
 export type ReplicationEvent = ReturnType<typeof asReplicationEvent>

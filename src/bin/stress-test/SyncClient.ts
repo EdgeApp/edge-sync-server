@@ -1,32 +1,30 @@
-import { gt } from 'biggystring'
 import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
 import {
   ApiErrorResponse,
-  ApiResponse,
-  ChangeSet,
-  GetUpdatesResponse,
-  PutRepoResponse,
-  TimestampRev,
-  UpdateFilesBody,
-  UpdateFilesResponse
+  ChangeSetV2,
+  GetStoreResponse,
+  PostStoreBody,
+  PostStoreResponse,
+  PutStoreResponse
 } from '../../types'
 import { withRetries } from '../../util/utils'
+import { compareHash } from './utils/repo-hash'
 import { randomBytes, randomPath } from './utils/utils'
 
 export class SyncClient {
   baseUrl: string
   clusterName: string
-  repoTimestamps: { [syncKey: string]: TimestampRev }
+  repoHashes: { [syncKey: string]: string }
   repoFilePaths: { [syncKey: string]: Set<string> }
   host: string
 
   constructor(baseUrl: string, clusterName: string = '') {
     this.baseUrl = baseUrl
     this.clusterName = clusterName
-    this.repoTimestamps = {}
+    this.repoHashes = {}
     this.repoFilePaths = {}
     this.host = this.endpoint('').host
   }
@@ -35,20 +33,15 @@ export class SyncClient {
     return new URL(path, this.baseUrl)
   }
 
-  async request<T>(
+  async request<ResponseType>(
     method: string,
     path: string,
-    data: {
-      syncKey: any
-      ignoreTimestamps?: boolean
-      paths?: any
-      timestamp?: TimestampRev
-    }
-  ): Promise<ApiResponse<T>> {
+    data?: any
+  ): Promise<ResponseType> {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
 
-    let responseJson: ApiResponse<T> | ApiErrorResponse
+    let responseJson: ResponseType | ApiErrorResponse
 
     const response: FetchResponse | undefined = await withRetries(
       async () => {
@@ -105,7 +98,7 @@ export class SyncClient {
       )
     }
 
-    if (!responseJson.success) {
+    if ('message' in responseJson) {
       const error = new RequestError({ url, body }, responseJson)
       throw error
     }
@@ -114,50 +107,45 @@ export class SyncClient {
   }
 
   async createRepo(syncKey: string): Promise<any> {
-    const response = await this.request<PutRepoResponse>(
+    const response = await this.request<PutStoreResponse>(
       'PUT',
-      '/api/v3/repo',
-      {
-        syncKey
-      }
+      `/api/v2/store/${syncKey}`
     )
 
-    this.saveRepoTimestamp(syncKey, response.data.timestamp)
+    this.saveRepoHash(syncKey, '')
 
     return response
   }
 
   async updateFiles(
     syncKey: string,
-    changeSet: ChangeSet
-  ): Promise<ApiResponse<UpdateFilesResponse>> {
+    changeSet: ChangeSetV2
+  ): Promise<PostStoreResponse> {
     const response = await withRetries(
       async () => {
         // Get updates for this repo in-case client is out of sync
         await this.getUpdates(syncKey)
 
-        // Get the repo's timestamp
-        const timestamp = this.getRepoTimestamp(syncKey)
+        // Get the repo's hash
+        const hash = this.getRepoHash(syncKey)
 
         // Prepare the update body
-        const body: UpdateFilesBody = {
-          timestamp,
-          syncKey,
-          paths: changeSet
+        const body: PostStoreBody = {
+          changes: changeSet
         }
 
         // Send the update request
-        return await this.request<UpdateFilesResponse>(
+        return await this.request<PostStoreResponse>(
           'POST',
-          '/api/v3/updateFiles',
+          `/api/v2/store/${syncKey}/${hash}`,
           body
         )
       },
       err => /File is already deleted/.test(err.message)
     )
 
-    // Save the new repo timestamp
-    this.saveRepoTimestamp(syncKey, response.data.timestamp)
+    // Save the new repo hash
+    this.saveRepoHash(syncKey, response.hash)
 
     // Save the file paths
     const [paths, deleted] = Object.entries(changeSet).reduce<
@@ -180,26 +168,26 @@ export class SyncClient {
     return response
   }
 
-  async getUpdates(syncKey: string): Promise<ApiResponse<GetUpdatesResponse>> {
-    const timestamp = this.getRepoTimestamp(syncKey)
-    const body = { syncKey, timestamp }
-    const response = await this.request<GetUpdatesResponse>(
-      'POST',
-      '/api/v3/getUpdates',
-      body
+  async getUpdates(syncKey: string): Promise<GetStoreResponse> {
+    const hash = this.getRepoHash(syncKey)
+    const response = await this.request<GetStoreResponse>(
+      'GET',
+      `/api/v2/store/${syncKey}/${hash}`
     )
-    const data = response.data
 
-    if (gt(data.timestamp, timestamp)) {
-      this.saveRepoTimestamp(syncKey, data.timestamp)
+    if (compareHash(response.hash, hash) === 'ahead') {
+      this.saveRepoHash(syncKey, response.hash)
+    }
+
+    const availablePaths: string[] = []
+    const deletedPaths: string[] = []
+    for (const [path, value] of Object.keys(response.changes)) {
+      if (value == null) deletedPaths.push(path)
+      else availablePaths.push(path)
     }
 
     // Save the file paths
-    this.saveRepoFilePaths(
-      syncKey,
-      Object.keys(response.data.paths),
-      Object.keys(response.data.deleted)
-    )
+    this.saveRepoFilePaths(syncKey, availablePaths, deletedPaths)
 
     return response
   }
@@ -208,18 +196,16 @@ export class SyncClient {
     syncKey: string,
     fileCount: number,
     fileByteSizeRange: number[]
-  ): Promise<ChangeSet> {
-    const changeSet: ChangeSet = {}
+  ): Promise<ChangeSetV2> {
+    const changeSet: ChangeSetV2 = {}
     const size = randomInt(fileByteSizeRange[0], fileByteSizeRange[1] + 1)
 
     for (let i = 0; i < fileCount; i++) {
       const path = randomPath()
       changeSet[path] = {
-        box: {
-          iv_hex: '',
-          encryptionType: 0,
-          data_base64: randomBytes(size).toString('base64')
-        }
+        iv_hex: '',
+        encryptionType: 0,
+        data_base64: randomBytes(size).toString('base64')
       }
     }
 
@@ -237,12 +223,12 @@ export class SyncClient {
     return changeSet
   }
 
-  getRepoTimestamp(syncKey: string): TimestampRev {
-    return this.repoTimestamps[syncKey] ?? '0'
+  getRepoHash(syncKey: string): string {
+    return this.repoHashes[syncKey] ?? ''
   }
 
-  saveRepoTimestamp(syncKey: string, timestamp: TimestampRev): void {
-    this.repoTimestamps[syncKey] = timestamp
+  saveRepoHash(syncKey: string, hash: string): void {
+    this.repoHashes[syncKey] = hash
   }
 
   saveRepoFilePaths(syncKey: string, paths: string[], deleted: string[]): void {

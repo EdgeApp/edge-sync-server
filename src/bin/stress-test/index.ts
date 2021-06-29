@@ -1,11 +1,9 @@
-import { eq, gt, toFixed } from 'biggystring'
 import { ChildProcess, fork } from 'child_process'
 import { makeConfig } from 'cleaner-config'
 import minimist from 'minimist'
 import { join } from 'path'
 import pino from 'pino'
 
-import { TimestampRev } from '../../types'
 import { asConfig, Config, configSample } from './config'
 import {
   AllEvents,
@@ -28,6 +26,7 @@ import {
 } from './utils/instrument'
 import { addToMetric, makeMetric } from './utils/metric'
 import { prettyPrintObject } from './utils/printing'
+import { compareHash } from './utils/repo-hash'
 import { makeSyncKey, msToPerSeconds } from './utils/utils'
 
 const logger = pino({
@@ -48,7 +47,7 @@ interface RepoState {
   syncKey: string
   serverHost: string
   updateRequestTime: number
-  repoTimestamp: TimestampRev
+  repoHash: string
   syncTimeInstrument: Instrument
 }
 
@@ -376,13 +375,13 @@ function onEvent(event: AllEvents): void {
 }
 
 function onReadyEvent(readyEvent: ReadyEvent): void {
-  const { requestTime, serverHost, syncKey, serverRepoTimestamp } = readyEvent
+  const { requestTime, serverHost, syncKey, serverRepoHash } = readyEvent
 
   state.repos.set(syncKey, {
     syncKey,
     serverHost,
     updateRequestTime: requestTime,
-    repoTimestamp: serverRepoTimestamp,
+    repoHash: serverRepoHash,
     syncTimeInstrument: makeInstrument()
   })
 
@@ -400,7 +399,7 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     requestTime,
     serverHost,
     syncKey,
-    serverRepoTimestamp,
+    serverRepoHash,
     payloadSize
   } = updateEvent
 
@@ -410,11 +409,11 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     throw new Error('Missing repo state')
   }
 
-  if (gt(serverRepoTimestamp, repoState.repoTimestamp)) {
+  if (compareHash(serverRepoHash, repoState.repoHash) === 'ahead') {
     state.repos.set(syncKey, {
       ...repoState,
       updateRequestTime: requestTime,
-      repoTimestamp: serverRepoTimestamp,
+      repoHash: serverRepoHash,
       serverHost
     })
   }
@@ -445,7 +444,7 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
     requestTime,
     serverHost,
     syncKey,
-    serverRepoTimestamp,
+    serverRepoHash,
     payloadSize: payloadSize != null ? `${payloadSize} bytes` : undefined
   })
 }
@@ -471,20 +470,14 @@ function onCheckEvent(
     return
   }
 
-  const status = eq(checkEvent.serverRepoTimestamp, repoState.repoTimestamp)
-    ? 'replicated'
-    : gt(checkEvent.serverRepoTimestamp, repoState.repoTimestamp)
-    ? gt(toFixed(checkEvent.serverRepoTimestamp, 0, 0), repoState.repoTimestamp)
-      ? 'ahead'
-      : 'conflicting'
-    : 'behind'
+  const status = compareHash(checkEvent.serverRepoHash, repoState.repoHash)
 
   const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, syncKey)
   const wasRepoInSync = getIsRepoSynced(syncKey)
   const wasServerInSync = getIsServerInSync(serverHost)
   const wasNetworkInSync = getIsNetworkInSync(serverCount)
 
-  if (status === 'replicated' && !wasRepoReplicated) {
+  if (status === 'current' && !wasRepoReplicated) {
     onEvent({
       type: 'replication',
       timestamp: checkEvent.requestTime,
