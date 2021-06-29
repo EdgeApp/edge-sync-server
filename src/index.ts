@@ -1,22 +1,30 @@
 import cluster from 'cluster'
 import { setupDatabase } from 'edge-server-tools'
+import nano from 'nano'
 import { cpus } from 'os'
 
 import { config } from './config'
-import { getCouchSetup, getDataStore, getDbServer } from './db'
+import { getDataStoreDatabaseSetup, getDataStoreDb } from './db/datastore-db'
+import { getSettingsDatabaseSetup, getSettingsDb } from './db/settings-db'
 import { logger } from './logger'
 import { makeServer } from './server'
-import { initStoreSettings } from './storeSettings'
 
 const numCPUs = cpus().length
-const couchSetup = getCouchSetup(config)
+
+const databases = [
+  getDataStoreDatabaseSetup(config),
+  getSettingsDatabaseSetup()
+]
 
 if (cluster.isMaster) {
-  setupDatabase(config.couchUri, couchSetup, { log: logger.info.bind(logger) })
-    .then(() =>
-      // Initialize store settings
-      initStoreSettings(config)
+  Promise.all(
+    databases.map(
+      async setup =>
+        await setupDatabase(config.couchUri, setup, {
+          log: logger.info.bind(logger)
+        })
     )
+  )
     .then(() => {
       const instanceCount = config.instanceCount ?? numCPUs
 
@@ -36,9 +44,10 @@ if (cluster.isMaster) {
     })
     .catch(failStartup)
 } else {
-  const dbServer = getDbServer(config)
-  const dataStore = getDataStore(config)
-  const app = makeServer({ config, dataStore, dbServer })
+  const dbServer = nano(config.couchUri)
+  const dataStore = getDataStoreDb(config.couchUri)
+  const settingsDb = getSettingsDb(config.couchUri)
+  const app = makeServer({ config, dataStore, settingsDb, dbServer })
 
   // Instantiate server
   app.listen(config.httpPort, () => {

@@ -24,7 +24,6 @@ export const asConfig = asObject({
     asString,
     `http://${COUCH_USERNAME}:${COUCH_PASSWORD}@${COUCH_HOSTNAME}:${COUCH_PORT}`
   ),
-  couchDatabase: asOptional(asString, 'sync_datastore'),
   couchSharding: asOptional(
     asObject({
       q: asNumber,

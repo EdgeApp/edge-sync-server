@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
-import { getStoreSettings } from './storeSettings'
 import { ServerError } from './types/primitive-types'
-import { StoreSettings } from './types/store-types'
+import { StoreSettings } from './types/settings-types'
+import { getStoreSettings } from './util/settings/store-settings'
 
 // Middleware:
 
@@ -12,7 +12,7 @@ export const whitelistIps = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const storeSettings = await getStoreSettings(appState)
   const clientIp = req.ip
 
   if (!passWhitelistIps(storeSettings, clientIp)) {
@@ -27,7 +27,7 @@ export const whitelistApiKeys = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const storeSettings = await getStoreSettings(appState)
   const clientApiKey = req.query.apiKey
 
   if (!passWhitelistApiKeys(storeSettings, clientApiKey)) {
@@ -42,7 +42,7 @@ export const whitelistAll = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const storeSettings = await getStoreSettings(appState)
   const clientIp = req.ip
   const clientApiKey = req.query.apiKey
 
