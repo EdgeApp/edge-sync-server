@@ -9,7 +9,7 @@ import { Config } from './config'
 import { StoreData as OldStoreData } from './types/old-types'
 import { StoreData } from './types/store-types'
 
-declare function emit(key: unknown, value?: unknown): void
+declare function emit(key?: unknown, value?: unknown): void
 
 export const getCouchSetup = (config: Config): DatabaseSetup => {
   const versioningDesign: JsDesignDocument = {
@@ -26,6 +26,21 @@ export const getCouchSetup = (config: Config): DatabaseSetup => {
       partitioned: true
     }
   }
+  const conflictsDesign: JsDesignDocument = {
+    language: 'javascript',
+    views: {
+      conflictRevs: {
+        map: stringifyCode(function (doc) {
+          if (doc._conflicts != null) {
+            emit()
+          }
+        })
+      }
+    },
+    options: {
+      partitioned: true
+    }
+  }
 
   return {
     name: config.couchDatabase,
@@ -35,7 +50,8 @@ export const getCouchSetup = (config: Config): DatabaseSetup => {
     },
 
     documents: {
-      '_design/versioning': versioningDesign
+      '_design/versioning': versioningDesign,
+      '_design/conflicts': conflictsDesign
     }
   }
 }

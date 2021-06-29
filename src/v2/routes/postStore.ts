@@ -7,6 +7,7 @@ import { asPath } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates, writeUpdates } from '../../util/store/syncing'
 import { makeApiClientError } from '../../util/utils'
@@ -52,6 +53,8 @@ export const postStoreRouter = (appState: AppState): Router => {
         throw error
       }
     }
+
+    await resolveAllDocumentConflicts(appState)(repoId)
 
     // Update documents using changes
     await writeUpdates(appState)(repoId, body.changes)

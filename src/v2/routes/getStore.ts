@@ -6,6 +6,7 @@ import { wasCheckpointArray } from '../../types/checkpoints'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates } from '../../util/store/syncing'
 import { makeApiClientError } from '../../util/utils'
@@ -38,6 +39,8 @@ export const getStoreRouter = (appState: AppState): Router => {
         throw error
       }
     }
+
+    await resolveAllDocumentConflicts(appState)(repoId)
 
     const clientCheckpoints = getCheckpointsFromHash(params.hash)
 

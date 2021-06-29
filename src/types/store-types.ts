@@ -8,6 +8,7 @@ import {
   asOptional,
   asString
 } from 'cleaners'
+import nano from 'nano'
 
 import { asEdgeBox } from './primitive-types'
 
@@ -67,6 +68,9 @@ export const asStoreFileDocument = asObject({
   ...asStoreFile.shape
 })
 
+// Deleted Document (for conflict resolution)
+export type DeletedDocument = nano.Document & { _deleted: true }
+
 // Union of all store data types
 export type StoreData = StoreSettings | StoreRepo | StoreFile
 // Union of all document types
@@ -74,3 +78,4 @@ export type StoreDocument =
   | StoreSettingsDocument
   | StoreRepoDocument
   | StoreFileDocument
+  | DeletedDocument
