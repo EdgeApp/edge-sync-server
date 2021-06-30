@@ -3,14 +3,13 @@ import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
 import { wasCheckpointArray } from '../../types/checkpoints'
-import { asPath } from '../../types/primitive-types'
+import { asPath, ServerError } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { getCheckpointsFromHash } from '../../util/store/checkpoints'
 import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates, writeUpdates } from '../../util/store/syncing'
-import { makeApiClientError } from '../../util/utils'
 import {
   asPostStoreBody,
   asPostStoreParams,
@@ -34,7 +33,7 @@ export const postStoreRouter = (appState: AppState): Router => {
       // Validate paths
       Object.keys(body.changes).map(path => asPath(path))
     } catch (error) {
-      throw makeApiClientError(400, error.message)
+      throw new ServerError(400, error.message)
     }
 
     const { syncKey } = params
@@ -48,7 +47,7 @@ export const postStoreRouter = (appState: AppState): Router => {
         await migrateRepo(appState)(syncKey)
       } catch (error) {
         if (error.message === 'Repo not found') {
-          throw makeApiClientError(404, `Repo not found`)
+          throw new ServerError(404, `Repo not found`)
         }
         throw error
       }

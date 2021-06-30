@@ -5,9 +5,8 @@ import nano from 'nano'
 
 import { Config } from './config'
 import { logger } from './logger'
-import { ApiClientError, ApiErrorResponse } from './types/primitive-types'
+import { ServerError, ServerErrorResponse } from './types/primitive-types'
 import { StoreData } from './types/store-types'
-import { makeApiClientError } from './util/utils'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
 export interface AppState {
@@ -32,19 +31,19 @@ export function makeServer(appState: AppState): Express {
 
   // 404 Error Route
   app.use((_req, _res, next) => {
-    next(makeApiClientError(404, 'not found'))
+    next(new ServerError(404, 'not found'))
   })
 
   // Client Error Route
   app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
-    if (!(err instanceof ApiClientError)) {
+    if (!(err instanceof ServerError)) {
       return next(err)
     }
 
-    const response: ApiErrorResponse = {
+    const response: ServerErrorResponse = {
       success: false,
       message: err.message,
-      error: err.stack
+      stack: err.stack
     }
     res.status(err.status).json(response)
   })
@@ -61,11 +60,12 @@ export function makeServer(appState: AppState): Express {
     })
 
     // response
-    const response: ApiErrorResponse = {
+    const response: ServerErrorResponse = {
       success: false,
-      message: 'Internal server error'
+      message: 'Internal server error',
+      stack: err.stack
     }
-    res.status(500).json({ ...response, error: err.stack })
+    res.status(500).json(response)
   })
 
   return app

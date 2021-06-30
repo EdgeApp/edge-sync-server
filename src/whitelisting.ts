@@ -2,8 +2,8 @@ import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
 import { getStoreSettings } from './storeSettings'
+import { ServerError } from './types/primitive-types'
 import { StoreSettings } from './types/store-types'
-import { makeApiClientError } from './util/utils'
 
 // Middleware:
 
@@ -16,7 +16,7 @@ export const whitelistIps = (appState: AppState) => async (
   const clientIp = req.ip
 
   if (!passWhitelistIps(storeSettings, clientIp)) {
-    throw makeApiClientError(403, 'Forbidden IP')
+    throw new ServerError(403, 'Forbidden IP')
   }
 
   next()
@@ -31,7 +31,7 @@ export const whitelistApiKeys = (appState: AppState) => async (
   const clientApiKey = req.query.apiKey
 
   if (!passWhitelistApiKeys(storeSettings, clientApiKey)) {
-    throw makeApiClientError(403, 'Forbidden API Key')
+    throw new ServerError(403, 'Forbidden API Key')
   }
 
   next()
@@ -52,7 +52,7 @@ export const whitelistAll = (appState: AppState) => async (
   ) {
     return next()
   } else {
-    throw makeApiClientError(403, 'Forbidden IP or API Key')
+    throw new ServerError(403, 'Forbidden IP or API Key')
   }
 }
 

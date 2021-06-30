@@ -2,9 +2,9 @@ import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
+import { ServerError } from '../../types/primitive-types'
 import { syncKeyToRepoId } from '../../util/security'
 import { checkRepoExists, createRepoDocument } from '../../util/store/repo'
-import { makeApiClientError } from '../../util/utils'
 import { whitelistIps } from '../../whitelisting'
 import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
 
@@ -18,14 +18,14 @@ export const putStoreRouter = (appState: AppState): Router => {
     try {
       params = asPutStoreParams(req.params)
     } catch (error) {
-      throw makeApiClientError(400, error.message)
+      throw new ServerError(400, error.message)
     }
 
     const { syncKey } = params
     const repoId = syncKeyToRepoId(syncKey)
 
     if (await checkRepoExists(appState)(repoId)) {
-      throw makeApiClientError(409, 'Datastore already exists')
+      throw new ServerError(409, 'Datastore already exists')
     }
 
     // Create new repo

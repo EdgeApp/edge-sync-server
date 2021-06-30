@@ -1,12 +1,3 @@
-import { ApiClientError } from '../types/primitive-types'
-
-export const makeApiClientError = (
-  status: number,
-  message: string
-): ApiClientError => {
-  return new ApiClientError(status, message)
-}
-
 /**
  * Wraps a function and invokes the function with rety attemps if error passes
  * a condition function.
@@ -38,8 +29,4 @@ export const withRetries = async <T>(
   }
 
   return result
-}
-
-export const delay = (ms: number): Promise<void> => {
-  return new Promise((resolve, reject) => setTimeout(resolve, ms))
 }
