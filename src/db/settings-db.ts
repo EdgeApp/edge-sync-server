@@ -1,20 +1,20 @@
 import { DatabaseSetup } from 'edge-server-tools'
 import nano from 'nano'
 
-import { SettingsData, StoreSettings } from '../types/settings-types'
+import { AccessSettings, SettingsData } from '../types/settings-types'
 
-export const defaultStoreSettings: StoreSettings = {
+export const defaultAccessSettings: AccessSettings = {
   ipWhitelist: {},
   apiKeyWhitelist: {}
 }
-export const settingsDocumentKey = 'store_settings'
+export const accessSettingsDocumentKey = 'access_settings'
 
 export const settingsDatabaseName = 'sync_settings'
 
 export const getSettingsDatabaseSetup = (): DatabaseSetup => ({
   name: settingsDatabaseName,
   templates: {
-    [settingsDocumentKey]: defaultStoreSettings
+    [accessSettingsDocumentKey]: defaultAccessSettings
   }
 })
 

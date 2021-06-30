@@ -2,10 +2,10 @@ import { asBoolean, asObject } from 'cleaners'
 
 // Settings Document
 
-export type StoreSettings = ReturnType<typeof asStoreSettings>
-export const asStoreSettings = asObject({
+export type AccessSettings = ReturnType<typeof asAccessSettings>
+export const asAccessSettings = asObject({
   ipWhitelist: asObject(asBoolean),
   apiKeyWhitelist: asObject(asBoolean)
 })
 
-export type SettingsData = StoreSettings
+export type SettingsData = AccessSettings
