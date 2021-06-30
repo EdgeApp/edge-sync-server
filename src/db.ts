@@ -8,8 +8,6 @@ import nano from 'nano'
 import { Config } from './config'
 import { StoreData } from './types/store-types'
 
-declare function emit(key?: unknown, value?: unknown): void
-
 export const getCouchSetup = (config: Config): DatabaseSetup => {
   const versioningDesign: JsDesignDocument = {
     language: 'javascript',

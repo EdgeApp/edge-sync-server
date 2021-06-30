@@ -1456,10 +1456,10 @@ duplexer3@^0.1.4:
   resolved "https://registry.yarnpkg.com/duplexer3/-/duplexer3-0.1.4.tgz#ee01dd1cac0ed3cbc7fdbea37dc0a8f1ce002ce2"
   integrity sha1-7gHdHKwO08vH/b6jfcCo8c4ALOI=
 
-edge-server-tools@^0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/edge-server-tools/-/edge-server-tools-0.2.0.tgz#e2f4742580217f00706cf90c0b3dcc2664221b2b"
-  integrity sha512-wCBgBj4YWux+VskQzOkLZWpBzBui/jHMG2ZExK8ktTPg1bfP4+v0FB30+HUiLv4Gc7V08uMqgRi6x2WoXDXs5w==
+edge-server-tools@^0.2.3:
+  version "0.2.3"
+  resolved "https://registry.yarnpkg.com/edge-server-tools/-/edge-server-tools-0.2.3.tgz#8595b8666034c1a1fc32f9416e215f81876a8f93"
+  integrity sha512-rcFCfek9ZZBqOTBpX+cGrgEZvkmPUf18lh39AbK8h1NrDNS7jsIUWD7X6q39ky1JcWsYJshP8kPr1oK1Ossu2g==
   dependencies:
     cleaners "^0.3.9"
     nano "^9.0.3"
