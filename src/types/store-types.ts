@@ -1,6 +1,5 @@
 import {
   asArray,
-  asBoolean,
   asEither,
   asNull,
   asNumber,
@@ -16,19 +15,6 @@ const nanoDocumentShape = {
   _id: asString,
   _rev: asString
 }
-
-// Settings Document
-
-export type StoreSettings = ReturnType<typeof asStoreSettings>
-export type StoreSettingsDocument = ReturnType<typeof asStoreSettingsDocument>
-export const asStoreSettings = asObject({
-  ipWhitelist: asObject(asBoolean),
-  apiKeyWhitelist: asObject(asBoolean)
-})
-export const asStoreSettingsDocument = asObject({
-  ...nanoDocumentShape,
-  ...asStoreSettings.shape
-})
 
 // Repo
 
@@ -72,10 +58,9 @@ export const asStoreFileDocument = asObject({
 export type DeletedDocument = nano.Document & { _deleted: true }
 
 // Union of all store data types
-export type StoreData = StoreSettings | StoreRepo | StoreFile
+export type StoreData = StoreRepo | StoreFile
 // Union of all document types
 export type StoreDocument =
-  | StoreSettingsDocument
   | StoreRepoDocument
   | StoreFileDocument
   | DeletedDocument

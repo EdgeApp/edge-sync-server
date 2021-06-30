@@ -6,7 +6,7 @@ export const checkRepoExists = (appState: AppState) => async (
 ): Promise<boolean> => {
   const repoDocKey = `${repoId}:/`
   try {
-    await appState.dataStore.head(repoDocKey)
+    await appState.storeDb.head(repoDocKey)
     return true
   } catch (error) {
     // Throw response errors other than 404
@@ -23,7 +23,7 @@ export const createRepoDocument = (appState: AppState) => async (
 ): Promise<void> => {
   const repoDocKey = `${repoId}:/`
 
-  await appState.dataStore.insert(
+  await appState.storeDb.insert(
     {
       timestamp: data.timestamp,
       lastGitHash: data.lastGitHash,

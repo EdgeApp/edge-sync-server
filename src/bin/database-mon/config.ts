@@ -16,7 +16,7 @@ export const configSample: Config = {
   instances: [
     {
       couchUrl: 'http://user:password@localhost:5984',
-      couchDatabase: 'sync_datastore'
+      couchDatabase: 'sync_store'
     }
   ]
 }

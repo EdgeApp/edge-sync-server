@@ -29,7 +29,7 @@ export const getCheckpointAt = (appState: AppState) => async (
     end_key: version
   }
 
-  const response = await appState.dataStore.partitionedView(
+  const response = await appState.storeDb.partitionedView(
     repoId,
     'versioning',
     'version',

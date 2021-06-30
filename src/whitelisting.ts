@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
-import { getStoreSettings } from './storeSettings'
 import { ServerError } from './types/primitive-types'
-import { StoreSettings } from './types/store-types'
+import { AccessSettings } from './types/settings-types'
+import { getAccessSettings } from './util/settings/store-settings'
 
 // Middleware:
 
@@ -12,10 +12,10 @@ export const whitelistIps = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const accessSettings = await getAccessSettings(appState)
   const clientIp = req.ip
 
-  if (!passWhitelistIps(storeSettings, clientIp)) {
+  if (!passWhitelistIps(accessSettings, clientIp)) {
     throw new ServerError(403, 'Forbidden IP')
   }
 
@@ -27,10 +27,10 @@ export const whitelistApiKeys = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const accessSettings = await getAccessSettings(appState)
   const clientApiKey = req.query.apiKey
 
-  if (!passWhitelistApiKeys(storeSettings, clientApiKey)) {
+  if (!passWhitelistApiKeys(accessSettings, clientApiKey)) {
     throw new ServerError(403, 'Forbidden API Key')
   }
 
@@ -42,13 +42,13 @@ export const whitelistAll = (appState: AppState) => async (
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const storeSettings = await getStoreSettings(appState.config)
+  const accessSettings = await getAccessSettings(appState)
   const clientIp = req.ip
   const clientApiKey = req.query.apiKey
 
   if (
-    passWhitelistIps(storeSettings, clientIp) ||
-    passWhitelistApiKeys(storeSettings, clientApiKey)
+    passWhitelistIps(accessSettings, clientIp) ||
+    passWhitelistApiKeys(accessSettings, clientApiKey)
   ) {
     return next()
   } else {
@@ -59,19 +59,19 @@ export const whitelistAll = (appState: AppState) => async (
 // Unit Functions:
 
 export const passWhitelistIps = (
-  storeSettings: StoreSettings,
+  accessSettings: AccessSettings,
   clientIp: string
 ): boolean => {
-  const { ipWhitelist } = storeSettings
+  const { ipWhitelist } = accessSettings
 
   return Object.keys(ipWhitelist).length === 0 || ipWhitelist[clientIp]
 }
 
 export const passWhitelistApiKeys = (
-  storeSettings: StoreSettings,
+  accessSettings: AccessSettings,
   clientApiKey: string
 ): boolean => {
-  const { apiKeyWhitelist } = storeSettings
+  const { apiKeyWhitelist } = accessSettings
 
   return (
     Object.keys(apiKeyWhitelist).length === 0 || apiKeyWhitelist[clientApiKey]

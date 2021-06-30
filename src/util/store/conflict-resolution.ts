@@ -2,6 +2,7 @@ import { asArray, asMaybe } from 'cleaners'
 import { bulkGet } from 'edge-server-tools'
 import nano from 'nano'
 
+import { storeDatabaseName } from '../../db/store-db'
 import { AppState } from '../../server'
 import {
   asStoreFileDocument,
@@ -12,10 +13,10 @@ import {
 export const resolveAllDocumentConflicts = (appState: AppState) => async (
   repoId: string
 ): Promise<void> => {
-  const { couchUri, couchDatabase } = appState.config
+  const { couchUri } = appState.config
 
   // Query for document IDs with conflicts using the conflictRevs view
-  const conflictQueryResponse = await appState.dataStore.partitionedView(
+  const conflictQueryResponse = await appState.storeDb.partitionedView(
     repoId,
     'conflicts',
     'conflictRevs',
@@ -28,7 +29,7 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
   // Query for the conflicting documents for each document ID using _bulk_get
   const documentsResponse = await bulkGet<StoreDocument>(
     couchUri,
-    couchDatabase,
+    storeDatabaseName,
     docIds
   )
 
@@ -48,7 +49,7 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
     documentUpdates.push(...resolvedDocumentUpdates(documents))
   }
 
-  await appState.dataStore.bulk({ docs: documentUpdates })
+  await appState.storeDb.bulk({ docs: documentUpdates })
 }
 
 export function resolvedDocumentUpdates(

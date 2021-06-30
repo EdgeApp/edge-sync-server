@@ -6,12 +6,14 @@ import nano from 'nano'
 import { Config } from './config'
 import { logger } from './logger'
 import { ServerError, ServerErrorResponse } from './types/primitive-types'
+import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
 export interface AppState {
   config: Config
-  dataStore: nano.DocumentScope<StoreData>
+  storeDb: nano.DocumentScope<StoreData>
+  settingsDb: nano.DocumentScope<SettingsData>
   dbServer: nano.ServerScope
 }
 

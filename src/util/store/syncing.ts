@@ -20,7 +20,7 @@ export const writeUpdates = (appState: AppState) => (
 
       // Query for documents
       const keys = Object.keys(changeSet).map(path => `${repoId}:${path}`)
-      const fetchResponse = await appState.dataStore.fetch({ keys })
+      const fetchResponse = await appState.storeDb.fetch({ keys })
 
       // Prepare updated documents
       const updatedStoreFileDocs = fetchResponse.rows.map((row, i) => {
@@ -52,7 +52,7 @@ export const writeUpdates = (appState: AppState) => (
       })
 
       // Bulk update
-      const updateResponse = await appState.dataStore.bulk({
+      const updateResponse = await appState.storeDb.bulk({
         docs: updatedStoreFileDocs
       })
 
@@ -74,7 +74,7 @@ export const readUpdates = (appState: AppState) => async (
   const [currentCheckpoint = { version: 0, sum: 0 }] = checkpoints
 
   // Query view for file documents with version > currentCheckpoint.version
-  const fileDocumentsResponse = await appState.dataStore.partitionedView(
+  const fileDocumentsResponse = await appState.storeDb.partitionedView(
     repoId,
     'versioning',
     'version',
