@@ -1,23 +1,56 @@
 import { expect } from 'chai'
 
-import { VALID_PATH_REGEX, VALID_SYNC_KEY_REGEX } from '../../src/types'
+import {
+  VALID_PATH_REGEX,
+  VALID_SYNC_KEY_REGEX
+} from '../../src/types/primitive-types'
 
 describe('Unit: Regexes', () => {
   it('VALID_PATH_REGEX', () => {
     const validPaths = [
-      '/file',
-      '/file.txt',
-      '/.',
-      '/..',
-      '/.file',
+      'file',
+      'file123',
+      '123',
+      'file_with_underscore',
+      'file-with-dash',
+      'file.txt',
+      '.dots',
+      'dir/file',
+      'dir/file123',
+      'dir/123',
+      'dir/file-with-dash',
+      'dir/file_with_underscore',
+      'dir/file.txt',
+      'dir//more-slashes',
+      'dir/.dots',
+      'dir/.',
+      'dir/../file',
+      'dir/.../file',
+      // Valid regex, but not valid asPath
+      'back-to-root/..',
+      'back-to-root/../..',
+      'back-to-root/dir/../..'
+    ]
+    const invalidPaths = [
+      '',
+      ' ',
+      '/leadingslash',
+      'trailingslash/',
+      '/',
+      ' /',
+      '/ ',
+      '/ space',
+      ' outerspace',
+      'outerspace ',
+      'inner space',
       '/file.',
       '/dir/file',
       '/dir/file.txt',
       '/dir/dir/file.txt',
       '/dir.dir/file.f.txt',
-      '/dir space dir/dir dir/file-file.txt'
+      '/dir space dir/dir dir/file-file.txt',
+      'dir//'
     ]
-    const invalidPaths = ['/', 'file', 'dir/file.txt', '/ file', '/file ']
 
     validPaths.forEach(path =>
       expect(VALID_PATH_REGEX.test(path), `valid path: ${path}`).equals(true)

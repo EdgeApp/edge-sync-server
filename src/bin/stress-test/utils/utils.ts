@@ -56,7 +56,7 @@ export const makeSyncKey = (
 }
 
 export const randomPath = (): string => {
-  return `/${randomHex(2)}`
+  return `${randomHex(2)}`
 }
 
 export const randomElement = <T>(elements: T[]): T =>
@@ -70,11 +70,7 @@ export const criticalError = (err: any): void => {
 // Error handlers
 
 export const isAcceptableError = (err: any): boolean =>
-  err?.response != null
-    ? isOutOfDateError(err) || isRepoNotFoundError(err)
-    : false
-export const isOutOfDateError = (err: any): boolean =>
-  err?.response.message === 'Failed due to out-of-date timestamp'
+  err?.response != null ? isRepoNotFoundError(err) : false
 export const isRepoNotFoundError = (err: any): boolean =>
   /^Repo not found$/.test(err?.response.message)
 

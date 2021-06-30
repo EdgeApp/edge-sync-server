@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 
 import { defaultStoreSettings } from '../../src/storeSettings'
-import { StoreSettings } from '../../src/types'
+import { StoreSettings } from '../../src/types/store-types'
 import { passWhitelistApiKeys, passWhitelistIps } from '../../src/whitelisting'
 
 describe('Unit: passWhitelistIps', () => {

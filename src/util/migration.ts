@@ -5,16 +5,11 @@ import { promisify } from 'util'
 
 import { logger } from '../logger'
 import { AppState } from '../server'
-import {
-  asFileChange,
-  asTimestampRev,
-  ChangeSet,
-  StoreFileTimestampMap
-} from '../types'
-import { syncKeyToRepoId } from '../util/security'
-import { withRetries } from '../util/utils'
-import { createRepoDocument } from './repo'
-import { updateFilesAndDirectories } from './updateFiles'
+import { asFileChangeV2, ChangeSetV2 } from '../v2/types'
+import { syncKeyToRepoId } from './security'
+import { createRepoDocument } from './store/repo'
+import { writeUpdates } from './store/syncing'
+import { withRetries } from './utils'
 
 const exec = promisify(execOriginal)
 
@@ -165,17 +160,16 @@ export const migrateRepo = (appState: AppState) => async (
     const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
     // Create the change set by reading files in temporary migration dir
-    const changeSet: ChangeSet = {}
+    const changeSet: ChangeSetV2 = {}
     for (const filePath of filePaths) {
       const fileContent = await readFile(filePath, {
         encoding: 'utf-8'
       })
       const box = JSON.parse(fileContent)
-      const fileChange = asFileChange({
-        box
-      })
+      const fileChange = asFileChangeV2(box)
 
-      const relativePath = filePath.substr(repoDir.length)
+      // Add 1 to substr "from" param to remove the leading forward slash
+      const relativePath = filePath.substr(repoDir.length + 1)
 
       changeSet[relativePath] = fileChange
     }
@@ -183,24 +177,16 @@ export const migrateRepo = (appState: AppState) => async (
     // Update database
     await withRetries(
       async (): Promise<void> => {
-        const timestamp = asTimestampRev(lastGitTime ?? Date.now())
-
-        let paths: StoreFileTimestampMap = {}
+        const timestamp = lastGitTime ?? Date.now()
 
         // Update files and directories
         if (filePaths.length > 0) {
-          const repoModification = await updateFilesAndDirectories(appState)(
-            repoId,
-            changeSet,
-            timestamp
-          )
-          paths = repoModification.paths
+          await writeUpdates(appState)(repoId, changeSet)
         }
 
         // Create Repo Document (last db operation)
         try {
           await createRepoDocument(appState)(repoId, {
-            paths,
             timestamp,
             lastGitHash,
             lastGitTime

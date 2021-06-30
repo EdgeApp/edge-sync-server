@@ -17,10 +17,11 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
 
   const syncKey = '0000000000000000000000000000000000000000'
   const otherSyncKey = '1111111111111111111111111111111111111111'
-  let repoHash: string = ''
-  let oldestHash: string = ''
-  let deletionHash: string = ''
-  let latestHash: string = ''
+  let latestCheckpoint = ''
+  let clientCheckpoints = ''
+  let checkpointsAtBeginning = ''
+  let checkpointsAtDeletion = ''
+  let checkpointsAtEnding = ''
 
   const CONTENT = {
     file1: makeEdgeBox('file1 content'),
@@ -39,11 +40,9 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
 
-    repoHash = res.body.hash
-
     // Create test files/dirs (first files)
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           file1: CONTENT.file1,
@@ -54,11 +53,12 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    oldestHash = repoHash = res.body.hash
+    // 4:10
+    checkpointsAtBeginning = clientCheckpoints = res.body.hash
 
     // Delete files
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           deletedFile: null,
@@ -67,13 +67,14 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    deletionHash = repoHash = res.body.hash
+    // 6:15,4:10
+    checkpointsAtDeletion = clientCheckpoints = res.body.hash
 
     await delay(10)
 
     // Create test files/dir (second files)
     res = await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           file2: CONTENT.file2,
@@ -82,7 +83,11 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
 
-    latestHash = repoHash = res.body.hash
+    // 8:30,6:15,4:10
+    checkpointsAtEnding = clientCheckpoints = res.body.hash
+
+    // 8:30
+    latestCheckpoint = clientCheckpoints.split(',')[0]
 
     // Other repo control (should not be returned)
     res = await agent
@@ -124,7 +129,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .get(`/api/v2/store/${syncKey}/`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(latestCheckpoint)
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -141,7 +146,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .get(`/api/v2/store/${syncKey}/abcdef1234567890abcdef1234567890`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(latestCheckpoint)
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -158,7 +163,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       .get(`/api/v2/store/${syncKey}/0`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(latestCheckpoint)
         expect(res.body.changes).deep.equals({
           file1: CONTENT.file1,
           'dir/file1': CONTENT.dirFile1,
@@ -170,12 +175,14 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
   })
 
-  it('can get updates with specific hash', async () => {
+  it('can get updates with specific checkpoints', async () => {
     await agent
-      .get(`/api/v2/store/${syncKey}/${oldestHash}`)
+      .get(`/api/v2/store/${syncKey}/${checkpointsAtBeginning}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(
+          `${latestCheckpoint},${checkpointsAtBeginning}`
+        )
         expect(res.body.changes).deep.equals({
           'dir/file2': CONTENT.dirFile2,
           file2: CONTENT.file2,
@@ -184,20 +191,22 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
         })
       })
     await agent
-      .get(`/api/v2/store/${syncKey}/${deletionHash}`)
+      .get(`/api/v2/store/${syncKey}/${checkpointsAtDeletion}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(
+          `${latestCheckpoint},${checkpointsAtDeletion}`
+        )
         expect(res.body.changes).deep.equals({
           'dir/file2': CONTENT.dirFile2,
           file2: CONTENT.file2
         })
       })
     await agent
-      .get(`/api/v2/store/${syncKey}/${latestHash}`)
+      .get(`/api/v2/store/${syncKey}/${checkpointsAtEnding}`)
       .expect(res => isSuccessfulResponse(res))
       .expect(res => {
-        expect(res.body.hash).equals(repoHash.toString())
+        expect(res.body.hash).equals(`${checkpointsAtEnding}`)
         expect(res.body.changes).deep.equals({})
       })
   })

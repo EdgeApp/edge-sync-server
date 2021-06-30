@@ -7,20 +7,19 @@ import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import { isErrorResponse, isSuccessfulResponse, makeEdgeBox } from '../utils'
 
-apiSuite('POST /api/v2/store', (appState: AppState) => {
+apiSuite('Component: POST /api/v2/store', (appState: AppState) => {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
   const syncKey = '0000000000000000000000000000000000000000'
-  let repoHash = ''
+  let clientCheckpoints = ''
 
   // Fixtures:
 
   before(async () => {
-    const res = await agent
+    await agent
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
-    repoHash = res.body.hash
   })
 
   const isPostStoreResponse = (
@@ -44,8 +43,8 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
   }
 
-  const updateRepoHash = (res: Response): void => {
-    repoHash = res.body.hash
+  const updateClientCheckpoints = (res: Response): void => {
+    clientCheckpoints = res.body.hash
   }
 
   // Tests:
@@ -53,7 +52,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can validate syncKey body', async () => {
     const invalidSyncKey = 'invalid'
     await agent
-      .post(`/api/v2/store/${invalidSyncKey}/${repoHash}`)
+      .post(`/api/v2/store/${invalidSyncKey}/${clientCheckpoints}`)
       .expect(
         isErrorResponse(400, `Invalid sync key '${invalidSyncKey}' at .syncKey`)
       )
@@ -61,7 +60,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
 
   it('Can validate request body', async () => {
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .expect(res =>
         isErrorResponse(400, 'Expected an object at .changes')(res)
       )
@@ -70,20 +69,23 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
   it('Can validate paths', async () => {
     const invalidPaths = [
       '',
+      ' ',
+      'too-far-back/..',
+      'way-too/far-back/../..',
       'bad/ space',
-      '/has/root/slash',
-      'too/many//slashes'
+      '/leadingslash',
+      'trailingslash/'
     ]
 
     for (const path of invalidPaths) {
       await agent
-        .post(`/api/v2/store/${syncKey}/${repoHash}`)
+        .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
         .send({
           changes: {
             [path]: makeEdgeBox('content')
           }
         })
-        .expect(res => isErrorResponse(400, `Invalid path '/${path}'`)(res))
+        .expect(res => isErrorResponse(400, `Invalid path '${path}'`)(res))
     }
   })
 
@@ -94,12 +96,12 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
   })
 
   it('Can update file', async () => {
@@ -112,19 +114,19 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
   })
 
   it('Can write file with directory', async () => {
@@ -134,15 +136,15 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
   })
 
-  it('Cannot write file where there is a directory', async () => {
+  it('Can write file where there is a directory', async () => {
     const dirPath = 'dir'
     const filePath = `dir/file${Math.random()}`
     const changes = {
@@ -150,56 +152,57 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes
       })
       .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           [dirPath]: makeEdgeBox('content')
         }
       })
       .expect(res =>
-        isErrorResponse(
-          422,
-          `Unable to write file '/${dirPath}'. ` +
-            `Existing document is not a file.`
-        )(res)
+        isPostStoreResponse({
+          [dirPath]: makeEdgeBox('content')
+        })(res)
       )
+      .then(updateClientCheckpoints)
   })
 
-  it('Cannot write file where the directory is a file', async () => {
+  it('Can write file where the directory is a file', async () => {
     const filePath = `file${Math.random()}`
-    const badFilePath = `${filePath}/file'`
-    const changes = {
-      [filePath]: makeEdgeBox('content')
-    }
+    const filePath2 = `${filePath}/file`
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
-      .send({
-        changes
-      })
-      .expect(res => isPostStoreResponse(changes)(res))
-      .then(updateRepoHash)
-    await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
-          [badFilePath]: makeEdgeBox('content')
+          [filePath]: makeEdgeBox('content')
         }
       })
       .expect(res =>
-        isErrorResponse(
-          422,
-          `Unable to write files under '/${filePath}'. ` +
-            `Existing document is not a directory.`
-        )(res)
+        isPostStoreResponse({
+          [filePath]: makeEdgeBox('content')
+        })(res)
       )
+      .then(updateClientCheckpoints)
+    await agent
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
+      .send({
+        changes: {
+          [filePath2]: makeEdgeBox('content')
+        }
+      })
+      .expect(res =>
+        isPostStoreResponse({
+          [filePath2]: makeEdgeBox('content')
+        })(res)
+      )
+      .then(updateClientCheckpoints)
   })
 
   it('Can delete file', async () => {
@@ -212,37 +215,37 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
   })
 
-  it('Cannot delete non-existing file', async () => {
+  it('Can delete non-existing file', async () => {
     const filePath = 'nofile'
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           [filePath]: null
         }
       })
       .expect(res =>
-        isErrorResponse(
-          422,
-          `Unable to delete file '/${filePath}'. ` + `Document does not exist.`
-        )(res)
+        isPostStoreResponse({
+          [filePath]: null
+        })(res)
       )
+      .then(updateClientCheckpoints)
   })
 
   it('Cannot delete a file that was previously deleted', async () => {
@@ -255,40 +258,40 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
     }
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesB
       })
       .expect(res => isPostStoreResponse(changesB)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: {
           [filePath]: null
         }
       })
       .expect(res =>
-        isErrorResponse(
-          422,
-          `Unable to delete file '/${filePath}'. ` + `File is already deleted.`
-        )(res)
+        isPostStoreResponse({
+          [filePath]: null
+        })(res)
       )
+      .then(updateClientCheckpoints)
   })
 
-  it('Can write files with out-of-date hash', async () => {
-    const file1Path = `file1 ${Math.random()}`
-    const file2Path = `file2 ${Math.random()}`
-    const file3Path = `file3 ${Math.random()}`
-    const file4Path = `file4 ${Math.random()}`
-    const file5Path = `file5 ${Math.random()}`
+  it('Can write files with out-of-date checkpoint', async () => {
+    const file1Path = `file1_${Math.random()}`
+    const file2Path = `file2_${Math.random()}`
+    const file3Path = `file3_${Math.random()}`
+    const file4Path = `file4_${Math.random()}`
+    const file5Path = `file5_${Math.random()}`
 
     const changesA = {
       [file1Path]: makeEdgeBox(file1Path)
@@ -306,17 +309,17 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       [file5Path]: makeEdgeBox(file5Path)
     }
 
-    let changesBHash: string = ''
+    let changesBCheckpoints = ''
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesA
       })
       .expect(res => isPostStoreResponse(changesA)(res))
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesB
       })
@@ -327,11 +330,11 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
         })
       )
       .expect(res => {
-        changesBHash = res.body.hash
+        changesBCheckpoints = res.body.hash
       })
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesC
       })
@@ -344,7 +347,7 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
       )
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${changesBHash}`)
+      .post(`/api/v2/store/${syncKey}/${changesBCheckpoints}`)
       .send({
         changes: changesD
       })
@@ -354,14 +357,14 @@ apiSuite('POST /api/v2/store', (appState: AppState) => {
           ...changesD
         })
       )
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
 
     await agent
-      .post(`/api/v2/store/${syncKey}/${repoHash}`)
+      .post(`/api/v2/store/${syncKey}/${clientCheckpoints}`)
       .send({
         changes: changesE
       })
       .expect(res => isPostStoreResponse(changesE)(res))
-      .then(updateRepoHash)
+      .then(updateClientCheckpoints)
   })
 })

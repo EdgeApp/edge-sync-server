@@ -1,10 +1,10 @@
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
-import { migrateRepo } from '../../api/migrations'
-import { checkRepoExists } from '../../api/repo'
 import { AppState } from '../../server'
+import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
+import { checkRepoExists } from '../../util/store/repo'
 import { makeApiClientError } from '../../util/utils'
 import { asGetStoreParams, GetStoreParams } from '../types'
 

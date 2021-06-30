@@ -7,7 +7,11 @@ import {
   asUndefined
 } from 'cleaners'
 
-import { asEdgeBox, asNonEmptyString, asSyncKey } from '../types'
+import {
+  asEdgeBox,
+  asNonEmptyString,
+  asSyncKey
+} from '../types/primitive-types'
 
 export type FileChangeV2 = ReturnType<typeof asFileChangeV2>
 export const asFileChangeV2 = asEither(asEdgeBox, asNull)
