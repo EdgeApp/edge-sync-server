@@ -38,10 +38,10 @@ const conflictsDesign: JsDesignDocument = {
   }
 }
 
-export const dataStoreDatabaseName = 'sync_datastore'
+export const storeDatabaseName = 'sync_store'
 
-export const getDataStoreDatabaseSetup = (config: Config): DatabaseSetup => ({
-  name: dataStoreDatabaseName,
+export const getStoreDatabaseSetup = (config: Config): DatabaseSetup => ({
+  name: storeDatabaseName,
   options: {
     ...config.couchSharding,
     partitioned: true
@@ -53,7 +53,7 @@ export const getDataStoreDatabaseSetup = (config: Config): DatabaseSetup => ({
   }
 })
 
-export const getDataStoreDb = (
+export const getStoreDb = (
   couchUri: string,
-  database: string = dataStoreDatabaseName
+  database: string = storeDatabaseName
 ): nano.DocumentScope<StoreData> => nano(couchUri).use<StoreData>(database)

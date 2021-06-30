@@ -2,11 +2,8 @@ import { DatabaseSetup, setupDatabase } from 'edge-server-tools'
 import nano from 'nano'
 
 import { config } from '../src/config'
-import {
-  getDataStoreDatabaseSetup,
-  getDataStoreDb
-} from '../src/db/datastore-db'
 import { getSettingsDatabaseSetup, getSettingsDb } from '../src/db/settings-db'
+import { getStoreDatabaseSetup, getStoreDb } from '../src/db/store-db'
 import { AppState } from '../src/server'
 
 const addRandomSuffix = (setup: DatabaseSetup): DatabaseSetup => ({
@@ -18,15 +15,15 @@ export const apiSuite = (
   name: string,
   test: (appState: AppState) => void
 ): void => {
-  const storeDatabaseSetup = addRandomSuffix(getDataStoreDatabaseSetup(config))
+  const storeDatabaseSetup = addRandomSuffix(getStoreDatabaseSetup(config))
   const settingsDatabaseSetup = getSettingsDatabaseSetup()
 
   const databases = [storeDatabaseSetup, settingsDatabaseSetup]
 
   const dbServer = nano(config.couchUri)
-  const dataStore = getDataStoreDb(config.couchUri, storeDatabaseSetup.name)
+  const storeDb = getStoreDb(config.couchUri, storeDatabaseSetup.name)
   const settingsDb = getSettingsDb(config.couchUri, settingsDatabaseSetup.name)
-  const appState: AppState = { config, dataStore, settingsDb, dbServer }
+  const appState: AppState = { config, storeDb, settingsDb, dbServer }
 
   describe(name, () => {
     before(async () => {

@@ -1,7 +1,7 @@
 import { DocumentBulkResponse } from 'nano'
 
 /**
- * This checks for conflicts and errors in the datastore write results
+ * This checks for conflicts and errors in the store database write results
  */
 export const checkDbResponseForErrors = (
   results: DocumentBulkResponse[]

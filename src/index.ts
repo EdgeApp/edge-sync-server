@@ -4,17 +4,14 @@ import nano from 'nano'
 import { cpus } from 'os'
 
 import { config } from './config'
-import { getDataStoreDatabaseSetup, getDataStoreDb } from './db/datastore-db'
 import { getSettingsDatabaseSetup, getSettingsDb } from './db/settings-db'
+import { getStoreDatabaseSetup, getStoreDb } from './db/store-db'
 import { logger } from './logger'
 import { makeServer } from './server'
 
 const numCPUs = cpus().length
 
-const databases = [
-  getDataStoreDatabaseSetup(config),
-  getSettingsDatabaseSetup()
-]
+const databases = [getStoreDatabaseSetup(config), getSettingsDatabaseSetup()]
 
 if (cluster.isMaster) {
   Promise.all(
@@ -45,9 +42,9 @@ if (cluster.isMaster) {
     .catch(failStartup)
 } else {
   const dbServer = nano(config.couchUri)
-  const dataStore = getDataStoreDb(config.couchUri)
+  const storeDb = getStoreDb(config.couchUri)
   const settingsDb = getSettingsDb(config.couchUri)
-  const app = makeServer({ config, dataStore, settingsDb, dbServer })
+  const app = makeServer({ config, storeDb, settingsDb, dbServer })
 
   // Instantiate server
   app.listen(config.httpPort, () => {

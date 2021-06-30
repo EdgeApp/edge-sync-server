@@ -12,7 +12,7 @@ import { makeRouter as makeV2Router } from './v2/routes/router'
 
 export interface AppState {
   config: Config
-  dataStore: nano.DocumentScope<StoreData>
+  storeDb: nano.DocumentScope<StoreData>
   settingsDb: nano.DocumentScope<SettingsData>
   dbServer: nano.ServerScope
 }
