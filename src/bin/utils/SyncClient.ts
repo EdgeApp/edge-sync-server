@@ -16,9 +16,9 @@ import {
   PostStoreResponse,
   PutStoreResponse
 } from '../../v2/types'
-import { compareHash } from '../utils/repo-hash'
-import { shuffle } from '../utils/shuffle'
-import { randomBytes, randomPath, RequestError } from '../utils/utils'
+import { compareHash } from './repo-hash'
+import { shuffle } from './shuffle'
+import { randomBytes, randomPath, RequestError } from './utils'
 
 export class SyncClient {
   serverUrls: string[]

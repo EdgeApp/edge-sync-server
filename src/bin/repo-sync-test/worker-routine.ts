@@ -1,5 +1,6 @@
 import { randomInt } from 'crypto'
 
+import { SyncClient } from '../utils/SyncClient'
 import {
   delay,
   isErrorWorthRetry,
@@ -8,7 +9,6 @@ import {
   send,
   throttle
 } from '../utils/utils'
-import { SyncClient } from './SyncClient'
 import {
   asWorkerConfig,
   ReadEvent,
