@@ -1,33 +1,7 @@
-import {
-  asArray,
-  asEither,
-  asMap,
-  asNumber,
-  asObject,
-  asString,
-  asValue
-} from 'cleaners'
+import { asEither, asNumber, asObject, asString, asValue } from 'cleaners'
 
-export interface ErrorObj extends Error {
-  [key: string]: any
-}
-export const asErrorObj = (raw: any): ErrorObj => {
-  const clean = asObject({
-    name: asString,
-    message: asString,
-    stack: asString
-  }).withRest(raw)
-  const out: ErrorObj = new Error(clean.message)
-  out.message = clean.message
-  out.stack = clean.stack
-  out.name = clean.name
-  Object.entries(clean).forEach(function ([key, value]) {
-    out[key] = value
-  })
-  return out
-}
+import { asErrorObj } from './error-obj'
 
-// Shared error output type
 export type ErrorEvent = ReturnType<typeof asErrorEvent>
 export const asErrorEvent = asObject({
   type: asValue('error'),
@@ -41,23 +15,6 @@ export const asMessageEvent = asObject({
   process: asString,
   message: asString
 })
-
-// Configs
-
-export type WorkerConfig = ReturnType<typeof asWorkerConfig>
-export const asWorkerConfig = asObject({
-  clusters: asMap(asArray(asString)),
-  syncKey: asString,
-  repoUpdatesPerMin: asNumber,
-  repoReadsPerMin: asNumber,
-  repoCheckDelayInSeconds: asNumber,
-  repoUpdateIncreaseRate: asNumber,
-  maxUpdatesPerRepo: asNumber,
-  fileByteSizeRange: asArray(asNumber),
-  fileCountRange: asArray(asNumber)
-})
-
-// Events
 
 export type ReadyEvent = ReturnType<typeof asReadyEvent>
 export const asReadyEvent = asObject({
@@ -115,8 +72,7 @@ export const asNetworkSyncEvent = asObject({
   timestamp: asNumber
 })
 
-// Unions
-
+// Union of all events
 export type AllEvents = ReturnType<typeof asAllEvents>
 export const asAllEvents = asEither(
   asMessageEvent,

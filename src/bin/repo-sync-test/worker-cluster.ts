@@ -3,8 +3,7 @@ import cluster from 'cluster'
 import os from 'os'
 
 import { send } from '../utils/utils'
-import { asWorkerConfig } from './types'
-import { workerRoutine } from './worker-routine'
+import { asWorkerConfig, workerRoutine } from './worker-routine'
 
 process.title = 'worker-cluster'
 

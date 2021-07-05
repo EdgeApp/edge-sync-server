@@ -1,5 +1,7 @@
+import { asArray, asMap, asNumber, asObject, asString } from 'cleaners'
 import { randomInt } from 'crypto'
 
+import { ReadEvent, ReadyEvent, UpdateEvent } from '../types/shared-events'
 import { SyncClient } from '../utils/SyncClient'
 import {
   delay,
@@ -9,13 +11,6 @@ import {
   send,
   throttle
 } from '../utils/utils'
-import {
-  asWorkerConfig,
-  ReadEvent,
-  ReadyEvent,
-  UpdateEvent,
-  WorkerConfig
-} from './types'
 
 process.title = 'worker'
 
@@ -23,6 +18,19 @@ process.title = 'worker'
 let updatesDone = 0
 let lastUpdateHash = ''
 let isRepoSynced: boolean = true
+
+export type WorkerConfig = ReturnType<typeof asWorkerConfig>
+export const asWorkerConfig = asObject({
+  clusters: asMap(asArray(asString)),
+  syncKey: asString,
+  repoUpdatesPerMin: asNumber,
+  repoReadsPerMin: asNumber,
+  repoCheckDelayInSeconds: asNumber,
+  repoUpdateIncreaseRate: asNumber,
+  maxUpdatesPerRepo: asNumber,
+  fileByteSizeRange: asArray(asNumber),
+  fileCountRange: asArray(asNumber)
+})
 
 // Main Function
 export async function workerRoutine(config: WorkerConfig): Promise<void> {

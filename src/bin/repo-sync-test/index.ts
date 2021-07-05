@@ -5,6 +5,17 @@ import { join } from 'path'
 import pino from 'pino'
 
 import {
+  AllEvents,
+  asAllEvents,
+  NetworkSyncEvent,
+  ReadEvent,
+  ReadyEvent,
+  ReplicationEvent,
+  RepoSyncEvent,
+  ServerSyncEvent,
+  UpdateEvent
+} from '../types/shared-events'
+import {
   endInstrument,
   Instrument,
   makeInstrument,
@@ -16,18 +27,7 @@ import { prettyPrintObject } from '../utils/printing'
 import { compareHash } from '../utils/repo-hash'
 import { makeSyncKey, msToPerSeconds } from '../utils/utils'
 import { asConfig, Config, configSample } from './config'
-import {
-  AllEvents,
-  asAllEvents,
-  NetworkSyncEvent,
-  ReadEvent,
-  ReadyEvent,
-  ReplicationEvent,
-  RepoSyncEvent,
-  ServerSyncEvent,
-  UpdateEvent,
-  WorkerConfig
-} from './types'
+import { WorkerConfig } from './worker-routine'
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? 'info'
