@@ -89,7 +89,9 @@ interface SnapshotTimeMetrics {
   maxTimeInMs: number
 }
 
-// State:
+// ---------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------
 
 let config: Config
 let serverCount: number = 0

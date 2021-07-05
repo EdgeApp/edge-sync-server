@@ -32,6 +32,8 @@
     "start.dev": "nodemon | pino-pretty",
     "test": "NODE_ENV=test mocha 'test/**/*.test.ts' --timeout 20000",
     "posttest": "nyc report --reporter=cobertura --reporter=html",
+    "test.load": "node -r sucrase/register src/bin/load-test/index.ts",
+    "test.load.console": "LOG_LEVEL=trace node -r sucrase/register src/bin/load-test/index.ts | node -r sucrase/register src/bin/utils/console.ts",
     "test.post-report": "open ./coverage/index.html ./coverage/mochawesome.html",
     "test.repo-sync": "node -r sucrase/register src/bin/repo-sync-test/index.ts",
     "test.repo-sync.console": "LOG_LEVEL=trace node -r sucrase/register src/bin/repo-sync-test/index.ts | node -r sucrase/register src/bin/utils/console.ts",
