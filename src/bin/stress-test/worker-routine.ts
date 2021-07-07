@@ -56,9 +56,9 @@ const getRepoReady = async (
   syncKey: string
 ): Promise<void> => {
   try {
-    const response = await sync.createRepo(syncKey)
+    await sync.createRepo(syncKey)
     const requestTime = Date.now()
-    const serverRepoHash: string = response.hash
+    const serverRepoHash: string = ''
 
     lastUpdateHash = serverRepoHash
 

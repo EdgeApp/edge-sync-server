@@ -1,10 +1,18 @@
+import { asMaybe, Cleaner } from 'cleaners'
 import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
-import { ServerErrorResponse } from '../../types/primitive-types'
+import {
+  asServerErrorResponse,
+  ServerErrorResponse
+} from '../../types/primitive-types'
+import { trial } from '../../util/trial'
 import { withRetries } from '../../util/with-retries'
 import {
+  asGetStoreResponse,
+  asPostStoreResponse,
+  asPutStoreResponse,
   ChangeSetV2,
   GetStoreResponse,
   PostStoreBody,
@@ -34,14 +42,13 @@ export class SyncClient {
   }
 
   async request<ResponseType>(
+    asResponseType: Cleaner<ResponseType>,
     method: string,
     path: string,
     data?: any
   ): Promise<ResponseType> {
     const body = JSON.stringify(data)
     const url = this.endpoint(path)
-
-    let responseJson: ResponseType | ServerErrorResponse
 
     const response: FetchResponse | undefined = await withRetries(
       async () => {
@@ -76,38 +83,40 @@ export class SyncClient {
     )
 
     const responseText = await response.text()
+    const responseObj =
+      responseText.trim() === '' ? undefined : JSON.parse(responseText)
+    const responseCleaned = trial(
+      () => asResponseType(responseObj),
+      error => {
+        const errorResponse = asMaybe(asServerErrorResponse)(responseObj)
+        if (errorResponse != null)
+          throw new RequestError({ url, body }, errorResponse)
 
-    try {
-      responseJson = JSON.parse(responseText)
-    } catch (error) {
-      throw new Error(
-        `Request failed to parse JSON: ${JSON.stringify(
-          {
-            error: {
-              message: error.message,
-              stack: error.stack
+        throw new Error(
+          `Request failed to parse JSON: ${JSON.stringify(
+            {
+              error: {
+                message: error.message,
+                stack: error.stack
+              },
+              request: { method, url, body },
+              response,
+              status: response.status,
+              responseText
             },
-            request: { url, body },
-            response,
-            status: response.status,
-            responseText
-          },
-          null,
-          2
-        )}`
-      )
-    }
+            null,
+            2
+          )}`
+        )
+      }
+    )
 
-    if ('message' in responseJson) {
-      const error = new RequestError({ url, body }, responseJson)
-      throw error
-    }
-
-    return responseJson
+    return responseCleaned
   }
 
-  async createRepo(syncKey: string): Promise<any> {
-    const response = await this.request<PutStoreResponse>(
+  async createRepo(syncKey: string): Promise<PutStoreResponse> {
+    const response = await this.request(
+      asPutStoreResponse,
       'PUT',
       `/api/v2/store/${syncKey}`
     )
@@ -135,7 +144,8 @@ export class SyncClient {
         }
 
         // Send the update request
-        return await this.request<PostStoreResponse>(
+        return await this.request(
+          asPostStoreResponse,
           'POST',
           `/api/v2/store/${syncKey}/${hash}`,
           body
@@ -170,7 +180,8 @@ export class SyncClient {
 
   async getUpdates(syncKey: string): Promise<GetStoreResponse> {
     const hash = this.getRepoHash(syncKey)
-    const response = await this.request<GetStoreResponse>(
+    const response = await this.request(
+      asGetStoreResponse,
       'GET',
       `/api/v2/store/${syncKey}/${hash}`
     )
