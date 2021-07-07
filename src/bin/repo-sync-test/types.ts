@@ -78,9 +78,9 @@ export const asUpdateEvent = asObject({
   payloadSize: asNumber
 })
 
-export type CheckEvent = ReturnType<typeof asCheckEvent>
-export const asCheckEvent = asObject({
-  type: asValue('check'),
+export type ReadEvent = ReturnType<typeof asReadEvent>
+export const asReadEvent = asObject({
+  type: asValue('read'),
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
@@ -123,7 +123,7 @@ export const asAllEvents = asEither(
   asErrorEvent,
   asReadyEvent,
   asUpdateEvent,
-  asCheckEvent,
+  asReadEvent,
   asReplicationEvent,
   asRepoSyncEvent,
   asServerSyncEvent,

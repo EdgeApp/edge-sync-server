@@ -3,7 +3,7 @@ import { randomInt } from 'crypto'
 import { SyncClient } from './SyncClient'
 import {
   asWorkerConfig,
-  CheckEvent,
+  ReadEvent,
   ReadyEvent,
   UpdateEvent,
   WorkerConfig
@@ -177,7 +177,7 @@ const reader = (
 async function readRepo(
   config: WorkerConfig,
   syncClients: SyncClient[]
-): Promise<CheckEvent> {
+): Promise<ReadEvent> {
   const sync = randomElement(syncClients)
   const serverHost = sync.host
   const syncKey = config.syncKey
@@ -193,7 +193,7 @@ async function readRepo(
     // Send a check event just because we can.
     // We might as well use the response to help with metrics.
     return {
-      type: 'check',
+      type: 'read',
       serverHost,
       syncKey,
       requestTime,
@@ -224,16 +224,16 @@ const checker = async (
       )
       .map(sync => checkServerStatus({ sync, syncKey: config.syncKey }))
   )
-    .then(checkResponses => {
-      const checkEvents = checkResponses.filter(
-        (checkResponse): checkResponse is CheckEvent => checkResponse != null
+    .then(readResponses => {
+      const readEvents = readResponses.filter(
+        (readResponse): readResponse is ReadEvent => readResponse != null
       )
-      checkEvents.forEach(checkEvent => {
-        send(checkEvent)
+      readEvents.forEach(readEvent => {
+        send(readEvent)
       })
 
-      const serverRepoHashes = checkEvents.map(
-        checkEvent => checkEvent.serverRepoHash
+      const serverRepoHashes = readEvents.map(
+        readEvent => readEvent.serverRepoHash
       )
 
       const wasRepoSynced = isRepoSynced
@@ -267,7 +267,7 @@ interface CheckServerStatusProps {
 async function checkServerStatus({
   sync,
   syncKey
-}: CheckServerStatusProps): Promise<CheckEvent | undefined> {
+}: CheckServerStatusProps): Promise<ReadEvent | undefined> {
   const requestTime = Date.now()
 
   try {
@@ -276,7 +276,7 @@ async function checkServerStatus({
     const serverRepoHash: string = response.hash
 
     return {
-      type: 'check',
+      type: 'read',
       serverHost: sync.host,
       syncKey,
       requestTime,
@@ -289,7 +289,7 @@ async function checkServerStatus({
 
     if (isRepoNotFoundError(error)) {
       return {
-        type: 'check',
+        type: 'read',
         serverHost: sync.host,
         syncKey,
         requestTime,

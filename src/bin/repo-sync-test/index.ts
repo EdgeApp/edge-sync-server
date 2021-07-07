@@ -8,8 +8,8 @@ import { asConfig, Config, configSample } from './config'
 import {
   AllEvents,
   asAllEvents,
-  CheckEvent,
   NetworkSyncEvent,
+  ReadEvent,
   ReadyEvent,
   ReplicationEvent,
   RepoSyncEvent,
@@ -350,8 +350,8 @@ function onEvent(event: AllEvents): void {
     case 'update':
       onUpdateEvent(event)
       break
-    case 'check':
-      onCheckEvent(event, onEvent)
+    case 'read':
+      onReadEvent(event, onEvent)
       break
     case 'replication':
       onReplication(event)
@@ -443,11 +443,11 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
   })
 }
 
-function onCheckEvent(
-  checkEvent: CheckEvent,
+function onReadEvent(
+  readEvent: ReadEvent,
   onEvent: (output: AllEvents) => void
 ): void {
-  const { serverHost, syncKey } = checkEvent
+  const { serverHost, syncKey } = readEvent
   const repoState = state.repos.get(syncKey)
 
   const repoReadTime = endInstrument(repoReadTimeInstrument, Date.now())
@@ -458,13 +458,13 @@ function onCheckEvent(
   if (repoState == null) {
     logger.error({
       msg: 'repo not ready',
-      event: checkEvent,
+      event: readEvent,
       syncKey
     })
     return
   }
 
-  const status = compareHash(checkEvent.serverRepoHash, repoState.repoHash)
+  const status = compareHash(readEvent.serverRepoHash, repoState.repoHash)
 
   const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, syncKey)
   const wasRepoInSync = getIsRepoSynced(syncKey)
@@ -474,7 +474,7 @@ function onCheckEvent(
   if (status === 'current' && !wasRepoReplicated) {
     onEvent({
       type: 'replication',
-      timestamp: checkEvent.requestTime,
+      timestamp: readEvent.requestTime,
       serverHost,
       syncKey
     })
@@ -487,7 +487,7 @@ function onCheckEvent(
     if (!wasRepoInSync && isRepoSynced) {
       onEvent({
         type: 'repo-sync',
-        timestamp: checkEvent.requestTime,
+        timestamp: readEvent.requestTime,
         syncKey
       })
     }
@@ -495,7 +495,7 @@ function onCheckEvent(
     if (!wasServerInSync && isServerInSync) {
       onEvent({
         type: 'server-sync',
-        timestamp: checkEvent.requestTime,
+        timestamp: readEvent.requestTime,
         serverHost
       })
     }
@@ -503,23 +503,23 @@ function onCheckEvent(
     if (!wasNetworkInSync && isNetworkInSync) {
       onEvent({
         type: 'network-sync',
-        timestamp: checkEvent.requestTime
+        timestamp: readEvent.requestTime
       })
     }
   } else if (status === 'behind' && wasRepoReplicated) {
     // If repo was in-sync, then track repo out-of-sync time
     if (wasRepoInSync) {
-      startInstrument(repoState.syncTimeInstrument, checkEvent.requestTime)
+      startInstrument(repoState.syncTimeInstrument, readEvent.requestTime)
     }
 
     // If server was in-sync, then track server out-of-sync time
     if (wasServerInSync) {
-      startInstrument(serverSyncInstrument, checkEvent.requestTime)
+      startInstrument(serverSyncInstrument, readEvent.requestTime)
     }
 
     // If network was in-sync, then track network out-of-sync time
     if (wasNetworkInSync) {
-      startInstrument(networkSyncInstrument, checkEvent.requestTime)
+      startInstrument(networkSyncInstrument, readEvent.requestTime)
     }
 
     setIsRepoInSyncWithServer(serverHost, syncKey, false)
@@ -528,14 +528,14 @@ function onCheckEvent(
       msg: 'behind',
       serverHost,
       syncKey,
-      requestTime: checkEvent.requestTime
+      requestTime: readEvent.requestTime
     })
   } else if (['ahead', 'conflicting'].includes(status)) {
     logger.debug({
       msg: status,
       serverHost,
       syncKey,
-      requestTime: checkEvent.requestTime
+      requestTime: readEvent.requestTime
     })
   }
 }
