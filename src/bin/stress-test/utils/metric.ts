@@ -19,9 +19,17 @@ export const makeMetric = (): Metric => ({
 })
 
 export const addToMetric = (metric: Metric, value: number): void => {
+  if (metric.total === 0) {
+    metric.sum = value
+    metric.avg = value
+    metric.min = value
+    metric.max = value
+  } else {
+    metric.sum += value
+    metric.avg = addToAverage(value, metric.avg, metric.total)
+    metric.min = Math.min(value, metric.min)
+    metric.max = Math.max(value, metric.max)
+  }
   metric.value = value
-  metric.sum += value
-  metric.avg = addToAverage(value, metric.avg, metric.total++)
-  metric.min = Math.min(value, metric.min)
-  metric.max = Math.max(value, metric.max)
+  metric.total += 1
 }
