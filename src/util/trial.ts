@@ -1,3 +1,6 @@
+import { Cleaner } from 'cleaners'
+import { errorCause } from 'edge-server-tools'
+
 /**
  * A functional pattern for try..catch statements. Accepts one or more functions
  * and returns the first function which doesn't throw. Exceptions thrown are
@@ -27,3 +30,17 @@ export const trial = <T>(...funcs: Array<(err?: any) => T>): T => {
 
   throw error
 }
+
+/**
+ * This generic cleaner will return a cleaner that will wrap the error thrown
+ * by the cleaner using errorCause with the a provided casue error (cause).
+ */
+export const asTrialAndError = <T>(cleaner: Cleaner<T>, cause: Error) => (
+  raw: unknown
+): T =>
+  trial(
+    () => cleaner(raw),
+    err => {
+      throw errorCause(err, cause)
+    }
+  )
