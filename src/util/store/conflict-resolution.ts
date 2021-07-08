@@ -58,6 +58,8 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
 export function resolvedDocumentUpdates(
   documents: StoreDocument[]
 ): StoreDocument[] {
+  const docId = documents[0]._id
+
   // Partial sort documents before mutating them
   const [winningDoc, ...losingDocs] = documents
     .slice(1)
@@ -68,7 +70,7 @@ export function resolvedDocumentUpdates(
         // Assertion: left doc should not be undefined.
         if (leftDoc == null)
           throw new Error(
-            'Unexpected error: missing left document in conflict resolution'
+            `Unexpected error: missing left document in conflict resolution for ${docId}`
           )
 
         return trial<StoreDocument[]>(
@@ -103,7 +105,9 @@ export function resolvedDocumentUpdates(
           },
           err => {
             throw errorCause(
-              new Error('Unexpected document types in conflict resolver'),
+              new Error(
+                `Unexpected document types in conflict resolver for '${docId}'`
+              ),
               err
             )
           }
@@ -119,6 +123,8 @@ function mergeStoreDocuments(
   winningDoc: StoreDocument,
   losingDocs: StoreDocument[]
 ): StoreDocument[] {
+  const docId = winningDoc._id
+
   const updatedDocument = trial<StoreDocument>(
     () => {
       const winningStoreFileDoc = asStoreFileDocument(winningDoc)
@@ -137,7 +143,9 @@ function mergeStoreDocuments(
     },
     err => {
       throw errorCause(
-        new Error('Unexpected document types in conflict resolver'),
+        new Error(
+          `Unexpected document types in conflict resolver for '${docId}'`
+        ),
         err
       )
     }
