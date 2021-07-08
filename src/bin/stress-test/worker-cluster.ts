@@ -23,9 +23,7 @@ async function main(): Promise<void> {
 
       worker.on('exit', (code): void => {
         if (code !== null && code !== 0) {
-          throw new Error(
-            `Worker cluster child process exited with code ${String(code)}`
-          )
+          errHandler(new Error(`Worker child exited with code ${String(code)}`))
         }
       })
 
