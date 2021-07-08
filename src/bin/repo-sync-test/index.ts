@@ -28,7 +28,7 @@ import { compareHash } from '../utils/repo-hash'
 import { makeSyncKey, msToPerSeconds } from '../utils/utils'
 import { makeWorkerCluster } from '../utils/worker-cluster'
 import { asConfig, Config, configSample } from './config'
-import { WorkerConfig } from './worker-routine'
+import { WorkerConfig } from './worker'
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? 'info'
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   // spawn
   const workerCluster = makeWorkerCluster(
-    join(__dirname, 'worker-routine'),
+    join(__dirname, 'worker'),
     payload => {
       try {
         onEvent(asAllEvents(payload))
