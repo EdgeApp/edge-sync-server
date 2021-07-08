@@ -11,8 +11,7 @@ import {
   send,
   throttle
 } from '../utils/utils'
-
-process.title = 'worker'
+import { startWorkerCluster } from '../utils/worker-cluster'
 
 // State
 let updatesDone = 0
@@ -55,6 +54,9 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   // Run the checker
   checker(config, syncClients).catch(errHandler)
 }
+
+// Start worker cluster
+startWorkerCluster(workerRoutine, asWorkerConfig)
 
 // Creates repo if it does not exist.
 const getRepoReady = async (
@@ -311,41 +313,6 @@ function isMaxUpdatesReach(config: WorkerConfig): boolean {
   return (
     config.maxUpdatesPerRepo === 0 || updatesDone < config.maxUpdatesPerRepo
   )
-}
-
-// Startup:
-
-if (require.main === module) {
-  try {
-    const jsonArg = process.argv[2]
-
-    if (jsonArg == null) {
-      throw new Error('Missing json config argument.')
-    }
-
-    let config: WorkerConfig
-
-    try {
-      config = asWorkerConfig(JSON.parse(jsonArg))
-    } catch (error) {
-      if (error instanceof Error)
-        throw new Error(`Invalid JSON config argument: ${error.message}`)
-      throw error
-    }
-
-    workerRoutine(config).catch(errHandler)
-  } catch (error) {
-    if (error instanceof TypeError) {
-      send(new Error(`Invalid JSON config argument: ${error.message}`))
-    } else {
-      send(error)
-    }
-  }
-
-  process.on('unhandledRejection', error => {
-    send(`UNHANDLED PROMISE!!!`)
-    if (error instanceof Error) errHandler(error)
-  })
 }
 
 function errHandler(err: Error): void {

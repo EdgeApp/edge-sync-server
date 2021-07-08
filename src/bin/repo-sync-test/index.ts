@@ -140,7 +140,7 @@ async function main(): Promise<void> {
   // Worker Cluster Process
   // ---------------------------------------------------------------------
   // spawn
-  const workerCluster = fork(join(__dirname, 'worker-cluster'))
+  const workerCluster = fork(join(__dirname, 'worker-routine'))
   // events
   workerCluster.on('message', payload => {
     try {
