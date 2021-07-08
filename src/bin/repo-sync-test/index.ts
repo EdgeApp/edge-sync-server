@@ -1,4 +1,4 @@
-import { ChildProcess, fork } from 'child_process'
+import { ChildProcess } from 'child_process'
 import { makeConfig } from 'cleaner-config'
 import minimist from 'minimist'
 import { join } from 'path'
@@ -26,6 +26,7 @@ import { addToMetric, makeMetric } from '../utils/metric'
 import { prettyPrintObject } from '../utils/printing'
 import { compareHash } from '../utils/repo-hash'
 import { makeSyncKey, msToPerSeconds } from '../utils/utils'
+import { makeWorkerCluster } from '../utils/worker-cluster'
 import { asConfig, Config, configSample } from './config'
 import { WorkerConfig } from './worker-routine'
 
@@ -140,25 +141,18 @@ async function main(): Promise<void> {
   // Worker Cluster Process
   // ---------------------------------------------------------------------
   // spawn
-  const workerCluster = fork(join(__dirname, 'worker-routine'))
-  // events
-  workerCluster.on('message', payload => {
-    try {
-      const output = asAllEvents(payload)
-      onEvent(output)
-    } catch (err) {
-      logger.error({ msg: 'worker cluster output error', err, payload })
-      exit('worker exception')
-    }
-  })
-  workerCluster.on('exit', (code): void => {
-    if (code !== null && code !== 0) {
-      exit(
-        'worker exception',
-        new Error(`Worker master exited with code ${String(code)}`)
-      )
-    }
-  })
+  const workerCluster = makeWorkerCluster(
+    join(__dirname, 'worker-routine'),
+    payload => {
+      try {
+        onEvent(asAllEvents(payload))
+      } catch (err) {
+        logger.error({ msg: 'worker cluster output error', err, payload })
+        exit('worker exception')
+      }
+    },
+    err => exit('worker exception', err)
+  )
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
@@ -337,6 +331,7 @@ function startWorkerRoutine(
 }
 
 function onEvent(event: AllEvents): void {
+  logger.debug({ msg: event.type, ...event })
   switch (event.type) {
     case 'error':
       logger.warn({ err: event.err, process: event.process })

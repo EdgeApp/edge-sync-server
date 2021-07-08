@@ -1,9 +1,28 @@
-import { Serializable } from 'child_process'
+import { ChildProcess, fork, Serializable } from 'child_process'
 import { asMaybe, Cleaner } from 'cleaners'
 import cluster from 'cluster'
 import os from 'os'
 
 import { send } from './utils'
+
+export function makeWorkerCluster(
+  workerFile: string,
+  onEvent: (payload: Serializable) => void,
+  onError: (err: Error) => void = () => {}
+): ChildProcess {
+  const workerCluster = fork(workerFile)
+  // events
+  workerCluster.on('message', payload => {
+    onEvent(payload)
+  })
+  workerCluster.on('exit', (code): void => {
+    if (code !== null && code !== 0) {
+      onError(new Error(`Worker master exited with code ${String(code)}`))
+    }
+  })
+
+  return workerCluster
+}
 
 export function startWorkerCluster<T extends Serializable>(
   workerRoutine: (settings: T) => Promise<void>,
