@@ -1,5 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { makeConfig } from 'cleaner-config'
+import { makePeriodicTask, PeriodicTask } from 'edge-server-tools'
 import minimist from 'minimist'
 import { join } from 'path'
 import pino from 'pino'
@@ -75,88 +76,92 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   syncKeys.forEach(syncKey => startWorkerRoutine(workerCluster, syncKey))
 
-  const intervalIds: NodeJS.Timeout[] = []
-
-  // Increase repo count every minute
-  function repoCountIncreaser(): void {
-    const numOfActiveRepos = state.syncKeys.length
-    const numOfActiveReposUpdated = Math.min(
-      numOfActiveRepos * config.repoCountIncreaseRatePerMin,
-      config.maxRepoCount
-    )
-    const numOfNewRepos = Math.round(numOfActiveReposUpdated - numOfActiveRepos)
-
-    if (numOfActiveRepos + numOfNewRepos > config.maxRepoCount) {
-      return
-    }
-
-    logger.debug({ msg: 'repo-increase', numOfNewRepos })
-
-    for (let i = 0; i < numOfNewRepos; ++i) {
-      const newSyncKey = makeSyncKey(
-        state.syncKeys.length,
-        config.syncKeyPrefix
+  const tasks: PeriodicTask[] = [
+    // Increase repo count every minute
+    makePeriodicTask(function repoCountIncreaser(): void {
+      const numOfActiveRepos = state.syncKeys.length
+      const numOfActiveReposUpdated = Math.min(
+        numOfActiveRepos * config.repoCountIncreaseRatePerMin,
+        config.maxRepoCount
       )
-      startWorkerRoutine(workerCluster, newSyncKey)
-      logger.debug({ msg: 'new-repo', newSyncKey })
-    }
-  }
-  intervalIds.push(setInterval(repoCountIncreaser, 60000))
+      const numOfNewRepos = Math.round(
+        numOfActiveReposUpdated - numOfActiveRepos
+      )
 
-  // Log a status every 30 seconds
-  function logStatus(): void {
-    logger.info({ msg: 'status', ...getStatus() })
-  }
-  intervalIds.push(setInterval(logStatus, 30000))
+      if (numOfActiveRepos + numOfNewRepos > config.maxRepoCount) {
+        return
+      }
 
-  // Console updater
-  function consoleUpdater(): void {
-    const status = getStatus()
-    logger.trace({
-      msg: 'console',
-      status: [
-        prettyPrintObject({
-          'Repo count': status.repos.count
-        }),
-        prettyPrintObject({
-          'Total updates': `${status.updates.total}`,
-          'Avg repo update time': `${status.updates.avgEvery}`,
-          'Avg repo update per min': `${status.updates.avgPerMin}`
-        }),
-        prettyPrintObject({
-          'Total reads': `${status.reads.total}`,
-          'Avg repo read time': `${status.reads.avgEvery}`,
-          'Avg repo read per min': `${status.reads.avgPerMin}`
-        }),
-        prettyPrintObject({
-          'Total bytes sent': `${status.payload.total}`,
-          'Avg bytes sent': `${status.payload.avg}`,
-          'Max bytes sent': `${status.payload.max}`,
-          'Min bytes sent': `${status.payload.min}`
-        }),
-        prettyPrintObject({
-          'Time Elapsed': status.timeElapsed
-        })
-      ]
-    })
-  }
-  intervalIds.push(setInterval(consoleUpdater, 100))
+      logger.debug({ msg: 'repo-increase', numOfNewRepos })
 
-  // Exit conditions
-  function exitConditionChecker(): void {
-    if (config.maxTimeElapse !== 0 && getTimeElapsed() > config.maxTimeElapse) {
-      exitGracefully('exceeded max time elapsed')
-    }
-  }
-  intervalIds.push(setInterval(exitConditionChecker, 100))
+      for (let i = 0; i < numOfNewRepos; ++i) {
+        const newSyncKey = makeSyncKey(
+          state.syncKeys.length,
+          config.syncKeyPrefix
+        )
+        startWorkerRoutine(workerCluster, newSyncKey)
+        logger.debug({ msg: 'new-repo', newSyncKey })
+      }
+    }, 60000),
+
+    // Log a status every 30 seconds
+    makePeriodicTask(function logStatus(): void {
+      logger.info({ msg: 'status', ...getStatus() })
+    }, 30000),
+
+    // Console updater
+    makePeriodicTask(function consoleUpdater(): void {
+      const status = getStatus()
+      logger.trace({
+        msg: 'console',
+        status: [
+          prettyPrintObject({
+            'Repo count': status.repos.count
+          }),
+          prettyPrintObject({
+            'Total updates': `${status.updates.total}`,
+            'Avg repo update time': `${status.updates.avgEvery}`,
+            'Avg repo update per min': `${status.updates.avgPerMin}`
+          }),
+          prettyPrintObject({
+            'Total reads': `${status.reads.total}`,
+            'Avg repo read time': `${status.reads.avgEvery}`,
+            'Avg repo read per min': `${status.reads.avgPerMin}`
+          }),
+          prettyPrintObject({
+            'Total bytes sent': `${status.payload.total}`,
+            'Avg bytes sent': `${status.payload.avg}`,
+            'Max bytes sent': `${status.payload.max}`,
+            'Min bytes sent': `${status.payload.min}`
+          }),
+          prettyPrintObject({
+            'Time Elapsed': status.timeElapsed
+          })
+        ]
+      })
+    }, 100),
+
+    // Exit conditions
+    makePeriodicTask(function exitConditionChecker(): void {
+      if (
+        config.maxTimeElapse !== 0 &&
+        getTimeElapsed() > config.maxTimeElapse
+      ) {
+        exitGracefully('exceeded max time elapsed')
+      }
+    }, 100)
+  ]
+
+  // Start all tasks
+  tasks.forEach(task => task.start())
 
   // Exits process by killing workers and stopping intervalIds before exiting
   function exitGracefully(reason: string): void {
     // Exit all worker processes
     workerCluster.kill('SIGTERM')
 
-    // Stop all intervals
-    intervalIds.forEach(intervalId => clearInterval(intervalId))
+    // Stop all tasks
+    tasks.forEach(task => task.stop())
 
     // exit process
     exit(reason)
