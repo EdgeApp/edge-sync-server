@@ -3,10 +3,7 @@ import { randomInt } from 'crypto'
 import fetch, { Response as FetchResponse } from 'node-fetch'
 import { URL } from 'url'
 
-import {
-  asServerErrorResponse,
-  ServerErrorResponse
-} from '../../types/primitive-types'
+import { asServerErrorResponse } from '../../types/primitive-types'
 import { trial } from '../../util/trial'
 import { withRetries } from '../../util/with-retries'
 import {
@@ -19,26 +16,41 @@ import {
   PostStoreResponse,
   PutStoreResponse
 } from '../../v2/types'
-import { compareHash } from './utils/repo-hash'
-import { randomBytes, randomPath } from './utils/utils'
+import { compareHash } from './repo-hash'
+import { shuffle } from './shuffle'
+import { randomBytes, randomPath, RequestError } from './utils'
 
 export class SyncClient {
-  baseUrl: string
-  clusterName: string
+  serverUrls: string[]
   repoHashes: { [syncKey: string]: string }
   repoFilePaths: { [syncKey: string]: Set<string> }
-  host: string
 
-  constructor(baseUrl: string, clusterName: string = '') {
-    this.baseUrl = baseUrl
-    this.clusterName = clusterName
+  private lastUsedServerUrl: string = ''
+
+  constructor(serverUrls: string[]) {
+    this.serverUrls = shuffle(serverUrls)
     this.repoHashes = {}
     this.repoFilePaths = {}
-    this.host = this.endpoint('').host
   }
 
+  /**
+   * Returns a full URL given just a path. Picks the next serverUrl in the
+   * list of serverUrls in a round-robin fashion.
+   */
   endpoint(path: string): URL {
-    return new URL(path, this.baseUrl)
+    const lastIndex = this.serverUrls.indexOf(this.lastUsedServerUrl)
+    const nextIndex =
+      lastIndex !== -1 ? (lastIndex + 1) % this.serverUrls.length : 0
+    this.lastUsedServerUrl = this.serverUrls[nextIndex]
+
+    return new URL(path, this.lastUsedServerUrl)
+  }
+
+  lastUsedHost(): string {
+    if (this.lastUsedServerUrl === '') {
+      throw new Error('Cannot get last used host on unused SyncClient')
+    }
+    return new URL('/', this.lastUsedServerUrl).host
   }
 
   async request<ResponseType>(
@@ -254,18 +266,5 @@ export class SyncClient {
         this.repoFilePaths[syncKey] = new Set()
       this.repoFilePaths[syncKey].delete(path)
     }
-  }
-}
-
-export class RequestError extends Error {
-  response: ServerErrorResponse
-  request: any
-
-  constructor(request: any, response: ServerErrorResponse) {
-    const url: string = request.url.href
-    super(`Request to '${url}' failed: ${response.message}`)
-    this.name = 'RequestError'
-    this.request = request
-    this.response = response
   }
 }

@@ -1,33 +1,34 @@
-import { ChildProcess, fork } from 'child_process'
+import { ChildProcess } from 'child_process'
 import { makeConfig } from 'cleaner-config'
 import minimist from 'minimist'
 import { join } from 'path'
 import pino from 'pino'
 
-import { asConfig, Config, configSample } from './config'
 import {
   AllEvents,
   asAllEvents,
-  CheckEvent,
   NetworkSyncEvent,
+  ReadEvent,
   ReadyEvent,
   ReplicationEvent,
   RepoSyncEvent,
   ServerSyncEvent,
-  UpdateEvent,
-  WorkerConfig
-} from './types'
+  UpdateEvent
+} from '../types/shared-events'
 import {
   endInstrument,
   Instrument,
   makeInstrument,
   measureInstrument,
   startInstrument
-} from './utils/instrument'
-import { addToMetric, makeMetric } from './utils/metric'
-import { prettyPrintObject } from './utils/printing'
-import { compareHash } from './utils/repo-hash'
-import { makeSyncKey, msToPerSeconds } from './utils/utils'
+} from '../utils/instrument'
+import { addToMetric, makeMetric } from '../utils/metric'
+import { prettyPrintObject } from '../utils/printing'
+import { compareHash } from '../utils/repo-hash'
+import { makeSyncKey, msToPerSeconds } from '../utils/utils'
+import { makeWorkerCluster } from '../utils/worker-cluster'
+import { asConfig, Config, configSample } from './config'
+import { WorkerConfig } from './worker'
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? 'info'
@@ -111,7 +112,7 @@ const networkSyncInstrument = makeInstrument()
 let state: State
 
 async function main(): Promise<void> {
-  logger.info({ msg: 'starting stress test', config })
+  logger.info({ msg: 'starting repo-sync test', config })
 
   // Initialize state
   state = {
@@ -140,25 +141,18 @@ async function main(): Promise<void> {
   // Worker Cluster Process
   // ---------------------------------------------------------------------
   // spawn
-  const workerCluster = fork(join(__dirname, 'worker-cluster'))
-  // events
-  workerCluster.on('message', payload => {
-    try {
-      const output = asAllEvents(payload)
-      onEvent(output)
-    } catch (err) {
-      logger.error({ msg: 'worker cluster output error', err, payload })
-      exit('worker exception')
-    }
-  })
-  workerCluster.on('exit', (code): void => {
-    if (code !== null && code !== 0) {
-      exit(
-        'worker exception',
-        new Error(`Worker master exited with code ${String(code)}`)
-      )
-    }
-  })
+  const workerCluster = makeWorkerCluster(
+    join(__dirname, 'worker'),
+    payload => {
+      try {
+        onEvent(asAllEvents(payload))
+      } catch (err) {
+        logger.error({ msg: 'worker cluster output error', err, payload })
+        exit('worker exception')
+      }
+    },
+    err => exit('worker exception', err)
+  )
 
   // Start Inital Worker Routines
   // ---------------------------------------------------------------------
@@ -243,7 +237,7 @@ async function main(): Promise<void> {
     ]
 
     logger.trace({
-      msg: 'status',
+      msg: 'console',
       status: [
         ...statusHeader,
         prettyPrintObject({
@@ -337,6 +331,7 @@ function startWorkerRoutine(
 }
 
 function onEvent(event: AllEvents): void {
+  logger.debug({ msg: event.type, ...event })
   switch (event.type) {
     case 'error':
       logger.warn({ err: event.err, process: event.process })
@@ -350,8 +345,8 @@ function onEvent(event: AllEvents): void {
     case 'update':
       onUpdateEvent(event)
       break
-    case 'check':
-      onCheckEvent(event, onEvent)
+    case 'read':
+      onReadEvent(event, onEvent)
       break
     case 'replication':
       onReplication(event)
@@ -443,11 +438,11 @@ function onUpdateEvent(updateEvent: UpdateEvent): void {
   })
 }
 
-function onCheckEvent(
-  checkEvent: CheckEvent,
+function onReadEvent(
+  readEvent: ReadEvent,
   onEvent: (output: AllEvents) => void
 ): void {
-  const { serverHost, syncKey } = checkEvent
+  const { serverHost, syncKey } = readEvent
   const repoState = state.repos.get(syncKey)
 
   const repoReadTime = endInstrument(repoReadTimeInstrument, Date.now())
@@ -458,13 +453,13 @@ function onCheckEvent(
   if (repoState == null) {
     logger.error({
       msg: 'repo not ready',
-      event: checkEvent,
+      event: readEvent,
       syncKey
     })
     return
   }
 
-  const status = compareHash(checkEvent.serverRepoHash, repoState.repoHash)
+  const status = compareHash(readEvent.serverRepoHash, repoState.repoHash)
 
   const wasRepoReplicated = getIsRepoInSyncWithServer(serverHost, syncKey)
   const wasRepoInSync = getIsRepoSynced(syncKey)
@@ -474,7 +469,7 @@ function onCheckEvent(
   if (status === 'current' && !wasRepoReplicated) {
     onEvent({
       type: 'replication',
-      timestamp: checkEvent.requestTime,
+      timestamp: readEvent.requestTime,
       serverHost,
       syncKey
     })
@@ -487,7 +482,7 @@ function onCheckEvent(
     if (!wasRepoInSync && isRepoSynced) {
       onEvent({
         type: 'repo-sync',
-        timestamp: checkEvent.requestTime,
+        timestamp: readEvent.requestTime,
         syncKey
       })
     }
@@ -495,7 +490,7 @@ function onCheckEvent(
     if (!wasServerInSync && isServerInSync) {
       onEvent({
         type: 'server-sync',
-        timestamp: checkEvent.requestTime,
+        timestamp: readEvent.requestTime,
         serverHost
       })
     }
@@ -503,23 +498,23 @@ function onCheckEvent(
     if (!wasNetworkInSync && isNetworkInSync) {
       onEvent({
         type: 'network-sync',
-        timestamp: checkEvent.requestTime
+        timestamp: readEvent.requestTime
       })
     }
   } else if (status === 'behind' && wasRepoReplicated) {
     // If repo was in-sync, then track repo out-of-sync time
     if (wasRepoInSync) {
-      startInstrument(repoState.syncTimeInstrument, checkEvent.requestTime)
+      startInstrument(repoState.syncTimeInstrument, readEvent.requestTime)
     }
 
     // If server was in-sync, then track server out-of-sync time
     if (wasServerInSync) {
-      startInstrument(serverSyncInstrument, checkEvent.requestTime)
+      startInstrument(serverSyncInstrument, readEvent.requestTime)
     }
 
     // If network was in-sync, then track network out-of-sync time
     if (wasNetworkInSync) {
-      startInstrument(networkSyncInstrument, checkEvent.requestTime)
+      startInstrument(networkSyncInstrument, readEvent.requestTime)
     }
 
     setIsRepoInSyncWithServer(serverHost, syncKey, false)
@@ -528,14 +523,14 @@ function onCheckEvent(
       msg: 'behind',
       serverHost,
       syncKey,
-      requestTime: checkEvent.requestTime
+      requestTime: readEvent.requestTime
     })
   } else if (['ahead', 'conflicting'].includes(status)) {
     logger.debug({
       msg: status,
       serverHost,
       syncKey,
-      requestTime: checkEvent.requestTime
+      requestTime: readEvent.requestTime
     })
   }
 }
@@ -757,7 +752,7 @@ try {
   const argv = minimist(process.argv.slice(2))
   const jsonArg = argv._[0]
   const configJson: string | undefined = jsonArg
-  const configFile = argv.config ?? 'config.stress.json'
+  const configFile = process.env.CONFIG ?? 'config.test.repo-sync.json'
 
   try {
     if (configJson == null) {
@@ -775,9 +770,9 @@ try {
         `Config error: ${errMessage}`,
         ``,
         `Usage:`,
-        `  yarn test.stress`,
-        `  CONFIG=config.custom.json yarn test.stress`,
-        `  yarn test.stress $json`,
+        `  yarn test.repo-sync`,
+        `  CONFIG=config.custom.json yarn test.repo-sync`,
+        `  yarn test.repo-sync $json`,
         ``,
         `Example JSON Config:`,
         JSON.stringify(configSample, null, 2)
@@ -816,7 +811,7 @@ function exit(reason: string, error?: Error): void {
   }
 
   // Log reason for exiting
-  logger.info({ msg: 'finished stress tests', reason })
+  logger.info({ msg: 'finished repo-sync tests', reason })
 
   process.exit(error == null ? 0 : 1)
 }

@@ -1,13 +1,8 @@
+import { asArray, asMap, asNumber, asObject, asString } from 'cleaners'
 import { randomInt } from 'crypto'
 
-import { SyncClient } from './SyncClient'
-import {
-  asWorkerConfig,
-  CheckEvent,
-  ReadyEvent,
-  UpdateEvent,
-  WorkerConfig
-} from './types'
+import { ReadEvent, ReadyEvent, UpdateEvent } from '../types/shared-events'
+import { SyncClient } from '../utils/SyncClient'
 import {
   delay,
   isErrorWorthRetry,
@@ -15,23 +10,33 @@ import {
   randomElement,
   send,
   throttle
-} from './utils/utils'
-
-process.title = 'worker'
+} from '../utils/utils'
+import { startWorkerCluster } from '../utils/worker-cluster'
 
 // State
 let updatesDone = 0
 let lastUpdateHash = ''
 let isRepoSynced: boolean = true
 
+export type WorkerConfig = ReturnType<typeof asWorkerConfig>
+export const asWorkerConfig = asObject({
+  clusters: asMap(asArray(asString)),
+  syncKey: asString,
+  repoUpdatesPerMin: asNumber,
+  repoReadsPerMin: asNumber,
+  repoCheckDelayInSeconds: asNumber,
+  repoUpdateIncreaseRate: asNumber,
+  maxUpdatesPerRepo: asNumber,
+  fileByteSizeRange: asArray(asNumber),
+  fileCountRange: asArray(asNumber)
+})
+
 // Main Function
 export async function workerRoutine(config: WorkerConfig): Promise<void> {
   // Create sync clients
-  const syncClients = Object.entries(config.clusters).reduce<SyncClient[]>(
-    (syncClients, [clusterName, urls]) => {
-      const clients = urls.map(
-        serverUrl => new SyncClient(serverUrl, clusterName)
-      )
+  const syncClients = Object.values(config.clusters).reduce<SyncClient[]>(
+    (syncClients, urls) => {
+      const clients = urls.map(serverUrl => new SyncClient([serverUrl]))
       return [...syncClients, ...clients]
     },
     []
@@ -50,6 +55,9 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   checker(config, syncClients).catch(errHandler)
 }
 
+// Start worker cluster
+startWorkerCluster(workerRoutine, asWorkerConfig)
+
 // Creates repo if it does not exist.
 const getRepoReady = async (
   sync: SyncClient,
@@ -64,7 +72,7 @@ const getRepoReady = async (
 
     return {
       type: 'ready',
-      serverHost: sync.host,
+      serverHost: sync.lastUsedHost(),
       syncKey,
       requestTime,
       serverRepoHash
@@ -77,7 +85,7 @@ const getRepoReady = async (
 
       return {
         type: 'ready',
-        serverHost: sync.host,
+        serverHost: sync.lastUsedHost(),
         syncKey,
         requestTime,
         serverRepoHash
@@ -111,7 +119,6 @@ async function updateRepo(
   syncClients: SyncClient[]
 ): Promise<UpdateEvent> {
   const sync = randomElement(syncClients)
-  const serverHost = sync.host
   const syncKey = config.syncKey
   const fileCount = randomInt(
     config.fileCountRange[0],
@@ -131,6 +138,7 @@ async function updateRepo(
 
     // Write update
     const response = await sync.updateFiles(syncKey, changeSet)
+    const serverHost = sync.lastUsedHost()
     const serverRepoHash = response.hash
     const requestTime = Date.now()
 
@@ -177,14 +185,14 @@ const reader = (
 async function readRepo(
   config: WorkerConfig,
   syncClients: SyncClient[]
-): Promise<CheckEvent> {
+): Promise<ReadEvent> {
   const sync = randomElement(syncClients)
-  const serverHost = sync.host
   const syncKey = config.syncKey
 
   try {
     // Read repo
     const response = await sync.getUpdates(syncKey)
+    const serverHost = sync.lastUsedHost()
     const serverRepoHash = response.hash
     const requestTime = Date.now()
 
@@ -193,7 +201,7 @@ async function readRepo(
     // Send a check event just because we can.
     // We might as well use the response to help with metrics.
     return {
-      type: 'check',
+      type: 'read',
       serverHost,
       syncKey,
       requestTime,
@@ -224,16 +232,16 @@ const checker = async (
       )
       .map(sync => checkServerStatus({ sync, syncKey: config.syncKey }))
   )
-    .then(checkResponses => {
-      const checkEvents = checkResponses.filter(
-        (checkResponse): checkResponse is CheckEvent => checkResponse != null
+    .then(readResponses => {
+      const readEvents = readResponses.filter(
+        (readResponse): readResponse is ReadEvent => readResponse != null
       )
-      checkEvents.forEach(checkEvent => {
-        send(checkEvent)
+      readEvents.forEach(readEvent => {
+        send(readEvent)
       })
 
-      const serverRepoHashes = checkEvents.map(
-        checkEvent => checkEvent.serverRepoHash
+      const serverRepoHashes = readEvents.map(
+        readEvent => readEvent.serverRepoHash
       )
 
       const wasRepoSynced = isRepoSynced
@@ -267,7 +275,7 @@ interface CheckServerStatusProps {
 async function checkServerStatus({
   sync,
   syncKey
-}: CheckServerStatusProps): Promise<CheckEvent | undefined> {
+}: CheckServerStatusProps): Promise<ReadEvent | undefined> {
   const requestTime = Date.now()
 
   try {
@@ -276,8 +284,8 @@ async function checkServerStatus({
     const serverRepoHash: string = response.hash
 
     return {
-      type: 'check',
-      serverHost: sync.host,
+      type: 'read',
+      serverHost: sync.lastUsedHost(),
       syncKey,
       requestTime,
       serverRepoHash
@@ -289,8 +297,8 @@ async function checkServerStatus({
 
     if (isRepoNotFoundError(error)) {
       return {
-        type: 'check',
-        serverHost: sync.host,
+        type: 'read',
+        serverHost: sync.lastUsedHost(),
         syncKey,
         requestTime,
         serverRepoHash: ''
@@ -305,41 +313,6 @@ function isMaxUpdatesReach(config: WorkerConfig): boolean {
   return (
     config.maxUpdatesPerRepo === 0 || updatesDone < config.maxUpdatesPerRepo
   )
-}
-
-// Startup:
-
-if (require.main === module) {
-  try {
-    const jsonArg = process.argv[2]
-
-    if (jsonArg == null) {
-      throw new Error('Missing json config argument.')
-    }
-
-    let config: WorkerConfig
-
-    try {
-      config = asWorkerConfig(JSON.parse(jsonArg))
-    } catch (error) {
-      if (error instanceof Error)
-        throw new Error(`Invalid JSON config argument: ${error.message}`)
-      throw error
-    }
-
-    workerRoutine(config).catch(errHandler)
-  } catch (error) {
-    if (error instanceof TypeError) {
-      send(new Error(`Invalid JSON config argument: ${error.message}`))
-    } else {
-      send(error)
-    }
-  }
-
-  process.on('unhandledRejection', error => {
-    send(`UNHANDLED PROMISE!!!`)
-    if (error instanceof Error) errHandler(error)
-  })
 }
 
 function errHandler(err: Error): void {

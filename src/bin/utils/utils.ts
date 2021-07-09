@@ -1,9 +1,8 @@
 import { randomInt } from 'crypto'
 
-import { RequestError } from '../SyncClient'
-import { AllEvents } from '../types'
+import { ServerErrorResponse } from '../../types/primitive-types'
 
-export const send = (...args: Array<AllEvents | string | Error>): void => {
+export const send = (...args: any[]): void => {
   if (process.send != null) {
     const serializedArgs = args.map(arg =>
       typeof arg === 'string'
@@ -101,4 +100,17 @@ export const addToAverage = (
 
 export const msToPerSeconds = (ms: number): number => {
   return ms !== 0 ? 1000 / ms : 0
+}
+
+export class RequestError extends Error {
+  response: ServerErrorResponse
+  request: any
+
+  constructor(request: any, response: ServerErrorResponse) {
+    const url: string = request.url.href
+    super(`Request to '${url}' failed: ${response.message}`)
+    this.name = 'RequestError'
+    this.request = request
+    this.response = response
+  }
 }

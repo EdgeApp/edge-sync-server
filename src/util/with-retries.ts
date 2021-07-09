@@ -8,7 +8,7 @@
  */
 export const withRetries = async <T>(
   fn: () => Promise<T>,
-  condition: (err: any) => boolean,
+  condition: (err: any, tries: number) => boolean,
   maxRetries: number = 100
 ): Promise<T> => {
   let result: T
@@ -18,8 +18,7 @@ export const withRetries = async <T>(
     try {
       result = await fn()
     } catch (err) {
-      if (condition(err) && retries !== maxRetries) {
-        retries += 1
+      if (retries !== maxRetries && condition(err, ++retries)) {
         continue
       }
       throw err

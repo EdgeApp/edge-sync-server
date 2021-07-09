@@ -2,13 +2,13 @@ import { spawn } from 'child_process'
 import { makeConfig } from 'cleaner-config'
 import pino from 'pino'
 
-import { asConfig } from '../stress-test/config'
+import { asConfig } from './config'
 
 const logger = pino()
 
 // Config:
 
-const configFile = process.env.CONFIG ?? 'config.stress.json'
+const configFile = process.env.CONFIG ?? 'config.test.repo-sync.json'
 const config = makeConfig(asConfig, configFile)
 
 // Manage repo prefix
@@ -25,7 +25,7 @@ updateRepoPrefix()
 async function main(): Promise<void> {
   const child = spawn('yarn', [
     '-s',
-    'test.stress',
+    'test.repo-sync',
     `${JSON.stringify(config)}`
   ])
 
