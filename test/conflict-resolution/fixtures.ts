@@ -1,7 +1,8 @@
+import { EdgeBox } from '../../src/types/primitive-types'
 import {
   DeletedDocument,
-  StoreDocument,
-  StoreFileDocument
+  StoreData,
+  StoreDocument
 } from '../../src/types/store-types'
 
 interface FixtureTemplate {
@@ -14,14 +15,10 @@ interface CaseTemplate {
 }
 
 interface CaseTemplateMap {
-  [fileDescriptor: string]: FileTemplate | null
+  [fileDescriptor: string]: DocumentTemplate | null
 }
 
-interface FileTemplate {
-  data: string
-  timestamp: number
-  versions: number[]
-}
+type DocumentTemplate = StoreData
 
 interface Fixtures {
   [key: string]: Case
@@ -40,19 +37,19 @@ export const fixtures = parseFixtureTemplate({
   'Can resolve conflict by version': {
     conflicted: {
       'file@1-111': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000001,
         versions: [3, 1]
       },
       'file@1-222': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000002,
         versions: [2, 1]
       }
     },
     resolved: {
       'file@1-111': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000001,
         versions: [3, 2, 1]
       },
@@ -62,19 +59,19 @@ export const fixtures = parseFixtureTemplate({
   'Can resolve conflict by timestamp': {
     conflicted: {
       'file@1-222': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000002,
         versions: [1]
       },
       'file@1-111': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000001,
         versions: [1]
       }
     },
     resolved: {
       'file@1-222': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000002,
         versions: [2, 1]
       },
@@ -84,19 +81,19 @@ export const fixtures = parseFixtureTemplate({
   'Can resolve conflict by rev': {
     conflicted: {
       'file@2-222': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000001,
         versions: [1]
       },
       'file@1-111': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000001,
         versions: [1]
       }
     },
     resolved: {
       'file@2-222': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000001,
         versions: [2, 1]
       },
@@ -106,35 +103,106 @@ export const fixtures = parseFixtureTemplate({
   'Can resolve multiple conflicts': {
     conflicted: {
       'file@2-111': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000003,
         versions: [3, 1]
       },
       'file@1-111': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000001,
         versions: [1]
       },
       'file@2-222': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000002,
         versions: [3, 1]
       },
       'file@2-333': {
-        data: 'loser',
+        box: dataToBox('loser'),
         timestamp: 1000000000004,
         versions: [2, 1]
       }
     },
     resolved: {
       'file@2-111': {
-        data: 'winner',
+        box: dataToBox('winner'),
         timestamp: 1000000000003,
         versions: [4, 3, 2, 1]
       },
       'file@1-111': null,
       'file@2-222': null,
       'file@2-333': null
+    }
+  },
+  'Can resolve repo document conflict': {
+    conflicted: {
+      '/@2-111': {
+        timestamp: 1000000000002,
+        lastGitHash: 'abc',
+        lastGitTime: 123,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      },
+      '/@1-111': {
+        timestamp: 1000000000001,
+        lastGitHash: 'def',
+        lastGitTime: 456,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      }
+    },
+    resolved: {
+      '/@2-111': {
+        timestamp: 1000000000002,
+        lastGitHash: 'abc',
+        lastGitTime: 123,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      },
+      '/@1-111': null
+    }
+  },
+  'Can resolve repo document with multiple conflicts': {
+    conflicted: {
+      '/@3-111': {
+        timestamp: 1000000000003,
+        lastGitHash: 'abc',
+        lastGitTime: 123,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      },
+      '/@1-111': {
+        timestamp: 1000000000001,
+        lastGitHash: 'xxx',
+        lastGitTime: 404,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      },
+      '/@2-111': {
+        timestamp: 1000000000002,
+        lastGitHash: 'xxx',
+        lastGitTime: 404,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      }
+    },
+    resolved: {
+      '/@3-111': {
+        timestamp: 1000000000003,
+        lastGitHash: 'abc',
+        lastGitTime: 123,
+        size: 0,
+        sizeLastCreated: 0,
+        maxSize: 0
+      },
+      '/@2-111': null,
+      '/@1-111': null
     }
   }
 })
@@ -154,37 +222,34 @@ function parseFixtureTemplate(fixtureTemplate: FixtureTemplate): Fixtures {
 
 function caseTemplateMapToCaseMap(caseTemplateMap: CaseTemplateMap): CaseMap {
   return Object.entries(caseTemplateMap).reduce<CaseMap>(
-    (caseMap, [fileDescriptor, fileTemplate]) => {
-      caseMap[fileDescriptor] = parseFileTemplate(fileDescriptor, fileTemplate)
+    (caseMap, [fileDescriptor, template]) => {
+      caseMap[fileDescriptor] = parseDocumentTemplate(fileDescriptor, template)
       return caseMap
     },
     {}
   )
 }
 
-function parseFileTemplate(
+function parseDocumentTemplate(
   descriptor: string,
-  template: FileTemplate | null
-): StoreFileDocument | DeletedDocument {
+  template: DocumentTemplate | null
+): StoreDocument {
+  const parsedDescriptor = parseDocumentDescriptor(descriptor)
   if (template === null) {
     return {
-      ...parseFileDescriptor(descriptor),
+      ...parsedDescriptor,
       _deleted: true
     }
   }
 
-  const { data, timestamp, versions } = template
-
   return {
-    ...parseFileDescriptor(descriptor),
-    box: { iv_hex: '', encryptionType: 0, data_base64: data },
-    timestamp,
-    versions
+    ...parsedDescriptor,
+    ...template
   }
 }
 
 // descriptor = `${string}:${string}@${number}-${number}`
-function parseFileDescriptor(
+function parseDocumentDescriptor(
   descriptor: string
 ): { _id: string; _rev: string } {
   const [idPart, revPart] = descriptor.split('@')
@@ -199,4 +264,8 @@ export function toFileDescriptor({
   _rev: string
 }): string {
   return `${_id}@${_rev}`
+}
+
+function dataToBox(data: string): EdgeBox {
+  return { iv_hex: '', encryptionType: 0, data_base64: data }
 }

@@ -1,14 +1,17 @@
-import { asArray, asMaybe } from 'cleaners'
-import { bulkGet } from 'edge-server-tools'
+import { asArray } from 'cleaners'
+import { bulkGet, errorCause } from 'edge-server-tools'
 import nano from 'nano'
 
 import { storeDatabaseName } from '../../db/store-db'
 import { AppState } from '../../server'
 import {
   asStoreFileDocument,
+  asStoreRepoDocument,
   StoreDocument,
-  StoreFileDocument
+  StoreFileDocument,
+  StoreRepoDocument
 } from '../../types/store-types'
+import { asTrialAndError, trial } from '../trial'
 
 export const resolveAllDocumentConflicts = (appState: AppState) => async (
   repoId: string
@@ -55,6 +58,8 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
 export function resolvedDocumentUpdates(
   documents: StoreDocument[]
 ): StoreDocument[] {
+  const docId = documents[0]._id
+
   // Partial sort documents before mutating them
   const [winningDoc, ...losingDocs] = documents
     .slice(1)
@@ -65,63 +70,106 @@ export function resolvedDocumentUpdates(
         // Assertion: left doc should not be undefined.
         if (leftDoc == null)
           throw new Error(
-            'Unexpected error: missing left document in conflict resolution'
+            `Unexpected error: missing left document in conflict resolution for ${docId}`
           )
 
-        const leftFileDoc = asMaybe(asStoreFileDocument)(leftDoc)
-        const rightFileDoc = asMaybe(asStoreFileDocument)(rightDoc)
+        return trial<StoreDocument[]>(
+          () => {
+            // // Merge file documents
+            const leftFileDoc = asStoreFileDocument(leftDoc)
+            const rightFileDoc = asStoreFileDocument(rightDoc)
+            const [winningDoc, losingDoc] = sortStoreFileDocuments(
+              leftFileDoc,
+              rightFileDoc
+            )
+            return [winningDoc, losingDoc, ...sortedDocuments]
+          },
+          err => {
+            if (!(err instanceof TypeError)) throw err
 
-        // Merge file documents
-        if (leftFileDoc != null && rightFileDoc != null) {
-          const [winningDoc, losingDoc] = sortStoreFileDocuments(
-            leftFileDoc,
-            rightFileDoc
-          )
-          return [winningDoc, losingDoc, ...sortedDocuments]
-        }
-
-        // Assert that there should be no deleted documents while resolving conflicts
-        if ('_deleted' in leftDoc || '_deleted' in rightDoc) {
-          throw new Error(`Unexpected deleted document in conflict resolution`)
-        }
-
-        // Unknown document types
-        throw new Error('Unexpected document types in conflict resolver')
+            // Merge repo documents
+            const leftRepoDoc = asTrialAndError(
+              asStoreRepoDocument,
+              err
+            )(leftDoc)
+            const rightRepoDoc = asTrialAndError(
+              asStoreRepoDocument,
+              err
+            )(rightDoc)
+            // Pick the
+            const [winningDoc, losingDoc] = sortStoreRepoDocuments(
+              leftRepoDoc,
+              rightRepoDoc
+            )
+            return [winningDoc, losingDoc, ...sortedDocuments]
+          },
+          err => {
+            throw errorCause(
+              new Error(
+                `Unexpected document types in conflict resolver for '${docId}'`
+              ),
+              err
+            )
+          }
+        )
       },
       [documents[0]]
     )
 
-  const winningStoreFileDoc = asMaybe(asStoreFileDocument)(winningDoc)
-  const losingStoreFileDocs = asMaybe(asArray(asStoreFileDocument))(losingDocs)
+  return mergeStoreDocuments(winningDoc, losingDocs)
+}
 
-  if (winningStoreFileDoc != null && losingStoreFileDocs != null) {
-    mergeStoreFileDocuments(winningStoreFileDoc, losingStoreFileDocs)
-  } else {
-    throw new Error('Unexpected document types in conflict resolver')
-  }
+function mergeStoreDocuments(
+  winningDoc: StoreDocument,
+  losingDocs: StoreDocument[]
+): StoreDocument[] {
+  const docId = winningDoc._id
 
-  const updatedDocuments = [
-    winningStoreFileDoc,
-    ...losingDocs.map(makeDeletedDocument)
-  ]
+  const updatedDocument = trial<StoreDocument>(
+    () => {
+      const winningStoreFileDoc = asStoreFileDocument(winningDoc)
+      const losingStoreFileDocs = asArray(asStoreFileDocument)(losingDocs)
+      return mergeStoreFileDocuments(winningStoreFileDoc, losingStoreFileDocs)
+    },
+    err => {
+      if (!(err instanceof TypeError)) throw err
 
-  return updatedDocuments
+      const winningStoreRepoDoc = asTrialAndError(
+        asStoreRepoDocument,
+        err
+      )(winningDoc)
+
+      return winningStoreRepoDoc
+    },
+    err => {
+      throw errorCause(
+        new Error(
+          `Unexpected document types in conflict resolver for '${docId}'`
+        ),
+        err
+      )
+    }
+  )
+
+  return [updatedDocument, ...losingDocs.map(makeDeletedDocument)]
 }
 
 function mergeStoreFileDocuments(
   winningDoc: StoreFileDocument,
   losingDocs: StoreFileDocument[]
-): void {
+): StoreFileDocument {
+  const updatedDocument = { ...winningDoc }
+
   // Count how many losing documents have an equal latest version to the winning
   const sameVersionCount = losingDocs.reduce(
     (count, doc) =>
-      count + (doc.versions[0] === winningDoc.versions[0] ? 1 : 0),
+      count + (doc.versions[0] === updatedDocument.versions[0] ? 1 : 0),
     0
   )
 
   // Merged all file's versions
-  winningDoc.versions = mergeVersions(
-    winningDoc.versions,
+  updatedDocument.versions = mergeVersions(
+    updatedDocument.versions,
     losingDocs.reduce<number[]>(
       (versions, doc) => [...versions, ...doc.versions],
       []
@@ -130,7 +178,11 @@ function mergeStoreFileDocuments(
 
   // Add a new version if conflicts have same latest version
   if (sameVersionCount !== 0)
-    winningDoc.versions.unshift(winningDoc.versions[0] + sameVersionCount)
+    updatedDocument.versions.unshift(
+      updatedDocument.versions[0] + sameVersionCount
+    )
+
+  return updatedDocument
 }
 
 function sortStoreFileDocuments(
@@ -160,6 +212,25 @@ function sortStoreFileDocuments(
       return [leftFileDoc, rightFileDoc]
     } else {
       return [rightFileDoc, leftFileDoc]
+    }
+  }
+}
+
+function sortStoreRepoDocuments(
+  leftRepoDoc: StoreRepoDocument,
+  rightRepoDoc: StoreRepoDocument
+): [StoreDocument, StoreDocument] {
+  if (leftRepoDoc.timestamp !== rightRepoDoc.timestamp) {
+    if (leftRepoDoc.timestamp > rightRepoDoc.timestamp) {
+      return [leftRepoDoc, rightRepoDoc]
+    } else {
+      return [rightRepoDoc, leftRepoDoc]
+    }
+  } else {
+    if (leftRepoDoc._rev > rightRepoDoc._rev) {
+      return [leftRepoDoc, rightRepoDoc]
+    } else {
+      return [rightRepoDoc, leftRepoDoc]
     }
   }
 }
