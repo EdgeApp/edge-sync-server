@@ -27,11 +27,9 @@ let isRepoSynced: boolean = true
 // Main Function
 export async function workerRoutine(config: WorkerConfig): Promise<void> {
   // Create sync clients
-  const syncClients = Object.entries(config.clusters).reduce<SyncClient[]>(
-    (syncClients, [clusterName, urls]) => {
-      const clients = urls.map(
-        serverUrl => new SyncClient(serverUrl, clusterName)
-      )
+  const syncClients = Object.values(config.clusters).reduce<SyncClient[]>(
+    (syncClients, urls) => {
+      const clients = urls.map(serverUrl => new SyncClient([serverUrl]))
       return [...syncClients, ...clients]
     },
     []
@@ -64,7 +62,7 @@ const getRepoReady = async (
 
     return {
       type: 'ready',
-      serverHost: sync.host,
+      serverHost: sync.lastUsedHost(),
       syncKey,
       requestTime,
       serverRepoHash
@@ -77,7 +75,7 @@ const getRepoReady = async (
 
       return {
         type: 'ready',
-        serverHost: sync.host,
+        serverHost: sync.lastUsedHost(),
         syncKey,
         requestTime,
         serverRepoHash
@@ -111,7 +109,6 @@ async function updateRepo(
   syncClients: SyncClient[]
 ): Promise<UpdateEvent> {
   const sync = randomElement(syncClients)
-  const serverHost = sync.host
   const syncKey = config.syncKey
   const fileCount = randomInt(
     config.fileCountRange[0],
@@ -131,6 +128,7 @@ async function updateRepo(
 
     // Write update
     const response = await sync.updateFiles(syncKey, changeSet)
+    const serverHost = sync.lastUsedHost()
     const serverRepoHash = response.hash
     const requestTime = Date.now()
 
@@ -179,12 +177,12 @@ async function readRepo(
   syncClients: SyncClient[]
 ): Promise<ReadEvent> {
   const sync = randomElement(syncClients)
-  const serverHost = sync.host
   const syncKey = config.syncKey
 
   try {
     // Read repo
     const response = await sync.getUpdates(syncKey)
+    const serverHost = sync.lastUsedHost()
     const serverRepoHash = response.hash
     const requestTime = Date.now()
 
@@ -277,7 +275,7 @@ async function checkServerStatus({
 
     return {
       type: 'read',
-      serverHost: sync.host,
+      serverHost: sync.lastUsedHost(),
       syncKey,
       requestTime,
       serverRepoHash
@@ -290,7 +288,7 @@ async function checkServerStatus({
     if (isRepoNotFoundError(error)) {
       return {
         type: 'read',
-        serverHost: sync.host,
+        serverHost: sync.lastUsedHost(),
         syncKey,
         requestTime,
         serverRepoHash: ''

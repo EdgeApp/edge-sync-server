@@ -17,25 +17,40 @@ import {
   PutStoreResponse
 } from '../../v2/types'
 import { compareHash } from '../utils/repo-hash'
+import { shuffle } from '../utils/shuffle'
 import { randomBytes, randomPath, RequestError } from '../utils/utils'
 
 export class SyncClient {
-  baseUrl: string
-  clusterName: string
+  serverUrls: string[]
   repoHashes: { [syncKey: string]: string }
   repoFilePaths: { [syncKey: string]: Set<string> }
-  host: string
 
-  constructor(baseUrl: string, clusterName: string = '') {
-    this.baseUrl = baseUrl
-    this.clusterName = clusterName
+  private lastUsedServerUrl: string = ''
+
+  constructor(serverUrls: string[]) {
+    this.serverUrls = shuffle(serverUrls)
     this.repoHashes = {}
     this.repoFilePaths = {}
-    this.host = this.endpoint('').host
   }
 
+  /**
+   * Returns a full URL given just a path. Picks the next serverUrl in the
+   * list of serverUrls in a round-robin fashion.
+   */
   endpoint(path: string): URL {
-    return new URL(path, this.baseUrl)
+    const lastIndex = this.serverUrls.indexOf(this.lastUsedServerUrl)
+    const nextIndex =
+      lastIndex !== -1 ? (lastIndex + 1) % this.serverUrls.length : 0
+    this.lastUsedServerUrl = this.serverUrls[nextIndex]
+
+    return new URL(path, this.lastUsedServerUrl)
+  }
+
+  lastUsedHost(): string {
+    if (this.lastUsedServerUrl === '') {
+      throw new Error('Cannot get last used host on unused SyncClient')
+    }
+    return new URL('/', this.lastUsedServerUrl).host
   }
 
   async request<ResponseType>(
