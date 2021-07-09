@@ -16,17 +16,23 @@ export const send = (...args: Array<AllEvents | string | Error>): void => {
         ? {
             type: 'error',
             process: process.title,
-            message: arg.message,
-            stack: arg.stack,
-            request: arg.request,
-            response: arg.response
+            err: {
+              name: arg.name,
+              message: arg.message,
+              stack: arg.stack,
+              request: arg.request,
+              response: arg.response
+            }
           }
         : arg instanceof Error
         ? {
             type: 'error',
             process: process.title,
-            message: arg.message,
-            stack: arg.stack
+            err: {
+              name: arg.name,
+              message: arg.message,
+              stack: arg.stack
+            }
           }
         : arg
     )
@@ -69,7 +75,7 @@ export const criticalError = (err: any): void => {
 
 // Error handlers
 
-export const isAcceptableError = (err: any): boolean =>
+export const isErrorWorthRetry = (err: any): boolean =>
   err?.response != null ? isRepoNotFoundError(err) : false
 export const isRepoNotFoundError = (err: any): boolean =>
   /^Repo not found$/.test(err?.response.message)

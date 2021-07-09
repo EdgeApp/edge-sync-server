@@ -18,7 +18,15 @@ export function compareHash(
 
 function parseHashToCheckpoint(hash: string): Checkpoint {
   const checkpoint = hash.split(',')[0]
-  const [version, sum] = checkpoint.split(':')
+  const [versionPart, sumPart] = checkpoint.split(':')
 
-  return { version: parseInt(version), sum: parseInt(sum) }
+  let version = parseInt(versionPart)
+  let sum = parseInt(sumPart)
+
+  if (isNaN(version) || isNaN(sum)) {
+    version = 0
+    sum = 0
+  }
+
+  return { version, sum }
 }

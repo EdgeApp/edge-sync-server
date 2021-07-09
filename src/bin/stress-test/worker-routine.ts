@@ -10,7 +10,7 @@ import {
 } from './types'
 import {
   delay,
-  isAcceptableError,
+  isErrorWorthRetry,
   isRepoNotFoundError,
   randomElement,
   send,
@@ -38,7 +38,7 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
   )
 
   // Create repos
-  await getRepoReady(randomElement(syncClients), config.syncKey)
+  send(await getRepoReady(randomElement(syncClients), config.syncKey))
 
   // Run updater
   updater(config, syncClients).catch(errHandler)
@@ -54,41 +54,37 @@ export async function workerRoutine(config: WorkerConfig): Promise<void> {
 const getRepoReady = async (
   sync: SyncClient,
   syncKey: string
-): Promise<void> => {
+): Promise<ReadyEvent> => {
   try {
-    const response = await sync.createRepo(syncKey)
+    await sync.createRepo(syncKey)
     const requestTime = Date.now()
-    const serverRepoHash: string = response.hash
+    const serverRepoHash: string = ''
 
     lastUpdateHash = serverRepoHash
 
-    const workerOutput: ReadyEvent = {
+    return {
       type: 'ready',
       serverHost: sync.host,
       syncKey,
       requestTime,
       serverRepoHash
     }
-
-    send(workerOutput)
   } catch (error) {
-    if (error?.response?.message !== 'Datastore already exists') {
-      throw error
+    if (error?.response?.message === 'Datastore already exists') {
+      const response = await sync.getUpdates(syncKey)
+      const requestTime = Date.now()
+      const serverRepoHash: string = response.hash
+
+      return {
+        type: 'ready',
+        serverHost: sync.host,
+        syncKey,
+        requestTime,
+        serverRepoHash
+      }
     }
 
-    const response = await sync.getUpdates(syncKey)
-    const requestTime = Date.now()
-    const serverRepoHash = response.hash
-
-    const workerOutput: ReadyEvent = {
-      type: 'ready',
-      serverHost: sync.host,
-      syncKey,
-      requestTime,
-      serverRepoHash
-    }
-
-    send(workerOutput)
+    throw error
   }
 }
 
@@ -98,6 +94,9 @@ const updater = (
 ): Promise<void> => {
   return updateRepo(config, syncClients)
     .then(send)
+    .catch(err => {
+      send(err)
+    })
     .then(() => {
       if (isMaxUpdatesReach(config)) {
         return delay((60 / config.repoUpdatesPerMin) * 1000).then(() =>
@@ -148,7 +147,7 @@ async function updateRepo(
       payloadSize
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 
@@ -163,6 +162,9 @@ const reader = (
 ): Promise<void> => {
   return readRepo(config, syncClients)
     .then(send)
+    .catch(err => {
+      send(err)
+    })
     .then(() => {
       if (isMaxUpdatesReach(config)) {
         return delay((60 / config.repoReadsPerMin) * 1000).then(() =>
@@ -198,7 +200,7 @@ async function readRepo(
       serverRepoHash
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 
@@ -247,6 +249,9 @@ const checker = async (
           config.repoUpdatesPerMin * config.repoUpdateIncreaseRate
       }
     })
+    .catch(err => {
+      send(err)
+    })
     .then(() => {
       if (isMaxUpdatesReach(config) || !isRepoSynced) {
         return checker(config, syncClients)
@@ -278,7 +283,7 @@ async function checkServerStatus({
       serverRepoHash
     }
   } catch (error) {
-    if (!isAcceptableError(error)) {
+    if (!isErrorWorthRetry(error)) {
       throw error
     }
 

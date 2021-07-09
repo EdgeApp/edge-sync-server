@@ -140,28 +140,22 @@ async function main(): Promise<void> {
   // Worker Cluster Process
   // ---------------------------------------------------------------------
   // spawn
-  const workerCluster = fork(join(__dirname, 'worker-cluster.ts'))
+  const workerCluster = fork(join(__dirname, 'worker-cluster'))
   // events
   workerCluster.on('message', payload => {
     try {
       const output = asAllEvents(payload)
       onEvent(output)
-    } catch (error) {
-      if (error instanceof TypeError) {
-        logger.debug('worker payload', { payload })
-        exit(
-          'worker exception',
-          new Error(`Invalid worker cluster output: ${error.message}`)
-        )
-      }
-      exit('worker exception', error)
+    } catch (err) {
+      logger.error({ msg: 'worker cluster output error', err, payload })
+      exit('worker exception')
     }
   })
   workerCluster.on('exit', (code): void => {
     if (code !== null && code !== 0) {
       exit(
         'worker exception',
-        new Error(`Worker cluster process exited with code ${String(code)}`)
+        new Error(`Worker master exited with code ${String(code)}`)
       )
     }
   })
@@ -345,7 +339,7 @@ function startWorkerRoutine(
 function onEvent(event: AllEvents): void {
   switch (event.type) {
     case 'error':
-      logger.warn({ msg: 'error event', event })
+      logger.warn({ err: event.err, process: event.process })
       break
     case 'message':
       logger.info({ msg: 'message', event })

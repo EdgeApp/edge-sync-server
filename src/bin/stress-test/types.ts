@@ -1,62 +1,43 @@
 import {
   asArray,
+  asEither,
   asMap,
   asNumber,
   asObject,
   asString,
-  asUnknown,
-  Cleaner
+  asValue
 } from 'cleaners'
 
-export const asLiteral = <T extends string | number | null | undefined | {}>(
-  literal: T
-) => (raw: any): T => {
-  if (raw !== literal) {
-    throw new TypeError(
-      `Expected ${typeof literal} literal '${JSON.stringify(literal)}'`
-    )
-  }
-  return raw
+export interface ErrorObj extends Error {
+  [key: string]: any
 }
-
-export function asUnion<T extends Array<Cleaner<any>>>(
-  ...cs: readonly [...T]
-): Cleaner<ReturnType<T[number]>> {
-  const exceptions: TypeError[] = []
-
-  return function asUnion(raw: any): ReturnType<T[number]> {
-    let val: ReturnType<T[number]> | undefined
-    cs.forEach(c => {
-      try {
-        val = c(raw)
-      } catch (e) {
-        exceptions.push(e.message)
-      }
-    })
-
-    if (val !== undefined) {
-      return val
-    } else {
-      const message = `Union type\n  ${exceptions.join(' or\n  ')}`
-      throw new TypeError(message)
-    }
-  }
+export const asErrorObj = (raw: any): ErrorObj => {
+  const clean = asObject({
+    name: asString,
+    message: asString,
+    stack: asString
+  }).withRest(raw)
+  const out: ErrorObj = new Error(clean.message)
+  out.message = clean.message
+  out.stack = clean.stack
+  out.name = clean.name
+  Object.entries(clean).forEach(function ([key, value]) {
+    out[key] = value
+  })
+  return out
 }
 
 // Shared error output type
 export type ErrorEvent = ReturnType<typeof asErrorEvent>
 export const asErrorEvent = asObject({
-  type: asLiteral('error'),
+  type: asValue('error'),
   process: asString,
-  message: asString,
-  stack: asString,
-  request: asUnknown,
-  response: asUnknown
+  err: asErrorObj
 })
 
 export type MessageEvent = ReturnType<typeof asMessageEvent>
 export const asMessageEvent = asObject({
-  type: asLiteral('message'),
+  type: asValue('message'),
   process: asString,
   message: asString
 })
@@ -80,7 +61,7 @@ export const asWorkerConfig = asObject({
 
 export type ReadyEvent = ReturnType<typeof asReadyEvent>
 export const asReadyEvent = asObject({
-  type: asLiteral('ready'),
+  type: asValue('ready'),
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
@@ -89,7 +70,7 @@ export const asReadyEvent = asObject({
 
 export type UpdateEvent = ReturnType<typeof asUpdateEvent>
 export const asUpdateEvent = asObject({
-  type: asLiteral('update'),
+  type: asValue('update'),
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
@@ -99,7 +80,7 @@ export const asUpdateEvent = asObject({
 
 export type CheckEvent = ReturnType<typeof asCheckEvent>
 export const asCheckEvent = asObject({
-  type: asLiteral('check'),
+  type: asValue('check'),
   serverHost: asString,
   syncKey: asString,
   requestTime: asNumber,
@@ -108,7 +89,7 @@ export const asCheckEvent = asObject({
 
 export type ReplicationEvent = ReturnType<typeof asReplicationEvent>
 export const asReplicationEvent = asObject({
-  type: asLiteral('replication'),
+  type: asValue('replication'),
   timestamp: asNumber,
   syncKey: asString,
   serverHost: asString
@@ -116,28 +97,28 @@ export const asReplicationEvent = asObject({
 
 export type RepoSyncEvent = ReturnType<typeof asRepoSyncEvent>
 export const asRepoSyncEvent = asObject({
-  type: asLiteral('repo-sync'),
+  type: asValue('repo-sync'),
   timestamp: asNumber,
   syncKey: asString
 })
 
 export type ServerSyncEvent = ReturnType<typeof asServerSyncEvent>
 export const asServerSyncEvent = asObject({
-  type: asLiteral('server-sync'),
+  type: asValue('server-sync'),
   timestamp: asNumber,
   serverHost: asString
 })
 
 export type NetworkSyncEvent = ReturnType<typeof asNetworkSyncEvent>
 export const asNetworkSyncEvent = asObject({
-  type: asLiteral('network-sync'),
+  type: asValue('network-sync'),
   timestamp: asNumber
 })
 
 // Unions
 
 export type AllEvents = ReturnType<typeof asAllEvents>
-export const asAllEvents = asUnion(
+export const asAllEvents = asEither(
   asMessageEvent,
   asErrorEvent,
   asReadyEvent,
