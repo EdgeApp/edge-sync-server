@@ -42,10 +42,12 @@ export function makeServer(appState: AppState): Express {
       return next(err)
     }
 
+    const stack = process.env.NODE_ENV !== 'production' ? err.stack : undefined
+
     const response: ServerErrorResponse = {
       success: false,
       message: err.message,
-      stack: err.stack
+      stack
     }
     res.status(err.status).json(response)
   })
@@ -61,11 +63,13 @@ export function makeServer(appState: AppState): Express {
       params: req.params
     })
 
+    const stack = process.env.NODE_ENV !== 'production' ? err.stack : undefined
+
     // response
     const response: ServerErrorResponse = {
       success: false,
       message: 'Internal server error',
-      stack: err.stack
+      stack
     }
     res.status(500).json(response)
   })
