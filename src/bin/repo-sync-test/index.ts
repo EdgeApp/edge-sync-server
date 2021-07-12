@@ -1,5 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { makeConfig } from 'cleaner-config'
+import { makePeriodicTask, PeriodicTask } from 'edge-server-tools'
 import minimist from 'minimist'
 import { join } from 'path'
 import pino from 'pino'
@@ -89,7 +90,9 @@ interface SnapshotTimeMetrics {
   maxTimeInMs: number
 }
 
-// State:
+// ---------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------
 
 let config: Config
 let serverCount: number = 0
@@ -158,151 +161,154 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------
   syncKeys.forEach(syncKey => startWorkerRoutine(workerCluster, syncKey))
 
-  const intervalIds: NodeJS.Timeout[] = []
-
-  // Increase repo count every minute
-  function repoCountIncreaser(): void {
-    const numOfExistingRepos = state.syncKeys.length
-    const numOfExistingReposUpdated = Math.min(
-      numOfExistingRepos * config.repoCountIncreaseRatePerMin,
-      config.maxRepoCount
-    )
-    const numOfNewRepos = Math.round(
-      numOfExistingReposUpdated - numOfExistingRepos
-    )
-
-    if (numOfExistingRepos + numOfNewRepos > config.maxRepoCount) {
-      return
-    }
-
-    logger.debug({ msg: 'repo-increase', numOfNewRepos })
-
-    for (let i = 0; i < numOfNewRepos; ++i) {
-      const newSyncKey = makeSyncKey(
-        state.syncKeys.length,
-        config.syncKeyPrefix
+  const tasks: PeriodicTask[] = [
+    // Increase repo count every minute
+    makePeriodicTask(function repoCountIncreaser(): void {
+      const numOfExistingRepos = state.syncKeys.length
+      const numOfExistingReposUpdated = Math.min(
+        numOfExistingRepos * config.repoCountIncreaseRatePerMin,
+        config.maxRepoCount
       )
-      startWorkerRoutine(workerCluster, newSyncKey)
-      logger.debug({ msg: 'new-repo', newSyncKey })
-    }
-  }
-  intervalIds.push(setInterval(repoCountIncreaser, 60000))
+      const numOfNewRepos = Math.round(
+        numOfExistingReposUpdated - numOfExistingRepos
+      )
 
-  // Log a snapshot every 30 seconds
-  intervalIds.push(setInterval(logSnapshot, 30000))
+      if (numOfExistingRepos + numOfNewRepos > config.maxRepoCount) {
+        return
+      }
 
-  function statusUpdater(): void {
-    const now = Date.now()
-    const timeSinceNetworkOutOfSync = measureInstrument(
-      networkSyncInstrument,
-      now
-    )
+      logger.debug({ msg: 'repo-increase', numOfNewRepos })
 
-    // Most stale repo is the repo with the largest out of sync time
-    const repoStates = Array.from(state.repos.values())
-    const mostStaleRepo =
-      repoStates.length !== 0
-        ? repoStates.reduce((repoStateA, repoStateB) => {
-            return measureInstrument(repoStateA.syncTimeInstrument, now) >
-              measureInstrument(repoStateB.syncTimeInstrument, now)
-              ? repoStateA
-              : repoStateB
-          })
-        : undefined
-    const maxRepoSyncTime =
-      mostStaleRepo != null
-        ? measureInstrument(mostStaleRepo.syncTimeInstrument, now)
-        : 0
-
-    const statusHeader = [
-      [
-        `${checkmarkify(getIsNetworkInSync(serverCount))} network in-sync`,
-        `${timeSinceNetworkOutOfSync}ms since network sync `
-      ].join(' | '),
-      [
-        `${countServersInSync()} / ${serverCount} servers in-sync`,
-        ...Object.entries(state.serverSyncInfoMap).map(
-          ([serverHost, { inSync }]) => `${checkmarkify(inSync)} ${serverHost}`
+      for (let i = 0; i < numOfNewRepos; ++i) {
+        const newSyncKey = makeSyncKey(
+          state.syncKeys.length,
+          config.syncKeyPrefix
         )
-      ].join(' | '),
-      [
-        `${countReposInSync()} / ${state.syncKeys.length} repos in-sync`,
-        ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.syncKey)
-          ? [
-              `maximum ${maxRepoSyncTime}ms since repo out of sync`,
-              `stale repo ${mostStaleRepo.syncKey}`
-            ]
-          : [])
-      ].join(' | ')
-    ]
+        startWorkerRoutine(workerCluster, newSyncKey)
+        logger.debug({ msg: 'new-repo', newSyncKey })
+      }
+    }, 60000),
 
-    logger.trace({
-      msg: 'console',
-      status: [
-        ...statusHeader,
-        prettyPrintObject({
-          'Total updates': `${repoUpdateTimeMetric.total} / ${
-            config.maxUpdatesPerRepo * state.syncKeys.length
-          }`,
-          'Avg repo update time': `${repoUpdateTimeMetric.avg}ms`,
-          'Avg repo update / sec': `${msToPerSeconds(
-            repoUpdateTimeMetric.avg
-          )}`,
-          'Total bytes sent': `${bytesMetric.sum}`
-        }),
-        prettyPrintObject({
-          'Total reads': `${repoReadTimeMetric.total}`,
-          'Avg repo read time': `${repoReadTimeMetric.avg}ms`,
-          'Avg repo read / sec': `${msToPerSeconds(repoReadTimeMetric.avg)}`
-        }),
-        prettyPrintObject({
-          'Total repo replications': `${repoReplicationTimeMetric.total}`,
-          'Avg repo replication time': `${repoReplicationTimeMetric.avg}ms`,
-          'Max repo replication time': `${repoReplicationTimeMetric.max}ms`
-        }),
-        prettyPrintObject({
-          'Total repo syncs': `${repoSyncTimeMetric.total}`,
-          'Avg repo sync time': `${repoSyncTimeMetric.avg}ms`,
-          'Max repo sync time': `${repoSyncTimeMetric.max}ms`
-        }),
-        prettyPrintObject({
-          'Total server syncs': `${serverSyncMetric.total}`,
-          'Avg server sync time': `${serverSyncMetric.avg}ms`,
-          'Max server sync time': `${serverSyncMetric.max}ms`
-        }),
-        prettyPrintObject({
-          'Total network syncs': `${networkSyncMetric.total}`,
-          'Avg network sync time': `${networkSyncMetric.avg}ms`,
-          'Max network sync time': `${networkSyncMetric.max}ms`
-        })
+    // Log a snapshot every 30 seconds
+    makePeriodicTask(logSnapshot, 30000),
+
+    // Update the status of the console
+    makePeriodicTask(function statusUpdater(): void {
+      const now = Date.now()
+      const timeSinceNetworkOutOfSync = measureInstrument(
+        networkSyncInstrument,
+        now
+      )
+
+      // Most stale repo is the repo with the largest out of sync time
+      const repoStates = Array.from(state.repos.values())
+      const mostStaleRepo =
+        repoStates.length !== 0
+          ? repoStates.reduce((repoStateA, repoStateB) => {
+              return measureInstrument(repoStateA.syncTimeInstrument, now) >
+                measureInstrument(repoStateB.syncTimeInstrument, now)
+                ? repoStateA
+                : repoStateB
+            })
+          : undefined
+      const maxRepoSyncTime =
+        mostStaleRepo != null
+          ? measureInstrument(mostStaleRepo.syncTimeInstrument, now)
+          : 0
+
+      const statusHeader = [
+        [
+          `${checkmarkify(getIsNetworkInSync(serverCount))} network in-sync`,
+          `${timeSinceNetworkOutOfSync}ms since network sync `
+        ].join(' | '),
+        [
+          `${countServersInSync()} / ${serverCount} servers in-sync`,
+          ...Object.entries(state.serverSyncInfoMap).map(
+            ([serverHost, { inSync }]) =>
+              `${checkmarkify(inSync)} ${serverHost}`
+          )
+        ].join(' | '),
+        [
+          `${countReposInSync()} / ${state.syncKeys.length} repos in-sync`,
+          ...(mostStaleRepo != null && !getIsRepoSynced(mostStaleRepo.syncKey)
+            ? [
+                `maximum ${maxRepoSyncTime}ms since repo out of sync`,
+                `stale repo ${mostStaleRepo.syncKey}`
+              ]
+            : [])
+        ].join(' | ')
       ]
-    })
 
-    // Exit cases
-    if (
-      config.maxUpdatesPerRepo > 0 &&
-      repoUpdateTimeMetric.total >=
-        config.maxUpdatesPerRepo * state.syncKeys.length &&
-      getIsNetworkInSync(serverCount)
-    ) {
-      exitGracefully('completed max operations')
-    }
+      logger.trace({
+        msg: 'console',
+        status: [
+          ...statusHeader,
+          prettyPrintObject({
+            'Total updates': `${repoUpdateTimeMetric.total} / ${
+              config.maxUpdatesPerRepo * state.syncKeys.length
+            }`,
+            'Avg repo update time': `${repoUpdateTimeMetric.avg}ms`,
+            'Avg repo update / sec': `${msToPerSeconds(
+              repoUpdateTimeMetric.avg
+            )}`,
+            'Total bytes sent': `${bytesMetric.sum}`
+          }),
+          prettyPrintObject({
+            'Total reads': `${repoReadTimeMetric.total}`,
+            'Avg repo read time': `${repoReadTimeMetric.avg}ms`,
+            'Avg repo read / sec': `${msToPerSeconds(repoReadTimeMetric.avg)}`
+          }),
+          prettyPrintObject({
+            'Total repo replications': `${repoReplicationTimeMetric.total}`,
+            'Avg repo replication time': `${repoReplicationTimeMetric.avg}ms`,
+            'Max repo replication time': `${repoReplicationTimeMetric.max}ms`
+          }),
+          prettyPrintObject({
+            'Total repo syncs': `${repoSyncTimeMetric.total}`,
+            'Avg repo sync time': `${repoSyncTimeMetric.avg}ms`,
+            'Max repo sync time': `${repoSyncTimeMetric.max}ms`
+          }),
+          prettyPrintObject({
+            'Total server syncs': `${serverSyncMetric.total}`,
+            'Avg server sync time': `${serverSyncMetric.avg}ms`,
+            'Max server sync time': `${serverSyncMetric.max}ms`
+          }),
+          prettyPrintObject({
+            'Total network syncs': `${networkSyncMetric.total}`,
+            'Avg network sync time': `${networkSyncMetric.avg}ms`,
+            'Max network sync time': `${networkSyncMetric.max}ms`
+          })
+        ]
+      })
 
-    if (
-      config.repoSyncTimeout !== 0 &&
-      maxRepoSyncTime > config.repoSyncTimeout
-    ) {
-      exitGracefully('exceeded sync timeout')
-    }
-  }
-  intervalIds.push(setInterval(statusUpdater, 100))
+      // Exit cases
+      if (
+        config.maxUpdatesPerRepo > 0 &&
+        repoUpdateTimeMetric.total >=
+          config.maxUpdatesPerRepo * state.syncKeys.length &&
+        getIsNetworkInSync(serverCount)
+      ) {
+        exitGracefully('completed max operations')
+      }
+
+      if (
+        config.repoSyncTimeout !== 0 &&
+        maxRepoSyncTime > config.repoSyncTimeout
+      ) {
+        exitGracefully('exceeded sync timeout')
+      }
+    }, 100)
+  ]
+
+  // Start all tasks
+  tasks.forEach(task => task.start())
 
   function exitGracefully(reason: string): void {
     // Exit all worker processes
     workerCluster.kill('SIGTERM')
 
-    // Stop all intervals
-    intervalIds.forEach(intervalId => clearInterval(intervalId))
+    // Stop all tasks
+    tasks.forEach(task => task.stop())
 
     // exit process
     exit(reason)

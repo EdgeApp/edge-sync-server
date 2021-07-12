@@ -1,0 +1,11 @@
+{
+  "apps": [
+    {
+      "name": "load-test",
+      "script": "lib/bin/load-test/index.js",
+      "error_file": "logs/load-test/error.log",
+      "out_file": "logs/load-test/out.log",
+      "node_args": "--max-old-space-size=16384"
+    }
+  ]
+}
