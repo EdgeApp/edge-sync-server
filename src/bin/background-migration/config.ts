@@ -1,39 +1,18 @@
-import { readFileSync } from 'fs'
-import { join as joinPath } from 'path'
+import { makeConfig } from 'cleaner-config'
+import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
 
-import { asConfig } from './config.schema'
+export const asConfig = asObject({
+  dataDir: asOptional(asString, '/tmp/edge-background-migration/data'),
+  sshHosts: asOptional(asArray(asString), [
+    'git-uk.edge.app',
+    'git3.airbitz.co'
+  ]),
+  remoteReposDir: asOptional(asString, '/home/bitz/www/repos/'),
+  syncServer: asOptional(asString, 'http://localhost:8008'),
+  migrationEndpoint: asOptional(asString, '/api/v2/migrate/:syncKey'),
+  concurrency: asOptional(asNumber, 10)
+})
 
-const configPath = joinPath(
-  process.cwd(),
-  process.env.CONFIG ?? 'config.migration.json'
-)
+const configFile = process.env.CONFIG ?? 'config.migration.json'
 
-let config: ReturnType<typeof asConfig>
-
-// Read JSON file
-try {
-  const filePath = joinPath(configPath)
-  const configJson = readFileSync(filePath, 'utf8')
-  config = JSON.parse(configJson)
-} catch (error) {
-  throw new Error(`Config load failed\n${indentErrorStack(error.stack)}`)
-}
-
-// Validate config
-try {
-  config = asConfig(config)
-} catch (error) {
-  throw new Error(`Config validation failed\n${indentErrorStack(error.stack)}`)
-}
-
-// Export typed config object
-export { config }
-
-// Utility functions:
-
-function indentErrorStack(stack: string): string {
-  return stack
-    .split('\n')
-    .map(line => `    ${line}`)
-    .join('\n')
-}
+export const config = makeConfig(asConfig, configFile)

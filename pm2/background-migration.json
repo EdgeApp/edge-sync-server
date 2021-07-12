@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "background-migration",
+      "script": "lib/bin/background-migration/index.js",
+      "error_file": "../logs/background-migration/error.log",
+      "out_file": "../logs/background-migration/out.log"
+    }
+  ]
+}
