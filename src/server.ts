@@ -66,7 +66,7 @@ export function makeServer(appState: AppState): Express {
     const response: ServerErrorResponse = {
       success: false,
       message,
-      stack: err.stack
+      stack: undefined
     }
 
     // response
