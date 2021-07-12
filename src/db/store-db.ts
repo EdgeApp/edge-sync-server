@@ -26,9 +26,11 @@ const conflictsDesign: JsDesignDocument = {
   language: 'javascript',
   views: {
     conflictRevs: {
+      // Use the value property on the view document to contain all the
+      // document revs that are conflicting with each other.
       map: stringifyCode(function (doc) {
         if (doc._conflicts != null) {
-          emit()
+          emit(null, [doc._rev, ...doc._conflicts])
         }
       })
     }

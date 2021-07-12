@@ -19,39 +19,46 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
   const { couchUri } = appState.config
 
   // Query for document IDs with conflicts using the conflictRevs view
-  const conflictQueryResponse = await appState.storeDb.partitionedView(
-    repoId,
-    'conflicts',
-    'conflictRevs',
-    {
-      include_docs: false
-    }
+  const conflictQueryResponse = await appState.storeDb.partitionedView<
+    string[]
+  >(repoId, 'conflicts', 'conflictRevs', {
+    include_docs: false
+  })
+  const docRefs = conflictQueryResponse.rows.flatMap(row =>
+    row.value.map(rev => ({ id: row.id, rev }))
   )
-  const docIds = conflictQueryResponse.rows.map(row => ({ id: row.id }))
 
-  // Query for the conflicting documents for each document ID using _bulk_get
+  // Query for the conflicting documents by document reference (id and rev)
+  // using _bulk_get
   const documentsResponse = await bulkGet<StoreDocument>(
     couchUri,
     storeDatabaseName,
-    docIds
+    docRefs
   )
 
-  const documentUpdates: StoreDocument[] = []
-
+  // Map each unique document _id to an array of conflicting documents
+  const documentMap: { [id: string]: StoreDocument[] } = {}
   for (const result of documentsResponse.results) {
-    const documents = result.docs.map(resultDoc => {
-      if ('error' in resultDoc) {
-        const { id, rev, error, reason } = resultDoc.error
+    for (const doc of result.docs) {
+      if ('error' in doc) {
+        const { id, rev, error, reason } = doc.error
         throw new Error(
           `Unexpected database error for ${id} ${rev}: ${error} - ${reason}`
         )
       }
-      return resultDoc.ok
-    })
+      if (documentMap[doc.ok._id] == null) documentMap[doc.ok._id] = []
 
+      documentMap[doc.ok._id].push(doc.ok)
+    }
+  }
+
+  // Resolve each conflicting document
+  const documentUpdates: StoreDocument[] = []
+  for (const documents of Object.values(documentMap)) {
     documentUpdates.push(...resolvedDocumentUpdates(documents))
   }
 
+  // Write the resolved documents to the database
   await appState.storeDb.bulk({ docs: documentUpdates })
 }
 
