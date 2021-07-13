@@ -1,6 +1,5 @@
 import { randomInt } from 'crypto'
-
-import { ServerErrorResponse } from '../../types/primitive-types'
+import { ServerErrorResponse } from 'edge-sync-client'
 
 export const send = (...args: any[]): void => {
   if (process.send != null) {

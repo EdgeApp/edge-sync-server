@@ -1,11 +1,19 @@
+import {
+  asPath,
+  asPostStoreBody,
+  asPostStoreParams,
+  PostStoreBody,
+  PostStoreParams,
+  PostStoreResponse
+} from 'edge-sync-client'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
 import { wasCheckpointArray } from '../../types/checkpoints'
-import { asPath, ServerError } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
+import { ServerError } from '../../util/server-error'
 import {
   checkpointRollbackLogging,
   getCheckpointsFromHash
@@ -13,13 +21,6 @@ import {
 import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates, writeUpdates } from '../../util/store/syncing'
-import {
-  asPostStoreBody,
-  asPostStoreParams,
-  PostStoreBody,
-  PostStoreParams,
-  PostStoreResponse
-} from '../types'
 
 export const postStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()
