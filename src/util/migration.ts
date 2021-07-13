@@ -1,11 +1,11 @@
 import { exec as execOriginal } from 'child_process'
+import { asFileChange, ChangeSet } from 'edge-sync-client'
 import { access, readFile } from 'fs/promises'
 import { join } from 'path'
 import { promisify } from 'util'
 
 import { logger } from '../logger'
 import { AppState } from '../server'
-import { asFileChangeV2, ChangeSetV2 } from '../v2/types'
 import { syncKeyToRepoId } from './security'
 import { createRepoDocument } from './store/repo'
 import { writeUpdates } from './store/syncing'
@@ -160,13 +160,13 @@ export const migrateRepo = (appState: AppState) => async (
     const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
 
     // Create the change set by reading files in temporary migration dir
-    const changeSet: ChangeSetV2 = {}
+    const changeSet: ChangeSet = {}
     for (const filePath of filePaths) {
       const fileContent = await readFile(filePath, {
         encoding: 'utf-8'
       })
       const box = JSON.parse(fileContent)
-      const fileChange = asFileChangeV2(box)
+      const fileChange = asFileChange(box)
 
       // Add 1 to substr "from" param to remove the leading forward slash
       const relativePath = filePath.substr(repoDir.length + 1)
