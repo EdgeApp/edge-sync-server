@@ -1,22 +1,23 @@
-import { Router } from 'express'
-import PromiseRouter from 'express-promise-router'
-
-import { AppState } from '../../server'
-import { wasCheckpointArray } from '../../types/checkpoints'
-import { asPath, ServerError } from '../../types/primitive-types'
-import { migrateRepo } from '../../util/migration'
-import { syncKeyToRepoId } from '../../util/security'
-import { getCheckpointsFromHash } from '../../util/store/checkpoints'
-import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
-import { checkRepoExists } from '../../util/store/repo'
-import { readUpdates, writeUpdates } from '../../util/store/syncing'
 import {
+  asPath,
   asPostStoreBody,
   asPostStoreParams,
   PostStoreBody,
   PostStoreParams,
   PostStoreResponse
-} from '../types'
+} from 'edge-sync-client'
+import { Router } from 'express'
+import PromiseRouter from 'express-promise-router'
+
+import { AppState } from '../../server'
+import { wasCheckpointArray } from '../../types/checkpoints'
+import { migrateRepo } from '../../util/migration'
+import { syncKeyToRepoId } from '../../util/security'
+import { ServerError } from '../../util/server-error'
+import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
+import { checkRepoExists } from '../../util/store/repo'
+import { readUpdates, writeUpdates } from '../../util/store/syncing'
 
 export const postStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()

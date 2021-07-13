@@ -1,9 +1,9 @@
 import { expect } from 'chai'
+import { GetStoreResponse } from 'edge-sync-client'
 import { it } from 'mocha'
 import supertest from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
-import { GetStoreResponse } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import { isSuccessfulResponse } from '../utils'
 

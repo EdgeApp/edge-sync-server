@@ -1,10 +1,10 @@
 import { asMaybe } from 'cleaners'
 import { errorCause } from 'edge-server-tools'
+import { ChangeSet } from 'edge-sync-client'
 
 import { AppState } from '../../server'
 import { Checkpoint, CheckpointArray } from '../../types/checkpoints'
 import { asStoreFileDocument, StoreFileDocument } from '../../types/store-types'
-import { ChangeSetV2 } from '../../v2/types'
 import { trial } from '../trial'
 import { withRetries } from '../with-retries'
 import { equalCheckpoints, getCheckpointAt } from './checkpoints'
@@ -12,7 +12,7 @@ import { checkDbResponseForErrors } from './error-checking'
 
 export const writeUpdates = (appState: AppState) => (
   repoId: string,
-  changeSet: ChangeSetV2
+  changeSet: ChangeSet
 ): Promise<void> =>
   withRetries(
     async (): Promise<void> => {
@@ -64,7 +64,7 @@ export const writeUpdates = (appState: AppState) => (
 
 export interface RepoUpdates {
   checkpoints: CheckpointArray
-  changeSet: ChangeSetV2
+  changeSet: ChangeSet
 }
 
 export const readUpdates = (appState: AppState) => async (
@@ -138,7 +138,7 @@ export const readUpdates = (appState: AppState) => async (
     : [latestCheckpoint, ...checkpoints]
 
   // Prepare changeSet
-  const changeSet: ChangeSetV2 = storeFileDocs.reduce(
+  const changeSet: ChangeSet = storeFileDocs.reduce(
     (changeSet, storeFileDoc) => {
       const path = storeFileDoc._id.split(':')[1]
       return { ...changeSet, [path]: storeFileDoc.box }

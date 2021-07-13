@@ -1,4 +1,5 @@
-import { EdgeBox } from '../../src/types/primitive-types'
+import { EdgeBox } from 'edge-sync-client'
+
 import {
   DeletedDocument,
   StoreData,

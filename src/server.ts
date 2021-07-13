@@ -1,13 +1,14 @@
 import bodyParser from 'body-parser'
 import cors from 'cors'
+import { ServerErrorResponse } from 'edge-sync-client'
 import express, { Express, NextFunction, Request, Response } from 'express'
 import nano from 'nano'
 
 import { Config } from './config'
 import { logger } from './logger'
-import { ServerError, ServerErrorResponse } from './types/primitive-types'
 import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
+import { ServerError } from './util/server-error'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
 export interface AppState {
