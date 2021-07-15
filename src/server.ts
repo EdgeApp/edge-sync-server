@@ -2,12 +2,14 @@ import bodyParser from 'body-parser'
 import cors from 'cors'
 import express, { Express, NextFunction, Request, Response } from 'express'
 import nano from 'nano'
+import pinoMiddleware from 'pino-http'
 
 import { Config } from './config'
 import { logger } from './logger'
 import { ServerError, ServerErrorResponse } from './types/primitive-types'
 import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
+import { numbRequest, numbResponse } from './util/security'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
 export interface AppState {
@@ -24,6 +26,15 @@ export function makeServer(appState: AppState): Express {
   app.set('trust proxy', 'loopback')
 
   // Middleware
+  app.use(
+    pinoMiddleware({
+      logger,
+      serializers: {
+        req: numbRequest,
+        res: numbResponse
+      }
+    })
+  )
   app.use(bodyParser.json({ limit: '1mb' }))
   app.use(cors())
   app.use('/', express.static('dist'))
