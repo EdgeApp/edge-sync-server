@@ -6,7 +6,10 @@ import { wasCheckpointArray } from '../../types/checkpoints'
 import { ServerError } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
-import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import {
+  checkpointRollbackLogging,
+  getCheckpointsFromHash
+} from '../../util/store/checkpoints'
 import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates } from '../../util/store/syncing'
@@ -48,12 +51,14 @@ export const getStoreRouter = (appState: AppState): Router => {
 
     const hash = wasCheckpointArray(repoUpdates.checkpoints) as string
 
+    // Log rollbacks
+    checkpointRollbackLogging(req.id, repoId, params.hash, hash)
+
+    // Response
     const responseData: GetStoreResponse = {
       hash,
       changes: repoUpdates.changeSet
     }
-
-    // Response:
 
     res.status(201).json(responseData)
   })
