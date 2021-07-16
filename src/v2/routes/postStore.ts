@@ -6,7 +6,10 @@ import { wasCheckpointArray } from '../../types/checkpoints'
 import { asPath, ServerError } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
-import { getCheckpointsFromHash } from '../../util/store/checkpoints'
+import {
+  checkpointRollbackLogging,
+  getCheckpointsFromHash
+} from '../../util/store/checkpoints'
 import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates, writeUpdates } from '../../util/store/syncing'
@@ -61,10 +64,12 @@ export const postStoreRouter = (appState: AppState): Router => {
     // Get updates using the client timestamp from request body
     const repoUpdates = await readUpdates(appState)(repoId, clientCheckpoints)
 
-    // Response:
-
     const hash = wasCheckpointArray(repoUpdates.checkpoints) as string
 
+    // Log rollbacks
+    checkpointRollbackLogging(req.id, repoId, params.hash, hash)
+
+    // Response
     const responseData: PostStoreResponse = {
       hash,
       changes: repoUpdates.changeSet
