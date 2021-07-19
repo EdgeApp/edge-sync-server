@@ -9,7 +9,7 @@ import { Config } from './config'
 import { logger } from './logger'
 import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
-import { numbRequest, numbResponse } from './util/security'
+import { numbEndpoint, numbRequest, numbResponse } from './util/security'
 import { ServerError } from './util/server-error'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
@@ -63,14 +63,16 @@ export function makeServer(appState: AppState): Express {
   })
   // Server Error Route
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+    const { url, repoId } = numbEndpoint(req.url)
     // logging
     logger.error({
       msg: 'Internal Server Error',
       err,
       method: req.method,
-      url: req.url,
+      url: url,
       query: req.query,
-      params: req.params
+      params: req.params,
+      repoId
     })
 
     // response
