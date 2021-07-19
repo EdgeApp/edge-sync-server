@@ -1,8 +1,7 @@
 import { assert, expect } from 'chai'
 import { asMaybe } from 'cleaners'
+import { asServerErrorResponse, EdgeBox } from 'edge-sync-client'
 import { Response } from 'superagent'
-
-import { asServerErrorResponse, EdgeBox } from '../src/types/primitive-types'
 
 export const delay = (ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))

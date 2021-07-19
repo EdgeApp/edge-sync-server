@@ -1,12 +1,12 @@
+import { asGetStoreParams, GetStoreParams } from 'edge-sync-client'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
-import { ServerError } from '../../types/primitive-types'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
+import { ServerError } from '../../util/server-error'
 import { checkRepoExists } from '../../util/store/repo'
-import { asGetStoreParams, GetStoreParams } from '../types'
 
 export const getMigrateStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()

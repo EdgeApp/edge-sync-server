@@ -1,12 +1,16 @@
+import {
+  asPutStoreParams,
+  PutStoreParams,
+  PutStoreResponse
+} from 'edge-sync-client'
 import { Router } from 'express'
 import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
-import { ServerError } from '../../types/primitive-types'
 import { syncKeyToRepoId } from '../../util/security'
+import { ServerError } from '../../util/server-error'
 import { checkRepoExists, createRepoDocument } from '../../util/store/repo'
 import { whitelistIps } from '../../whitelisting'
-import { asPutStoreParams, PutStoreParams, PutStoreResponse } from '../types'
 
 export const putStoreRouter = (appState: AppState): Router => {
   const router = PromiseRouter()

@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from 'express'
 
 import { AppState } from './server'
-import { ServerError } from './types/primitive-types'
 import { AccessSettings } from './types/settings-types'
+import { ServerError } from './util/server-error'
 import { getAccessSettings } from './util/settings/store-settings'
 
 // Middleware:

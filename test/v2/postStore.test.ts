@@ -1,9 +1,9 @@
 import { expect } from 'chai'
+import { asChangeSet, ChangeSet } from 'edge-sync-client'
 import { it } from 'mocha'
 import supertest, { Response } from 'supertest'
 
 import { AppState, makeServer } from '../../src/server'
-import { asChangeSetV2, ChangeSetV2 } from '../../src/v2/types'
 import { apiSuite } from '../suites'
 import { isErrorResponse, isSuccessfulResponse, makeEdgeBox } from '../utils'
 
@@ -23,10 +23,10 @@ apiSuite('Component: POST /api/v2/store', (appState: AppState) => {
   })
 
   const isPostStoreResponse = (
-    changes: ChangeSetV2
+    changes: ChangeSet
   ): ((res: Response) => void) => {
     try {
-      changes = asChangeSetV2(changes)
+      changes = asChangeSet(changes)
     } catch (error) {
       throw new Error(
         `Invalid changes arg for isPostStoreResponse: ${JSON.stringify(

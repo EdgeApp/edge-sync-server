@@ -1,21 +1,21 @@
 import { asMaybe, Cleaner } from 'cleaners'
 import { randomInt } from 'crypto'
-import fetch, { Response as FetchResponse } from 'node-fetch'
-import { URL } from 'url'
-
-import { asServerErrorResponse } from '../../types/primitive-types'
-import { trial } from '../../util/trial'
-import { withRetries } from '../../util/with-retries'
 import {
   asGetStoreResponse,
   asPostStoreResponse,
   asPutStoreResponse,
-  ChangeSetV2,
+  asServerErrorResponse,
+  ChangeSet,
   GetStoreResponse,
   PostStoreBody,
   PostStoreResponse,
   PutStoreResponse
-} from '../../v2/types'
+} from 'edge-sync-client'
+import fetch, { Response as FetchResponse } from 'node-fetch'
+import { URL } from 'url'
+
+import { trial } from '../../util/trial'
+import { withRetries } from '../../util/with-retries'
 import { compareHash } from './repo-hash'
 import { shuffle } from './shuffle'
 import { randomBytes, randomPath, RequestError } from './utils'
@@ -141,7 +141,7 @@ export class SyncClient {
 
   async updateFiles(
     syncKey: string,
-    changeSet: ChangeSetV2
+    changeSet: ChangeSet
   ): Promise<PostStoreResponse> {
     const response = await withRetries(
       async () => {
@@ -220,8 +220,8 @@ export class SyncClient {
     syncKey: string,
     fileCount: number,
     fileByteSizeRange: number[]
-  ): Promise<ChangeSetV2> {
-    const changeSet: ChangeSetV2 = {}
+  ): Promise<ChangeSet> {
+    const changeSet: ChangeSet = {}
     const size = randomInt(fileByteSizeRange[0], fileByteSizeRange[1] + 1)
 
     for (let i = 0; i < fileCount; i++) {

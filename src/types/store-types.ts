@@ -7,9 +7,8 @@ import {
   asOptional,
   asString
 } from 'cleaners'
+import { asEdgeBox } from 'edge-sync-client'
 import nano from 'nano'
-
-import { asEdgeBox } from './primitive-types'
 
 const nanoDocumentShape = {
   _id: asString,
