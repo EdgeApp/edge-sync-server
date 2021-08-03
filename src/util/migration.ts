@@ -46,7 +46,8 @@ const cloneRepo = ({ config }: AppState) => async (
   )
 
   try {
-    await exec(`git clone -q ${repoUrl} ${repoDir}`)
+    // absync expects repos to be bare
+    await exec(`git clone --bare -q ${repoUrl} ${repoDir}`)
   } catch (error) {
     if (error.message.indexOf(`repository '${repoUrl}' not found`) !== -1) {
       throw new Error('Repo not found')
@@ -75,17 +76,17 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
   )
 
   // Get the first repoDir
-  const firstRepoDir = repoDirs.shift()
+  const workingRepoDir = repoDirs.shift()
 
   // Assertion case: there must be repo dirs cloned
-  if (firstRepoDir == null) {
+  if (workingRepoDir == null) {
     throw new Error('Repo not found')
   }
 
-  // Create an array of dir tuples like [firstRepoDir, otherRepoDir], or more
+  // Create an array of dir tuples like [workingRepoDir, otherRepoDir], or more
   // specifically like [dir[0], dir[0 < n < dir.length]]
   const repoDirTuples = repoDirs.reduce<Array<[string, string]>>(
-    (dirTuples, otherRepoDir) => [...dirTuples, [firstRepoDir, otherRepoDir]],
+    (dirTuples, otherRepoDir) => [...dirTuples, [workingRepoDir, otherRepoDir]],
     []
   )
 
@@ -97,11 +98,17 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
   // AB Sync all cloned repos by running the promise change
   await abSyncSeries
 
-  // Cleanup all other repo dirs
-  await Promise.all(repoDirs.map(repoDir => cleanupRepoDir(repoDir)))
+  // Create a non-bare repo copy of the working repo
+  const finalRepoDir = workingRepoDir + '--final'
+  await exec(`git clone -q ${workingRepoDir} ${finalRepoDir}`)
 
-  // Return repoDir; it should be sync'd with all other repos
-  return firstRepoDir
+  // Cleanup all repo dirs besides the final one
+  await Promise.all(
+    [...repoDirs, workingRepoDir].map(repoDir => cleanupRepoDir(repoDir))
+  )
+
+  // Return finalRepoDir; it should be sync'd with all other repos
+  return finalRepoDir
 }
 
 const abSync = async (a: string, b: string): Promise<void> => {
