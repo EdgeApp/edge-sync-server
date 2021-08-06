@@ -11,6 +11,7 @@ import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
 import { wasCheckpointArray } from '../../types/checkpoints'
+import { logChangeSummary } from '../../util/logging'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { ServerError } from '../../util/server-error'
@@ -69,6 +70,9 @@ export const postStoreRouter = (appState: AppState): Router => {
 
     // Log rollbacks
     checkpointRollbackLogging(req.id, repoId, params.hash, hash)
+
+    // Log change summary
+    logChangeSummary(req.log, body.changes)
 
     // Response
     const responseData: PostStoreResponse = {
