@@ -17,3 +17,21 @@ export const logChangeSummary = (log: Logger, changes: ChangeSet): void => {
   }
   log.info({ msg: 'change summary', changeSummary })
 }
+
+export const logCheckpointRollback = (
+  log: Logger,
+  reqId: string | number | object,
+  repoId: string,
+  beforeHash: string | undefined,
+  afterHash: string
+): void => {
+  if (beforeHash != null && !afterHash.includes(beforeHash)) {
+    log.info({
+      msg: 'checkpoint rollback',
+      reqId,
+      repoId,
+      clientCheckpoints: beforeHash,
+      checkpoints: afterHash
+    })
+  }
+}

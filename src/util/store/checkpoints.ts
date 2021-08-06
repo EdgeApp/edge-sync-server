@@ -1,7 +1,6 @@
 import { asMaybe, asNull, asNumber, asObject } from 'cleaners'
 import { DocumentViewParams } from 'nano'
 
-import { logger } from '../../logger'
 import { AppState } from '../../server'
 import {
   asCheckpointArray,
@@ -56,21 +55,4 @@ export const getCheckpointsFromHash = (
  */
 export const equalCheckpoints = (a: Checkpoint, b: Checkpoint): boolean => {
   return a.version === b.version && a.sum === b.sum
-}
-
-export const checkpointRollbackLogging = (
-  reqId: string | number | object,
-  repoId: string,
-  beforeHash: string | undefined,
-  afterHash: string
-): void => {
-  if (beforeHash != null && !afterHash.includes(beforeHash)) {
-    logger.info({
-      msg: 'checkpoint rollback',
-      reqId,
-      repoId,
-      clientCheckpoints: beforeHash,
-      checkpoints: afterHash
-    })
-  }
 }
