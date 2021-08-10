@@ -11,13 +11,11 @@ import PromiseRouter from 'express-promise-router'
 
 import { AppState } from '../../server'
 import { wasCheckpointArray } from '../../types/checkpoints'
+import { logChangeSummary, logCheckpointRollback } from '../../util/logging'
 import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { ServerError } from '../../util/server-error'
-import {
-  checkpointRollbackLogging,
-  getCheckpointsFromHash
-} from '../../util/store/checkpoints'
+import { getCheckpointsFromHash } from '../../util/store/checkpoints'
 import { resolveAllDocumentConflicts } from '../../util/store/conflict-resolution'
 import { checkRepoExists } from '../../util/store/repo'
 import { readUpdates, writeUpdates } from '../../util/store/syncing'
@@ -68,7 +66,10 @@ export const postStoreRouter = (appState: AppState): Router => {
     const hash = wasCheckpointArray(repoUpdates.checkpoints) as string
 
     // Log rollbacks
-    checkpointRollbackLogging(req.id, repoId, params.hash, hash)
+    logCheckpointRollback(req.log, req.id, repoId, params.hash, hash)
+
+    // Log change summary
+    logChangeSummary(req.log, body.changes)
 
     // Response
     const responseData: PostStoreResponse = {
