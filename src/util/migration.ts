@@ -208,6 +208,10 @@ export const migrateRepo = (appState: AppState) => async (
       const fileContent = await readFile(filePath, {
         encoding: 'utf-8'
       })
+
+      // Ignore empty files
+      if (fileContent === '') continue
+
       const fileChange = trial(
         () => {
           const box = JSON.parse(fileContent)
