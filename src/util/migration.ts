@@ -219,7 +219,10 @@ export const migrateRepo = (appState: AppState) => async (
         },
         err => {
           const subErrorMessage = err instanceof Error ? `: ${err.message}` : ''
-          throw new Error(`Failed to parse file ${filePath}${subErrorMessage}`)
+          logger.warn(
+            new Error(`Failed to migrate file ${filePath}${subErrorMessage}`)
+          )
+          return null
         }
       )
 
