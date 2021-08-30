@@ -9,6 +9,7 @@ import { AppState } from '../server'
 import { syncKeyToRepoId } from './security'
 import { createRepoDocument } from './store/repo'
 import { writeUpdates } from './store/syncing'
+import { trial } from './trial'
 import { withRetries } from './with-retries'
 
 const exec = promisify(execOriginal)
@@ -207,8 +208,16 @@ export const migrateRepo = (appState: AppState) => async (
       const fileContent = await readFile(filePath, {
         encoding: 'utf-8'
       })
-      const box = JSON.parse(fileContent)
-      const fileChange = asFileChange(box)
+      const fileChange = trial(
+        () => {
+          const box = JSON.parse(fileContent)
+          return asFileChange(box)
+        },
+        err => {
+          const subErrorMessage = err instanceof Error ? `: ${err.message}` : ''
+          throw new Error(`Failed to parse file ${filePath}${subErrorMessage}`)
+        }
+      )
 
       // Add 1 to substr "from" param to remove the leading forward slash
       const relativePath = filePath.substr(repoDir.length + 1)
