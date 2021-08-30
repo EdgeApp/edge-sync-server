@@ -47,7 +47,9 @@ const cloneRepo = ({ config }: AppState) => async (
 
   try {
     // absync expects repos to be bare
-    await exec(`git clone --bare -q ${repoUrl} ${repoDir}`)
+    await exec(`git clone --bare -q ${repoUrl} ${repoDir}`, {
+      maxBuffer: config.migrationMaxBufferSize
+    })
   } catch (error) {
     if (error.message.indexOf(`repository '${repoUrl}' not found`) !== -1) {
       throw new Error('Repo not found')
@@ -92,7 +94,9 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
 
   // Build a promise chain from the dir tuples (serial operations)
   const abSyncSeries = repoDirTuples.reduce((promise, [a, b]) => {
-    return promise.then(() => abSync(a, b))
+    return promise.then(() =>
+      abSync(a, b, appState.config.migrationMaxBufferSize)
+    )
   }, Promise.resolve())
 
   // AB Sync all cloned repos by running the promise change
@@ -100,33 +104,53 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
 
   // Create a non-bare repo copy of the working repo
   const finalRepoDir = workingRepoDir + '--final'
-  await exec(`git clone -q ${workingRepoDir} ${finalRepoDir}`)
+  await exec(`git clone -q ${workingRepoDir} ${finalRepoDir}`, {
+    maxBuffer: appState.config.migrationMaxBufferSize
+  })
 
   // Cleanup all repo dirs besides the final one
   await Promise.all(
-    [...repoDirs, workingRepoDir].map(repoDir => cleanupRepoDir(repoDir))
+    [...repoDirs, workingRepoDir].map(repoDir =>
+      cleanupRepoDir(repoDir, appState.config.migrationMaxBufferSize)
+    )
   )
 
   // Return finalRepoDir; it should be sync'd with all other repos
   return finalRepoDir
 }
 
-const abSync = async (a: string, b: string): Promise<void> => {
-  await exec(`ab-sync ${a} ${b}`)
+const abSync = async (
+  a: string,
+  b: string,
+  maxBufferSize: number
+): Promise<void> => {
+  await exec(`ab-sync ${a} ${b}`, {
+    maxBuffer: maxBufferSize
+  })
 }
 
-const cleanupRepoDir = async (repoDir: string): Promise<void> => {
+const cleanupRepoDir = async (
+  repoDir: string,
+  maxBufferSize: number
+): Promise<void> => {
   if (await pathExists(repoDir)) {
-    await exec(`rm -rf ${repoDir}`)
+    await exec(`rm -rf ${repoDir}`, {
+      maxBuffer: maxBufferSize
+    })
   }
 }
 
 const getRepoLastCommitInfo = async (
-  repoDir: string
+  repoDir: string,
+  maxBufferSize: number
 ): Promise<{ lastGitHash?: string; lastGitTime?: number }> => {
   const { stdout: commitCountStdout } = await exec(
     `git rev-list --all --count`,
-    { encoding: 'utf-8', cwd: repoDir }
+    {
+      encoding: 'utf-8',
+      cwd: repoDir,
+      maxBuffer: maxBufferSize
+    }
   )
 
   const commitCount = parseInt(commitCountStdout.trim())
@@ -137,7 +161,8 @@ const getRepoLastCommitInfo = async (
 
   const { stdout } = await exec(`git show -s --format=%H,%ct`, {
     encoding: 'utf-8',
-    cwd: repoDir
+    cwd: repoDir,
+    maxBuffer: maxBufferSize
   })
   const [lastGitHash, lastCommitTimestamp] = stdout.replace('\n', '').split(',')
 
@@ -148,10 +173,14 @@ const getRepoLastCommitInfo = async (
 }
 
 const getRepoFilePathsRecursively = async (
-  repoDir: string
+  repoDir: string,
+  maxBufferSize: number
 ): Promise<string[]> => {
   const { stdout } = await exec(
-    `find ${repoDir} -not -type d | { grep -v '/\\.git/' || true; }`
+    `find ${repoDir} -not -type d | { grep -v '/\\.git/' || true; }`,
+    {
+      maxBuffer: maxBufferSize
+    }
   )
   return stdout.split('\n').filter(path => path !== '')
 }
@@ -163,8 +192,14 @@ export const migrateRepo = (appState: AppState) => async (
   const repoId = syncKeyToRepoId(syncKey)
 
   try {
-    const filePaths = await getRepoFilePathsRecursively(repoDir)
-    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
+    const filePaths = await getRepoFilePathsRecursively(
+      repoDir,
+      appState.config.migrationMaxBufferSize
+    )
+    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(
+      repoDir,
+      appState.config.migrationMaxBufferSize
+    )
 
     // Create the change set by reading files in temporary migration dir
     const changeSet: ChangeSet = {}
@@ -214,6 +249,6 @@ export const migrateRepo = (appState: AppState) => async (
     )
   } finally {
     // Cleanup temp migration dir
-    await cleanupRepoDir(repoDir)
+    await cleanupRepoDir(repoDir, appState.config.migrationMaxBufferSize)
   }
 }
