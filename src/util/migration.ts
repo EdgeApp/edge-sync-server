@@ -55,6 +55,15 @@ const cloneRepo = ({ config }: AppState) => async (
     if (error.message.indexOf(`repository '${repoUrl}' not found`) !== -1) {
       throw new Error('Repo not found')
     }
+    if (
+      error.message.indexOf(`remote: fatal: bad tree object`) !== -1 ||
+      error.message.indexOf(
+        `remote: aborting due to possible repository corruption on the remote side`
+      ) !== -1
+    ) {
+      const message: string = error.message
+      throw new Error(`Repo corrupt: ${message}`)
+    }
     throw error
   }
 
@@ -68,15 +77,31 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
     appState.config.migrationOriginServers.map(url =>
       cloneRepo(appState)(url, syncKey)
     )
-  ).then(results =>
-    results
+  ).then(results => {
+    let corrupted = 0
+    return results
       .map(result => {
+        // Resolved
         if (result.status === 'fulfilled') return result.value
-        if (result.reason.message !== 'Repo not found') throw result.reason
-        return ''
+
+        // Rejected
+        const { reason } = result
+        // Its okay if a repo is not found on a particular git server
+        if (reason.message === 'Repo not found') return ''
+        // It's okay if the repo is corrupt so long as there are repos on
+        // other servers which were not corrupt.
+        if (
+          reason.message.indexOf('Repo corrupt') !== -1 &&
+          appState.config.migrationOriginServers.length - ++corrupted > 0
+        ) {
+          logger.warn(reason)
+          return ''
+        }
+        // Otherwise, we have a problem
+        throw reason
       })
       .filter(repoDir => repoDir !== '')
-  )
+  })
 
   // Get the first repoDir
   const workingRepoDir = repoDirs.shift()
