@@ -9,6 +9,7 @@ import { AppState } from '../server'
 import { syncKeyToRepoId } from './security'
 import { createRepoDocument } from './store/repo'
 import { writeUpdates } from './store/syncing'
+import { trial } from './trial'
 import { withRetries } from './with-retries'
 
 const exec = promisify(execOriginal)
@@ -47,10 +48,21 @@ const cloneRepo = ({ config }: AppState) => async (
 
   try {
     // absync expects repos to be bare
-    await exec(`git clone --bare -q ${repoUrl} ${repoDir}`)
+    await exec(`git clone --bare -q ${repoUrl} ${repoDir}`, {
+      maxBuffer: config.migrationMaxBufferSize
+    })
   } catch (error) {
     if (error.message.indexOf(`repository '${repoUrl}' not found`) !== -1) {
       throw new Error('Repo not found')
+    }
+    if (
+      error.message.indexOf(`remote: fatal: bad tree object`) !== -1 ||
+      error.message.indexOf(
+        `remote: aborting due to possible repository corruption on the remote side`
+      ) !== -1
+    ) {
+      const message: string = error.message
+      throw new Error(`Repo corrupt: ${message}`)
     }
     throw error
   }
@@ -65,15 +77,31 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
     appState.config.migrationOriginServers.map(url =>
       cloneRepo(appState)(url, syncKey)
     )
-  ).then(results =>
-    results
+  ).then(results => {
+    let corrupted = 0
+    return results
       .map(result => {
+        // Resolved
         if (result.status === 'fulfilled') return result.value
-        if (result.reason.message !== 'Repo not found') throw result.reason
-        return ''
+
+        // Rejected
+        const { reason } = result
+        // Its okay if a repo is not found on a particular git server
+        if (reason.message === 'Repo not found') return ''
+        // It's okay if the repo is corrupt so long as there are repos on
+        // other servers which were not corrupt.
+        if (
+          reason.message.indexOf('Repo corrupt') !== -1 &&
+          appState.config.migrationOriginServers.length - ++corrupted > 0
+        ) {
+          logger.warn(reason)
+          return ''
+        }
+        // Otherwise, we have a problem
+        throw reason
       })
       .filter(repoDir => repoDir !== '')
-  )
+  })
 
   // Get the first repoDir
   const workingRepoDir = repoDirs.shift()
@@ -92,7 +120,9 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
 
   // Build a promise chain from the dir tuples (serial operations)
   const abSyncSeries = repoDirTuples.reduce((promise, [a, b]) => {
-    return promise.then(() => abSync(a, b))
+    return promise.then(() =>
+      abSync(a, b, appState.config.migrationMaxBufferSize)
+    )
   }, Promise.resolve())
 
   // AB Sync all cloned repos by running the promise change
@@ -100,33 +130,53 @@ const cloneRepoWithAbSync = (appState: AppState) => async (
 
   // Create a non-bare repo copy of the working repo
   const finalRepoDir = workingRepoDir + '--final'
-  await exec(`git clone -q ${workingRepoDir} ${finalRepoDir}`)
+  await exec(`git clone -q ${workingRepoDir} ${finalRepoDir}`, {
+    maxBuffer: appState.config.migrationMaxBufferSize
+  })
 
   // Cleanup all repo dirs besides the final one
   await Promise.all(
-    [...repoDirs, workingRepoDir].map(repoDir => cleanupRepoDir(repoDir))
+    [...repoDirs, workingRepoDir].map(repoDir =>
+      cleanupRepoDir(repoDir, appState.config.migrationMaxBufferSize)
+    )
   )
 
   // Return finalRepoDir; it should be sync'd with all other repos
   return finalRepoDir
 }
 
-const abSync = async (a: string, b: string): Promise<void> => {
-  await exec(`ab-sync ${a} ${b}`)
+const abSync = async (
+  a: string,
+  b: string,
+  maxBufferSize: number
+): Promise<void> => {
+  await exec(`ab-sync ${a} ${b}`, {
+    maxBuffer: maxBufferSize
+  })
 }
 
-const cleanupRepoDir = async (repoDir: string): Promise<void> => {
+const cleanupRepoDir = async (
+  repoDir: string,
+  maxBufferSize: number
+): Promise<void> => {
   if (await pathExists(repoDir)) {
-    await exec(`rm -rf ${repoDir}`)
+    await exec(`rm -rf ${repoDir}`, {
+      maxBuffer: maxBufferSize
+    })
   }
 }
 
 const getRepoLastCommitInfo = async (
-  repoDir: string
+  repoDir: string,
+  maxBufferSize: number
 ): Promise<{ lastGitHash?: string; lastGitTime?: number }> => {
   const { stdout: commitCountStdout } = await exec(
     `git rev-list --all --count`,
-    { encoding: 'utf-8', cwd: repoDir }
+    {
+      encoding: 'utf-8',
+      cwd: repoDir,
+      maxBuffer: maxBufferSize
+    }
   )
 
   const commitCount = parseInt(commitCountStdout.trim())
@@ -137,7 +187,8 @@ const getRepoLastCommitInfo = async (
 
   const { stdout } = await exec(`git show -s --format=%H,%ct`, {
     encoding: 'utf-8',
-    cwd: repoDir
+    cwd: repoDir,
+    maxBuffer: maxBufferSize
   })
   const [lastGitHash, lastCommitTimestamp] = stdout.replace('\n', '').split(',')
 
@@ -148,10 +199,14 @@ const getRepoLastCommitInfo = async (
 }
 
 const getRepoFilePathsRecursively = async (
-  repoDir: string
+  repoDir: string,
+  maxBufferSize: number
 ): Promise<string[]> => {
   const { stdout } = await exec(
-    `find ${repoDir} -not -type d | { grep -v '/\\.git/' || true; }`
+    `find ${repoDir} -not -type d | { grep -v '/\\.git/' || true; }`,
+    {
+      maxBuffer: maxBufferSize
+    }
   )
   return stdout.split('\n').filter(path => path !== '')
 }
@@ -163,8 +218,14 @@ export const migrateRepo = (appState: AppState) => async (
   const repoId = syncKeyToRepoId(syncKey)
 
   try {
-    const filePaths = await getRepoFilePathsRecursively(repoDir)
-    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(repoDir)
+    const filePaths = await getRepoFilePathsRecursively(
+      repoDir,
+      appState.config.migrationMaxBufferSize
+    )
+    const { lastGitHash, lastGitTime } = await getRepoLastCommitInfo(
+      repoDir,
+      appState.config.migrationMaxBufferSize
+    )
 
     // Create the change set by reading files in temporary migration dir
     const changeSet: ChangeSet = {}
@@ -172,8 +233,23 @@ export const migrateRepo = (appState: AppState) => async (
       const fileContent = await readFile(filePath, {
         encoding: 'utf-8'
       })
-      const box = JSON.parse(fileContent)
-      const fileChange = asFileChange(box)
+
+      // Ignore empty files
+      if (fileContent === '') continue
+
+      const fileChange = trial(
+        () => {
+          const box = JSON.parse(fileContent)
+          return asFileChange(box)
+        },
+        err => {
+          const subErrorMessage = err instanceof Error ? `: ${err.message}` : ''
+          logger.warn(
+            new Error(`Failed to migrate file ${filePath}${subErrorMessage}`)
+          )
+          return null
+        }
+      )
 
       // Add 1 to substr "from" param to remove the leading forward slash
       const relativePath = filePath.substr(repoDir.length + 1)
@@ -214,6 +290,6 @@ export const migrateRepo = (appState: AppState) => async (
     )
   } finally {
     // Cleanup temp migration dir
-    await cleanupRepoDir(repoDir)
+    await cleanupRepoDir(repoDir, appState.config.migrationMaxBufferSize)
   }
 }

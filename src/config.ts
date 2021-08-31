@@ -1,6 +1,8 @@
 import { makeConfig } from 'cleaner-config'
 import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
 
+const MIGRATION_MAX_BUFFER_SIZE = 1024 * 1024 * 10 // 10MB
+
 // Customization:
 
 const {
@@ -38,6 +40,7 @@ export const asConfig = asObject({
   maxTimestampHistoryAge: asOptional(asNumber, 2592000000),
   maxPageSize: asOptional(asNumber, 100),
   instanceCount: asOptional(asNumber, isDev ? 4 : undefined),
+  migrationMaxBufferSize: asOptional(asNumber, MIGRATION_MAX_BUFFER_SIZE),
   migrationOriginServers: asOptional(asArray(asString), [
     'https://git-uk.edge.app/repos/',
     'https://git3.airbitz.co/repos/',
