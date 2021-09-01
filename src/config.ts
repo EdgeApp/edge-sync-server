@@ -42,9 +42,8 @@ export const asConfig = asObject({
   instanceCount: asOptional(asNumber, isDev ? 4 : undefined),
   migrationMaxBufferSize: asOptional(asNumber, MIGRATION_MAX_BUFFER_SIZE),
   migrationOriginServers: asOptional(asArray(asString), [
-    'https://git-uk.edge.app/repos/',
-    'https://git3.airbitz.co/repos/',
-    'https://git-eusa.edge.app/repos/'
+    'https://git-migration-uk.edge.app/repos/',
+    'https://git-migration-wusa.edge.app/repos/'
   ]),
   migrationTmpDir: asOptional(asString, '/tmp/app/edge-sync-server/'),
   testMigrationSyncKey: asOptional(
