@@ -7,7 +7,7 @@ import { AppState, makeServer } from '../../src/server'
 import { apiSuite } from '../suites'
 import { isSuccessfulResponse } from '../utils'
 
-apiSuite('Component: Passive migration', (appState: AppState) => {
+apiSuite('Component: Passive migration', function (appState: AppState) {
   const app = makeServer(appState)
   const agent = supertest.agent(app)
 
@@ -23,7 +23,9 @@ apiSuite('Component: Passive migration', (appState: AppState) => {
 
   // Fixtures:
 
-  before(async () => {
+  before(async function () {
+    if (process.env.TEST_MIGRATION == null) this.skip()
+
     // Get the repo/store data from one of the V2 servers
     const responses = await Promise.all(
       v2Agents.map(v2Agent => v2Agent.get(`/api/v2/store/${syncKey}`))
@@ -42,7 +44,9 @@ apiSuite('Component: Passive migration', (appState: AppState) => {
 
   // Tests:
 
-  it('GET /api/v2/store passive migration', async () => {
+  it('GET /api/v2/store passive migration', async function () {
+    if (process.env.TEST_MIGRATION == null) this.skip()
+
     const res = await agent
       .get(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
