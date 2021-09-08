@@ -27,6 +27,7 @@ export function makeServer(appState: AppState): Express {
   app.set('trust proxy', 'loopback')
 
   // Middleware
+  app.use(cors())
   app.use(
     pinoMiddleware({
       logger,
@@ -37,7 +38,6 @@ export function makeServer(appState: AppState): Express {
     })
   )
   app.use(bodyParser.json({ limit: '1mb' }))
-  app.use(cors())
   app.use('/', express.static('dist'))
 
   // Routes
