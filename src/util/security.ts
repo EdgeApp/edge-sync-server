@@ -1,5 +1,10 @@
 import bs58 from 'bs58'
 import { createHash } from 'crypto'
+import express from 'express'
+import {
+  CustomRequestSerializer,
+  CustomResponseSerializer
+} from 'pino-std-serializers'
 
 const SENSITIVE_URL_REGEX = /(?<before>^\/api\/v2\/store\/)(?<syncKey>[^/]*)(?<after>.*)$/
 
@@ -19,13 +24,16 @@ const sha256 = (input: Uint8Array): Uint8Array => {
  * Desensitize request object for HTTP logging.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const numbRequest = (req: any) => {
+export const numbRequest: CustomRequestSerializer = req => {
   const { url, repoId } = numbEndpoint(req.url)
+  const { params, query } = req.raw as express.Request
 
   return {
     id: req.id,
     method: req.method,
     url,
+    params,
+    query,
     remoteAddress: req.remoteAddress,
     remotePort: req.remotePort,
     repoId
@@ -36,7 +44,7 @@ export const numbRequest = (req: any) => {
  * Desensitize request object for HTTP logging.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const numbResponse = (res: any) => {
+export const numbResponse: CustomResponseSerializer = res => {
   return {
     statusCode: res.statusCode
   }
