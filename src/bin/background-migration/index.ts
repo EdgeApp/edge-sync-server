@@ -95,6 +95,7 @@ function criticalError(err: any): void {
 }
 
 async function setup(): Promise<void> {
+  console.log(`Using data directory: ${dataDir}`)
   await mkdirp(dataDir)
 }
 
