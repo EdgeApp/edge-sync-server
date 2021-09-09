@@ -8,6 +8,7 @@ import fetch, { Response } from 'node-fetch'
 import { join } from 'path'
 import { promisify } from 'util'
 
+import { shuffle } from '../utils/shuffle'
 import { config } from './config'
 import { asCheckpoint, asScanFile, Checkpoint, ScanFile } from './types'
 
@@ -18,7 +19,7 @@ const {
   dataDir,
   sshHosts,
   remoteReposDir,
-  syncServer,
+  destinationServers,
   migrationEndpoint,
   concurrency
 } = config
@@ -180,11 +181,22 @@ async function getCleanFile<T>(
 }
 
 async function migrateRepo(syncKey: string): Promise<Response> {
-  const response = await fetch(
-    `${syncServer}${migrationEndpoint.replace(':syncKey', syncKey)}`
-  )
+  let error: Error = new Error('Missing sync servers')
+  const shuffledServers = shuffle(destinationServers)
 
-  return response
+  for (const server of shuffledServers) {
+    try {
+      console.log(`Attempting migration of ${syncKey} to ${server}`)
+      const response = await fetch(
+        `${server}${migrationEndpoint.replace(':syncKey', syncKey)}`
+      )
+      return response
+    } catch (err) {
+      error = err
+    }
+  }
+
+  throw error
 }
 
 async function logFailedRepo(syncKey: string, reason: any): Promise<void> {
