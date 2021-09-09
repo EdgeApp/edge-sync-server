@@ -9,7 +9,7 @@ import { Config } from './config'
 import { logger } from './logger'
 import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
-import { numbEndpoint, numbRequest, numbResponse } from './util/security'
+import { numbRequest, numbResponse } from './util/security'
 import { ServerError } from './util/server-error'
 import { makeRouter as makeV2Router } from './v2/routes/router'
 
@@ -31,6 +31,16 @@ export function makeServer(appState: AppState): Express {
   app.use(
     pinoMiddleware({
       logger,
+      customLogLevel: res => {
+        return res.statusCode === 500
+          ? 'error'
+          : res.statusCode >= 500
+          ? 'warn'
+          : 'info'
+      },
+      customErrorMessage: (_error, res) => {
+        return res.statusCode >= 500 ? 'server error' : 'request error'
+      },
       serializers: {
         req: numbRequest,
         res: numbResponse
@@ -48,40 +58,20 @@ export function makeServer(appState: AppState): Express {
     next(new ServerError(404, 'not found'))
   })
 
-  // Client Error Route
-  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
-    if (!(err instanceof ServerError)) {
-      return next(err)
-    }
-
+  // Error Route Handler
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const message = err.message ?? 'Internal Server Error'
+    const statusCode =
+      err instanceof ServerError ? err.status : err.statusCode ?? 500
     const response: ServerErrorResponse = {
       success: false,
-      message: err.message,
+      message,
       stack: err.stack
     }
-    res.status(err.status).json(response)
-  })
-  // Server Error Route
-  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    const { url, repoId } = numbEndpoint(req.url)
-    // logging
-    logger.error({
-      msg: 'Internal Server Error',
-      err,
-      method: req.method,
-      url: url,
-      query: req.query,
-      params: req.params,
-      repoId
-    })
 
     // response
-    const response: ServerErrorResponse = {
-      success: false,
-      message: 'Internal server error',
-      stack: err.stack
-    }
-    res.status(500).json(response)
+    res.err = err
+    res.status(statusCode).json(response)
   })
 
   return app
