@@ -4,7 +4,8 @@
       "name": "background-migration",
       "script": "lib/bin/background-migration/index.js",
       "error_file": "../log/background-migration/error.log",
-      "out_file": "../log/background-migration/out.log"
+      "out_file": "../log/background-migration/out.log",
+      "stop_exit_codes": [0]
     }
   ]
 }
