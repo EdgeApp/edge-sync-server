@@ -263,7 +263,7 @@ export const migrateRepo = (appState: AppState) => async (
         const timestamp = lastGitTime ?? Date.now()
 
         // Update files and directories
-        if (filePaths.length > 0) {
+        if (Object.keys(changeSet).length > 0) {
           await writeUpdates(appState)(repoId, changeSet)
         }
 
