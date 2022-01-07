@@ -28,7 +28,13 @@ export const whitelistApiKeys = (appState: AppState) => async (
   next: NextFunction
 ): Promise<void> => {
   const accessSettings = await getAccessSettings(appState)
-  const clientApiKey = req.query.apiKey
+  const xApiKeyHeader = req.headers['x-api-key']
+  const clientApiKey =
+    xApiKeyHeader != null
+      ? Array.isArray(xApiKeyHeader)
+        ? xApiKeyHeader[0]
+        : xApiKeyHeader
+      : ''
 
   if (!passWhitelistApiKeys(accessSettings, clientApiKey)) {
     throw new ServerError(403, 'Forbidden API Key')

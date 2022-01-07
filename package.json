@@ -9,7 +9,6 @@
   "main": "lib/types.js",
   "types": "lib/types.d.ts",
   "bin": {
-    "migration": "./src/bin/background-migration/index.ts",
     "mon.database": "./src/bin/database-mon/index.ts",
     "mon.network": "./src/bin/network-mon/index.ts"
   },
@@ -22,8 +21,6 @@
     "clean": "rimraf dist lib",
     "fix": "npm run lint -- --fix",
     "lint": "eslint .",
-    "migration": "node -r sucrase/register src/bin/background-migration/index.ts",
-    "migration.configure": "configure src/bin/background-migration/config.ts",
     "mon.database": "node -r sucrase/register ./src/bin/database-mon/index.ts",
     "mon.network": "node -r sucrase/register ./src/bin/network-mon/index.ts",
     "precommit": "lint-staged && yarn test && yarn prepare",

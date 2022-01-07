@@ -1,9 +1,7 @@
 import { expect } from 'chai'
 import { it } from 'mocha'
-import supertest from 'supertest'
 
-import { AppState, makeServer } from '../../src/server'
-import { apiSuite } from '../suites'
+import { makeAppTestKit } from '../util/app-test-kit'
 import {
   delay,
   isErrorResponse,
@@ -11,9 +9,8 @@ import {
   makeEdgeBox
 } from '../utils'
 
-apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
-  const app = makeServer(appState)
-  const agent = supertest.agent(app)
+describe('Component: GET /api/v2/store', () => {
+  const { agent, setup, cleanup } = makeAppTestKit()
 
   const syncKey = '0000000000000000000000000000000000000000'
   const otherSyncKey = '1111111111111111111111111111111111111111'
@@ -34,6 +31,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
 
   // Fixtures:
 
+  before(setup)
   before(async () => {
     // Create test repo
     let res = await agent
@@ -114,6 +112,7 @@ apiSuite('Component: GET /api/v2/store', (appState: AppState) => {
       })
       .expect(res => isSuccessfulResponse(res))
   })
+  after(cleanup)
 
   // Tests:
 
