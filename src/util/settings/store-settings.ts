@@ -15,7 +15,9 @@ export const getAccessSettings = async (
   try {
     if (
       cachedAccessSettings === undefined ||
-      currentTimestamp - cacheTimestamp > cacheTTL
+      currentTimestamp - cacheTimestamp > cacheTTL ||
+      // Hack to disable caching for tests
+      process.env.NODE_ENV === 'test'
     ) {
       const doc = await appState.settingsDb.get(accessSettingsDocumentKey)
       cachedAccessSettings = asAccessSettings(doc)
