@@ -1,15 +1,15 @@
 import { it } from 'mocha'
-import supertest from 'supertest'
 
-import { AppState, makeServer } from '../../src/server'
-import { apiSuite } from '../suites'
+import { makeAppTestKit } from '../util/app-test-kit'
 import { isErrorResponse, isSuccessfulResponse } from '../utils'
 
-apiSuite('Component: PUT /api/v2/store', (appState: AppState) => {
-  const app = makeServer(appState)
-  const agent = supertest.agent(app)
+describe('Component: PUT /api/v2/store', () => {
+  const { agent, setup, cleanup } = makeAppTestKit()
 
   const syncKey = '0000000000000000000000000000000000000000'
+
+  before(setup)
+  after(cleanup)
 
   it('Missing request parameter', async () => {
     await agent

@@ -1,12 +1,8 @@
-import supertest from 'supertest'
-
-import { AppState, makeServer } from '../src/server'
-import { apiSuite } from './suites'
+import { makeAppTestKit } from './util/app-test-kit'
 import { isErrorResponse } from './utils'
 
-apiSuite('Component: Basic server errors', (appState: AppState) => {
-  const app = makeServer(appState)
-  const agent = supertest.agent(app)
+describe('Component: Basic server errors', () => {
+  const { agent } = makeAppTestKit()
 
   it('Can send 404 errors', async () => {
     await agent

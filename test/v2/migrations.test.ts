@@ -3,13 +3,11 @@ import { GetStoreResponse } from 'edge-sync-client'
 import { it } from 'mocha'
 import supertest from 'supertest'
 
-import { AppState, makeServer } from '../../src/server'
-import { apiSuite } from '../suites'
+import { makeAppTestKit } from '../util/app-test-kit'
 import { isSuccessfulResponse } from '../utils'
 
-apiSuite('Component: Passive migration', function (appState: AppState) {
-  const app = makeServer(appState)
-  const agent = supertest.agent(app)
+describe('Component: Passive migration', () => {
+  const { agent, appState, setup, cleanup } = makeAppTestKit()
 
   const v2Hostnames = appState.config.migrationOriginServers.map(
     url => new URL(url).hostname
@@ -23,6 +21,7 @@ apiSuite('Component: Passive migration', function (appState: AppState) {
 
   // Fixtures:
 
+  before(setup)
   before(async function () {
     if (process.env.TEST_MIGRATION == null) this.skip()
 
@@ -41,6 +40,7 @@ apiSuite('Component: Passive migration', function (appState: AppState) {
 
     repoStoreContent = successfulResponse.body
   })
+  after(cleanup)
 
   // Tests:
 

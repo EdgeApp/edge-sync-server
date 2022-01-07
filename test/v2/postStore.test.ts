@@ -1,26 +1,26 @@
 import { expect } from 'chai'
 import { asChangeSet, ChangeSet } from 'edge-sync-client'
 import { it } from 'mocha'
-import supertest, { Response } from 'supertest'
+import { Response } from 'supertest'
 
-import { AppState, makeServer } from '../../src/server'
-import { apiSuite } from '../suites'
+import { makeAppTestKit } from '../util/app-test-kit'
 import { isErrorResponse, isSuccessfulResponse, makeEdgeBox } from '../utils'
 
-apiSuite('Component: POST /api/v2/store', (appState: AppState) => {
-  const app = makeServer(appState)
-  const agent = supertest.agent(app)
+describe('Component: POST /api/v2/store', () => {
+  const { agent, setup, cleanup } = makeAppTestKit()
 
   const syncKey = '0000000000000000000000000000000000000000'
   let clientCheckpoints = ''
 
   // Fixtures:
 
+  before(setup)
   before(async () => {
     await agent
       .put(`/api/v2/store/${syncKey}`)
       .expect(res => isSuccessfulResponse(res))
   })
+  after(cleanup)
 
   const isPostStoreResponse = (
     changes: ChangeSet
