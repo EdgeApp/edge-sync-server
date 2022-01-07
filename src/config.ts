@@ -1,7 +1,5 @@
 import { makeConfig } from 'cleaner-config'
-import { asArray, asNumber, asObject, asOptional, asString } from 'cleaners'
-
-const MIGRATION_MAX_BUFFER_SIZE = 1024 * 1024 * 10 // 10MB
+import { asNumber, asObject, asOptional, asString } from 'cleaners'
 
 // Customization:
 
@@ -39,17 +37,7 @@ export const asConfig = asObject({
   httpPort: asOptional(asNumber, 8008),
   maxTimestampHistoryAge: asOptional(asNumber, 2592000000),
   maxPageSize: asOptional(asNumber, 100),
-  instanceCount: asOptional(asNumber, isDev ? 4 : undefined),
-  migrationMaxBufferSize: asOptional(asNumber, MIGRATION_MAX_BUFFER_SIZE),
-  migrationOriginServers: asOptional(asArray(asString), [
-    'https://git-migration-uk.edge.app/repos/',
-    'https://git-migration-wusa.edge.app/repos/'
-  ]),
-  migrationTmpDir: asOptional(asString, '/tmp/app/edge-sync-server/'),
-  testMigrationSyncKey: asOptional(
-    asString,
-    '000000000000000000000000000000000ed9e123'
-  )
+  instanceCount: asOptional(asNumber, isDev ? 4 : undefined)
 })
 
 export const config = makeConfig(asConfig, process.env.CONFIG)
