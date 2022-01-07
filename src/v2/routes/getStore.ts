@@ -9,7 +9,6 @@ import PromiseRouter from 'express-promise-router'
 import { AppState } from '../../server'
 import { wasCheckpointArray } from '../../types/checkpoints'
 import { logChangeSummary, logCheckpointRollback } from '../../util/logging'
-import { migrateRepo } from '../../util/migration'
 import { syncKeyToRepoId } from '../../util/security'
 import { ServerError } from '../../util/server-error'
 import { getCheckpointsFromHash } from '../../util/store/checkpoints'
@@ -33,16 +32,9 @@ export const getStoreRouter = (appState: AppState): Router => {
     const { syncKey } = params
     const repoId = syncKeyToRepoId(syncKey)
 
-    // Deprecate after migrations
+    // Check if repo document exists
     if (!(await checkRepoExists(appState)(repoId))) {
-      try {
-        await migrateRepo(appState)(syncKey)
-      } catch (error) {
-        if (error.message === 'Repo not found') {
-          throw new ServerError(404, `Repo not found`)
-        }
-        throw error
-      }
+      throw new ServerError(404, `Repo not found`)
     }
 
     await resolveAllDocumentConflicts(appState)(repoId)
