@@ -1,10 +1,10 @@
 {
   "apps": [
     {
-      "name": "sync-server",
+      "name": "edge-sync-server",
       "script": "./lib/index.js",
-      "error_file": "../log/sync-server/error.log",
-      "out_file": "../log/sync-server/out.log"
+      "error_file": "/var/log/pm2/edge-sync-server.error.log",
+      "out_file": "/var/log/pm2/edge-sync-server.out.log"
     }
   ]
 }
