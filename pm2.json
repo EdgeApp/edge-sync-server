@@ -3,8 +3,8 @@
     {
       "name": "edge-sync-server",
       "script": "./lib/index.js",
-      "error_file": "/var/log/pm2/edge-sync-server.error.log",
-      "out_file": "/var/log/pm2/edge-sync-server.out.log"
+      "error_file": "/var/log/pm2/syncServer.error.log",
+      "out_file": "/var/log/pm2/syncServer.out.log"
     }
   ]
 }
