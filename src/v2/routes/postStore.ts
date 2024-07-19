@@ -37,8 +37,7 @@ export const postStoreRouter = (appState: AppState): Router => {
       throw new ServerError(400, error.message)
     }
 
-    const { syncKey } = params
-    const repoId = syncKeyToRepoId(syncKey)
+    const repoId = syncKeyToRepoId(params.syncKey)
     const clientCheckpoints = getCheckpointsFromHash(params.hash)
 
     // Check if repo document exists

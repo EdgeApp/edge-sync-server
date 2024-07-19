@@ -29,8 +29,7 @@ export const putStoreRouter = (appState: AppState): Router => {
         throw new ServerError(400, error.message)
       }
 
-      const { syncKey } = params
-      const repoId = syncKeyToRepoId(syncKey)
+      const repoId = syncKeyToRepoId(params.syncKey)
 
       if (await checkRepoExists(appState)(repoId)) {
         throw new ServerError(409, 'Datastore already exists')

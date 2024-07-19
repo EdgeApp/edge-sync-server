@@ -29,8 +29,7 @@ export const getStoreRouter = (appState: AppState): Router => {
       throw new ServerError(400, error.message)
     }
 
-    const { syncKey } = params
-    const repoId = syncKeyToRepoId(syncKey)
+    const repoId = syncKeyToRepoId(params.syncKey)
 
     // Check if repo document exists
     if (!(await checkRepoExists(appState)(repoId))) {
