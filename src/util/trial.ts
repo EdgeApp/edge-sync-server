@@ -33,7 +33,7 @@ export const trial = <T>(...funcs: Array<(err?: any) => T>): T => {
 
 /**
  * This generic cleaner will return a cleaner that will wrap the error thrown
- * by the cleaner using errorCause with the a provided casue error (cause).
+ * by the cleaner using errorCause with the a provided cause error (cause).
  */
 export const asTrialAndError = <T>(cleaner: Cleaner<T>, cause: Error) => (
   raw: unknown

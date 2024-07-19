@@ -1,8 +1,8 @@
 /**
- * Wraps a function and invokes the function with rety attemps if error passes
+ * Wraps a function and invokes the function with retry attempts if error passes
  * a condition function.
  *
- * @param fn An async funciton to invoke with retry attempts
+ * @param fn An async function to invoke with retry attempts
  * @param condition A function that returns a boolean given the error thrown
  * @param maxRetries Max number of retries (default 100)
  */

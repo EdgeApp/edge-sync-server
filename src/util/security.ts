@@ -61,7 +61,7 @@ export const numbResponse: CustomResponseSerializer = res => {
 
 /**
  * Desensitize request URL endpoints.
- * Remove sensative information; i.e. syncKey.
+ * Remove sensitive information; i.e. syncKey.
  */
 export const numbEndpoint = (url: string): { url: string; repoId?: string } => {
   const matches = url.match(SENSITIVE_URL_REGEX)
