@@ -35,9 +35,9 @@ export const asConfig = asObject({
     }
   ),
   httpPort: asOptional(asNumber, 8008),
+  instanceCount: asOptional(asNumber, isDev ? 4 : undefined),
   maxTimestampHistoryAge: asOptional(asNumber, 2592000000),
-  maxPageSize: asOptional(asNumber, 100),
-  instanceCount: asOptional(asNumber, isDev ? 4 : undefined)
+  maxPageSize: asOptional(asNumber, 100)
 })
 
 export const config = makeConfig(asConfig, process.env.CONFIG)
