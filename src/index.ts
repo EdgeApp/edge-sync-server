@@ -48,9 +48,7 @@ if (cluster.isMaster) {
 
   // Instantiate server
   app.listen(config.httpPort, () => {
-    logger.info(
-      `Worker process ${process.pid} started and listening on ${config.httpPort}.`
-    )
+    logger.info(`HTTP server started listening on ${config.httpPort}.`)
   })
 }
 
