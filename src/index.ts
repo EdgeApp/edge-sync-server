@@ -7,7 +7,8 @@ import { config } from './config'
 import { getSettingsDatabaseSetup, getSettingsDb } from './db/settings-db'
 import { getStoreDatabaseSetup, getStoreDb } from './db/store-db'
 import { logger } from './logger'
-import { makeServer } from './server'
+import { AppState, makeServer } from './server'
+import { makeWsServer } from './ws-server'
 
 const numCPUs = cpus().length
 
@@ -44,11 +45,19 @@ if (cluster.isMaster) {
   const dbServer = nano(config.couchUri)
   const storeDb = getStoreDb(config.couchUri)
   const settingsDb = getSettingsDb(config.couchUri)
-  const app = makeServer({ config, storeDb, settingsDb, dbServer })
+  const appState: AppState = { config, storeDb, settingsDb, dbServer }
+  const app = makeServer(appState)
 
-  // Instantiate server
-  app.listen(config.httpPort, () => {
+  // Instantiate HTTP server
+  const server = app.listen(config.httpPort, () => {
     logger.info(`HTTP server started listening on ${config.httpPort}.`)
+  })
+
+  // Instantiate WebSocket server
+  const wss = makeWsServer(server, appState)
+
+  wss.on('listening', () => {
+    logger.info(`WebSocket server started.`)
   })
 }
 
