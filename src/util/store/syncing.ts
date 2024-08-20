@@ -168,7 +168,7 @@ const calculateLatestCheckpoint = (
   )
   // current checkpoint sum + new document versions - previous document versions
   const latestSum = newDocuments.reduce((sum, document) => {
-    // Remove any priovious document versions being overwritten.
+    // Remove any previous document versions being overwritten.
     // If there exists versions that are lower or equal than the current
     // checkpoint version, then the max is the previous version.
     const previousVersion = Math.max(

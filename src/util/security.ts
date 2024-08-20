@@ -8,6 +8,15 @@ import {
 
 const SENSITIVE_URL_REGEX = /(?<before>^\/api\/v2\/store\/)(?<syncKey>[^/]*)(?<after>.*)$/
 
+/**
+ * This utility function converts a sync key to a repo ID.
+ * A sync key is a hex encoded, client-side key that can identify a repo.
+ * A repo ID is a base58 encoded, double-sha256-hashed server-side identifier
+ * for a repo.
+ *
+ * @param syncKey the sync key to convert to a repo ID
+ * @returns the repo ID
+ */
 export const syncKeyToRepoId = (syncKey: string): string => {
   const bytes = Buffer.from(syncKey, 'hex')
   const hashBytes = sha256(sha256(bytes))
@@ -52,7 +61,7 @@ export const numbResponse: CustomResponseSerializer = res => {
 
 /**
  * Desensitize request URL endpoints.
- * Remove sensative information; i.e. syncKey.
+ * Remove sensitive information; i.e. syncKey.
  */
 export const numbEndpoint = (url: string): { url: string; repoId?: string } => {
   const matches = url.match(SENSITIVE_URL_REGEX)

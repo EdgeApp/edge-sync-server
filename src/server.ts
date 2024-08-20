@@ -7,6 +7,7 @@ import pinoMiddleware from 'pino-http'
 
 import { Config } from './config'
 import { logger } from './logger'
+import { genReqId } from './middleware/withPino'
 import { SettingsData } from './types/settings-types'
 import { StoreData } from './types/store-types'
 import { numbRequest, numbResponse } from './util/security'
@@ -30,7 +31,7 @@ export function makeServer(appState: AppState): Express {
   app.use(cors())
   app.use(
     pinoMiddleware({
-      logger,
+      genReqId,
       customLogLevel: res => {
         return res.statusCode === 500
           ? 'error'
@@ -41,6 +42,7 @@ export function makeServer(appState: AppState): Express {
       customErrorMessage: (_error, res) => {
         return res.statusCode >= 500 ? 'server error' : 'request error'
       },
+      logger,
       serializers: {
         req: numbRequest,
         res: numbResponse

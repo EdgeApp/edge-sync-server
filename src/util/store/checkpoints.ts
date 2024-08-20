@@ -44,6 +44,15 @@ export const getCheckpointAt = (appState: AppState) => async (
   return { version: max, sum }
 }
 
+/**
+ * Get the checkpoints from a hash route parameter string. If the hash is not
+ * a checkpoint array string, then an empty array is returned. This is a
+ * compatibility function for the `GET /v2/store/:hash` endpoint prior to
+ * the migration from the git-based sync server implementation.
+ *
+ * @param hash The hash parameter from the `GET /v2/store/:hash` endpoint.
+ * @returns The `CheckpointArray` from the given hash parameter.
+ */
 export const getCheckpointsFromHash = (
   hash: string | undefined
 ): CheckpointArray => {
