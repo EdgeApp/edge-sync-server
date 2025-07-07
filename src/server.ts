@@ -52,6 +52,10 @@ export function makeServer(appState: AppState): Express {
   app.use(bodyParser.json({ limit: '1mb' }))
   app.use('/', express.static('dist'))
 
+  app.use('/ip', (req, res) => {
+    res.json({ ip: req.ip })
+  })
+
   // Routes
   app.use('/api/v2', makeV2Router(appState))
 
