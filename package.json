@@ -1,6 +1,6 @@
 {
   "name": "edge-sync-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A REST API for storing & syncing files",
   "repository": "https://github.com/EdgeApp/edge-sync-server",
