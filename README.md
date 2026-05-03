@@ -55,3 +55,4 @@ The following run scripts are available for testing:
 - `yarn test` runs all the tests.
 - `yarn test.report` runs the tests with test coverage reports (provided by nyc).
 - `yarn test.watch` continuously run the tests and watch for source code changes.
+test
