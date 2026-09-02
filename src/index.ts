@@ -54,7 +54,7 @@ if (cluster.isMaster) {
   })
 
   // Instantiate WebSocket server
-  const wss = makeWsServer(server, appState)
+  const wss = makeWsServer(server)
 
   wss.on('listening', () => {
     logger.info(`WebSocket server started.`)
