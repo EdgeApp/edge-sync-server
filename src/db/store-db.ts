@@ -43,7 +43,7 @@ const conflictsDesign: JsDesignDocument = {
 export const storeDatabaseName = 'sync_store'
 
 export const getStoreDatabaseSetup = (config: Config): DatabaseSetup => ({
-  name: storeDatabaseName,
+  name: config.storeDatabaseName,
   options: {
     ...config.couchSharding,
     partitioned: true
