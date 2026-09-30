@@ -40,16 +40,25 @@ export const sendWsNotification = (
 }
 
 /**
- * The error for a frame that is not a valid request: -32700 if it is not
+ * Decides how to answer a frame that did not clean as a request. Only a
+ * frame that is trying to be a request gets an error: -32700 if it is not
  * JSON, otherwise -32600, echoing its id when it has a usable one so the
  * caller can match the error to its call.
+ *
+ * Responses (no `method`) and notifications (a `method` with no `id`) never
+ * get a reply. JSON-RPC forbids it, and answering the peer's own error
+ * responses would let two codecs trade errors forever.
  */
-const invalidFrameResponse = (text: string): JsonRpcMessage => {
+const invalidFrameResponse = (text: string): JsonRpcMessage | undefined => {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
   } catch (error) {
     return { id: null, error: { code: -32700, message: 'Parse error' } }
+  }
+  if (typeof parsed === 'object' && parsed != null && !Array.isArray(parsed)) {
+    const frame = parsed as { id?: unknown; method?: unknown }
+    if (frame.method === undefined || !('id' in frame)) return undefined
   }
   const rawId =
     typeof parsed === 'object' && parsed != null
@@ -82,9 +91,13 @@ export const makeWsConnection = (
         msg: 'Received invalid ws request message',
         bytes: dataString.length
       })
-      send(invalidFrameResponse(dataString))
+      const reply = invalidFrameResponse(dataString)
+      if (reply != null) send(reply)
       return
     }
+
+    // A clean response or notification from the client needs no answer:
+    if (message.method == null) return
 
     processWsRequestMessage(message).catch(err => {
       logger.error({ msg: 'Error processing ws request message', err })

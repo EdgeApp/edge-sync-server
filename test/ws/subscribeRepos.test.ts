@@ -216,7 +216,6 @@ describe('Component: WebSocket repo subscriptions', () => {
     expect((await client.call('subscribeRepos', 'nope')).error.code).equals(
       -32600
     )
-    client.sendRaw('{"jsonrpc":"2.0","method":"ping"}')
     expect(
       (await client.call('subscribeRepos', [['a', 'b', 'c']])).error.code
     ).equals(-32602)
@@ -228,11 +227,6 @@ describe('Component: WebSocket repo subscriptions', () => {
     expect(client.orphans).deep.equals([
       {
         id: null,
-        error: { code: -32600, message: 'Invalid Request' },
-        jsonrpc: '2.0'
-      },
-      {
-        id: null,
         error: { code: -32700, message: 'Parse error' },
         jsonrpc: '2.0'
       }
@@ -240,6 +234,24 @@ describe('Component: WebSocket repo subscriptions', () => {
     expect((await client.call('nope', [])).error.message).equals(
       'Method not found'
     )
+    expect((await client.call('ping', [])).result).equals('pong')
+  })
+
+  it('never answers responses or notifications', async () => {
+    const client = await connect()
+    // Shapes a peer codec sends back, including its own error replies:
+    client.sendRaw(
+      '{"jsonrpc":"2.0","id":99,"error":{"code":-32603,"message":"Cannot find id"}}'
+    )
+    client.sendRaw(
+      '{"jsonrpc":"2.0","id":null,"error":{"code":0,"message":"x"}}'
+    )
+    client.sendRaw('{"jsonrpc":"2.0","id":7,"result":[1]}')
+    client.sendRaw('{"jsonrpc":"2.0","method":"ping"}')
+    client.sendRaw('{"jsonrpc":"2.0","method":"update","params":[]}')
+    await delay(200)
+    expect(client.orphans).deep.equals([])
+    expect(client.notifications).deep.equals([])
     expect((await client.call('ping', [])).result).equals('pong')
   })
 
