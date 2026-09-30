@@ -13,6 +13,12 @@ import {
   makeIpcHubLink
 } from './engine/changeHub'
 import { makeCouchChangeSource } from './engine/changeSource'
+import {
+  asLimiterRequest,
+  LimiterReply,
+  makeConnectionCounter,
+  makeIpcConnectionLimiter
+} from './engine/connectionLimiter'
 import { makeRepoChangeEngine } from './engine/repoChangeEngine'
 import { logger } from './logger'
 import { AppState, makeServer } from './server'
@@ -71,7 +77,8 @@ if (cluster.isMaster) {
     getCheckpoint: limitConcurrency(
       config.wsCheckpointConcurrency,
       getCheckpointAt(appState)
-    )
+    ),
+    limiter: makeIpcConnectionLimiter()
   })
 
   wsServer.wss.on('listening', () => {
@@ -122,7 +129,28 @@ function startMaster(): void {
   })
   engine.start()
 
+  // The per-IP socket cap, counted across every worker:
+  const connections = makeConnectionCounter(config.wsMaxConnectionsPerIp)
+
   cluster.on('message', (worker: Worker, raw: unknown) => {
+    let limiterRequest
+    try {
+      limiterRequest = asLimiterRequest(raw)
+    } catch (error) {}
+    if (limiterRequest != null) {
+      if (limiterRequest.wsConn === 'release') {
+        connections.release(worker.id, limiterRequest.ip)
+        return
+      }
+      const reply: LimiterReply = {
+        wsConn: 'reserved',
+        id: limiterRequest.id,
+        ok: connections.reserve(worker.id, limiterRequest.ip)
+      }
+      if (worker.isConnected()) worker.send(reply)
+      return
+    }
+
     let request
     try {
       request = asHubRequest(raw)
@@ -147,6 +175,7 @@ function startMaster(): void {
   // subscriptions; its clients reconnect and register again.
   cluster.on('exit', (worker, code, signal) => {
     engine.removeWorker(worker.id)
+    connections.removeWorker(worker.id)
     if (shuttingDown) return
     logger.info(
       `Worker ${worker.process.pid} died with code ${code} and signal ${signal}`

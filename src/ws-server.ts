@@ -8,6 +8,7 @@ import {
 } from './adapters/makeWsConnection'
 import { Config } from './config'
 import { ChangeHub } from './engine/changeHub'
+import { ConnectionLimiter } from './engine/connectionLimiter'
 import {
   makeSubscriptionRegistry,
   SubscriptionRegistry
@@ -22,14 +23,17 @@ export interface WsServerContext {
   config: Config
   hub: ChangeHub
   getCheckpoint: (repoId: string) => Promise<Checkpoint>
+  /** Enforces the per-IP socket cap across the whole host. */
+  limiter: ConnectionLimiter
 }
+
+/** How long a reserved slot waits for its handshake to finish. */
+const HANDSHAKE_GRACE_MS = 10000
 
 export interface WsServer {
   wss: WebSocket.Server
   /** Sends `subLost` for every subscription and closes every socket. */
   loseAll: () => void
-  /** Open sockets per client IP. */
-  connectionCounts: () => Map<string, number>
   close: () => Promise<void>
 }
 
@@ -55,8 +59,9 @@ export function makeWsServer(
   server: Server,
   context: WsServerContext
 ): WsServer {
-  const { config, hub, getCheckpoint } = context
-  const perIp = new Map<string, number>()
+  const { config, hub, getCheckpoint, limiter } = context
+  // Upgrades holding a reserved slot that have not become sockets yet:
+  const reserved = new WeakSet<IncomingMessage>()
   const registries = new Set<SubscriptionRegistry>()
   const missedPongs = new Map<WebSocket, number>()
 
@@ -65,19 +70,32 @@ export function makeWsServer(
     path: WS_PATH,
     maxPayload: config.wsMaxPayload,
     verifyClient(info, done) {
-      const ip = clientIp(info.req)
-      if ((perIp.get(ip) ?? 0) >= config.wsMaxConnectionsPerIp) {
-        logger.warn({ msg: 'WebSocket connection refused: per-IP cap', ip })
-        done(false, 429, 'Too many connections')
-        return
-      }
-      done(true)
+      const { req } = info
+      const ip = clientIp(req)
+      limiter.reserve(ip).then(
+        ok => {
+          if (!ok) {
+            logger.warn({ msg: 'WebSocket connection refused: per-IP cap', ip })
+            done(false, 429, 'Too many connections')
+            return
+          }
+          // Give the slot back if the handshake never completes:
+          reserved.add(req)
+          setTimeout(() => {
+            if (!reserved.delete(req)) return
+            limiter.release(ip)
+          }, HANDSHAKE_GRACE_MS).unref()
+          done(true)
+        },
+        () => done(false, 503, 'Service unavailable')
+      )
     }
   })
 
   wss.on('connection', function connection(ws, req) {
     const ip = clientIp(req)
-    perIp.set(ip, (perIp.get(ip) ?? 0) + 1)
+    // The socket now owns the slot verifyClient reserved:
+    const ownsSlot = reserved.delete(req)
     missedPongs.set(ws, 0)
 
     const registry = makeSubscriptionRegistry({
@@ -109,9 +127,7 @@ export function makeWsServer(
       registry.close()
       registries.delete(registry)
       missedPongs.delete(ws)
-      const count = (perIp.get(ip) ?? 1) - 1
-      if (count <= 0) perIp.delete(ip)
-      else perIp.set(ip, count)
+      if (ownsSlot) limiter.release(ip)
     }
     ws.on('pong', () => missedPongs.set(ws, 0))
     ws.on('close', teardown)
@@ -143,9 +159,6 @@ export function makeWsServer(
     loseAll() {
       for (const registry of [...registries]) registry.loseAll()
       for (const ws of wss.clients) ws.close(1012, 'Service restart')
-    },
-    connectionCounts() {
-      return new Map(perIp)
     },
     async close() {
       clearInterval(sweep)

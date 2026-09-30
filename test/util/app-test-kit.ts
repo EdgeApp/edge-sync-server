@@ -18,6 +18,11 @@ import {
 } from '../../src/engine/changeHub'
 import { makeCouchChangeSource } from '../../src/engine/changeSource'
 import {
+  ConnectionCounter,
+  makeConnectionCounter,
+  makeLocalConnectionLimiter
+} from '../../src/engine/connectionLimiter'
+import {
   makeRepoChangeEngine,
   RepoChangeEngine
 } from '../../src/engine/repoChangeEngine'
@@ -32,6 +37,7 @@ export interface ListeningKit {
   engine: RepoChangeEngine
   hub: ChangeHub
   wsServer: WsServer
+  connections: ConnectionCounter
 }
 
 export interface ListenOptions {
@@ -142,10 +148,12 @@ export const makeAppTestKit = (options: AppTestKitOptions = {}): AppTestKit => {
       const hub = makeChangeHub(link)
       engine.start()
 
+      const connections = makeConnectionCounter(kitConfig.wsMaxConnectionsPerIp)
       const wsServer = makeWsServer(httpServer, {
         config: kitConfig,
         hub,
-        getCheckpoint: listenOptions.getCheckpoint ?? getCheckpointAt(appState)
+        getCheckpoint: listenOptions.getCheckpoint ?? getCheckpointAt(appState),
+        limiter: makeLocalConnectionLimiter(connections)
       })
 
       listening = {
@@ -153,7 +161,8 @@ export const makeAppTestKit = (options: AppTestKitOptions = {}): AppTestKit => {
         wsUrl: `ws://127.0.0.1:${port}${WS_PATH}`,
         engine,
         hub,
-        wsServer
+        wsServer,
+        connections
       }
       return listening
     },
