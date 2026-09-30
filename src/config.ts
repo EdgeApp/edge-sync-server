@@ -54,7 +54,9 @@ export const asConfig = asObject({
   wsMaxReposPerSubscribe: asOptional(asNumber, 100),
   wsMaxSubscriptionsPerConnection: asOptional(asNumber, 200),
   wsSubscribeCallsPerMinute: asOptional(asNumber, 10),
-  wsPingIntervalMs: asOptional(asNumber, 30000)
+  wsPingIntervalMs: asOptional(asNumber, 30000),
+  /** Checkpoint reads each worker runs at once while answering subscribes. */
+  wsCheckpointConcurrency: asOptional(asNumber, 32)
 })
 
 export const config = makeConfig(asConfig, process.env.CONFIG)

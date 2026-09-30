@@ -16,6 +16,7 @@ import { makeCouchChangeSource } from './engine/changeSource'
 import { makeRepoChangeEngine } from './engine/repoChangeEngine'
 import { logger } from './logger'
 import { AppState, makeServer } from './server'
+import { limitConcurrency } from './util/limit-concurrency'
 import { getCheckpointAt } from './util/store/checkpoints'
 import { makeWsServer } from './ws-server'
 
@@ -65,7 +66,12 @@ if (cluster.isMaster) {
   const wsServer = makeWsServer(server, {
     config,
     hub,
-    getCheckpoint: getCheckpointAt(appState)
+    // A reconnect herd must not turn into thousands of concurrent view
+    // queries against CouchDB:
+    getCheckpoint: limitConcurrency(
+      config.wsCheckpointConcurrency,
+      getCheckpointAt(appState)
+    )
   })
 
   wsServer.wss.on('listening', () => {
