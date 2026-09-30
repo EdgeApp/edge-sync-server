@@ -183,6 +183,17 @@ export type HubReply =
   | { wsHub: 'ack'; id: number }
   | { wsHub: 'updates'; updates: RepoUpdate[] }
 
+/**
+ * Master → worker, sent just before a master gives up and exits: every
+ * subscription on the host is about to stop firing.
+ */
+export const HUB_LOST = { wsHub: 'lost' } as const
+
+export const isHubLost = (raw: unknown): boolean =>
+  typeof raw === 'object' &&
+  raw != null &&
+  (raw as { wsHub?: unknown }).wsHub === HUB_LOST.wsHub
+
 const asRepoUpdate: Cleaner<RepoUpdate> = raw => {
   const [repoId, checkpoint] = asArray(asString)(raw)
   if (repoId == null || checkpoint == null) throw new TypeError('Expected pair')

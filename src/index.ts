@@ -8,7 +8,9 @@ import { getSettingsDatabaseSetup, getSettingsDb } from './db/settings-db'
 import { getStoreDatabaseSetup, getStoreDb } from './db/store-db'
 import {
   asHubRequest,
+  HUB_LOST,
   HubReply,
+  isHubLost,
   makeChangeHub,
   makeIpcHubLink
 } from './engine/changeHub'
@@ -85,12 +87,14 @@ if (cluster.isMaster) {
     logger.info(`WebSocket server started.`)
   })
 
-  // Without the master nothing feeds this worker's subscriptions. Tell the
-  // clients so they fall back to polling, then exit.
-  process.on('disconnect', () => {
-    logger.error('Lost the cluster master; dropping subscriptions')
+  // A master that is about to exit warns its workers first, so clients
+  // hear `subLost` instead of an abnormal close. (Node exits a worker the
+  // moment its IPC channel drops, before any 'disconnect' listener could
+  // do this itself.)
+  process.on('message', raw => {
+    if (!isHubLost(raw)) return
+    logger.error('The cluster master is exiting; dropping subscriptions')
     wsServer.loseAll()
-    setTimeout(() => process.exit(1), 1000)
   })
 }
 
@@ -113,10 +117,14 @@ function startMaster(): void {
       worker.send(reply)
     },
     onFatal(reason) {
-      // Clients of a host with a dead feed would wait forever. Exit, so the
-      // process manager restarts the host and clients resubscribe.
+      // Clients of a host with a dead feed would wait forever. Tell them
+      // their subscriptions are gone, then exit, so the process manager
+      // restarts the host and clients resubscribe.
       logger.error({ msg: 'Repo change engine gave up; exiting', reason })
-      process.exit(1)
+      for (const worker of Object.values(cluster.workers ?? {})) {
+        if (worker?.isConnected() === true) worker.send(HUB_LOST)
+      }
+      setTimeout(() => process.exit(1), 1000)
     },
     log: {
       info: msg => logger.info(msg),
