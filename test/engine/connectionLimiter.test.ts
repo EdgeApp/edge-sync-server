@@ -68,6 +68,41 @@ describe('Unit: makeIpcConnectionLimiter', () => {
     ])
   })
 
+  it('hands back a slot the master grants after the worker gave up', async () => {
+    const proc = makeProc()
+    const limiter = makeIpcConnectionLimiter(proc, 20)
+    expect(await limiter.reserve('a')).equals(false)
+    // The master was stalled, and grants the reservation late:
+    proc.emit('message', { wsConn: 'reserved', id: 1, ok: true })
+    // A late refusal needs nothing back:
+    expect(await limiter.reserve('b')).equals(false)
+    proc.emit('message', { wsConn: 'reserved', id: 2, ok: false })
+    expect(proc.sent).deep.equals([
+      { wsConn: 'reserve', id: 1, ip: 'a' },
+      { wsConn: 'release', ip: 'a' },
+      { wsConn: 'reserve', id: 2, ip: 'b' }
+    ])
+  })
+
+  it('leaves the master count at zero after a late grant', async () => {
+    // Wire a real counter behind a master that answers too late:
+    const counter = makeConnectionCounter(5)
+    const proc = makeProc()
+    proc.send = (m: any) => {
+      proc.sent.push(m)
+      setTimeout(() => {
+        if (m.wsConn === 'reserve') {
+          const ok = counter.reserve(1, m.ip)
+          proc.emit('message', { wsConn: 'reserved', id: m.id, ok })
+        } else counter.release(1, m.ip)
+      }, 40)
+    }
+    const limiter = makeIpcConnectionLimiter(proc, 20)
+    expect(await limiter.reserve('a')).equals(false)
+    await new Promise(resolve => setTimeout(resolve, 120))
+    expect(counter.count('a')).equals(0)
+  })
+
   it('refuses when the master does not answer or is gone', async () => {
     expect(await makeIpcConnectionLimiter(makeProc(), 20).reserve('a')).equals(
       false

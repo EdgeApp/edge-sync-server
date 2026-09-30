@@ -127,6 +127,17 @@ export const makeIpcConnectionLimiter = (
 ): ConnectionLimiter => {
   let nextId = 1
   const waiting = new Map<number, (ok: boolean) => void>()
+  // Reservations this worker gave up on, by id. The master may still grant
+  // one later; that slot has no socket and must go straight back.
+  const abandoned = new Map<number, string>()
+
+  const release = (ip: string): void => {
+    try {
+      proc.send?.({ wsConn: 'release', ip })
+    } catch (error) {
+      // The master is gone, and its counts with it.
+    }
+  }
 
   proc.on('message', raw => {
     let reply: LimiterReply
@@ -134,6 +145,12 @@ export const makeIpcConnectionLimiter = (
       reply = asLimiterReply(raw)
     } catch (error) {
       return // Not ours
+    }
+    const ip = abandoned.get(reply.id)
+    if (ip != null) {
+      abandoned.delete(reply.id)
+      if (reply.ok) release(ip)
+      return
     }
     waiting.get(reply.id)?.(reply.ok)
   })
@@ -145,6 +162,7 @@ export const makeIpcConnectionLimiter = (
       return await new Promise<boolean>(resolve => {
         const timer = setTimeout(() => {
           waiting.delete(id)
+          abandoned.set(id, ip)
           resolve(false)
         }, timeoutMs)
         waiting.set(id, ok => {
@@ -161,12 +179,6 @@ export const makeIpcConnectionLimiter = (
         }
       })
     },
-    release(ip) {
-      try {
-        proc.send?.({ wsConn: 'release', ip })
-      } catch (error) {
-        // The master is gone, and its counts with it.
-      }
-    }
+    release
   }
 }
