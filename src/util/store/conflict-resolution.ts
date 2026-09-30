@@ -2,7 +2,6 @@ import { asArray } from 'cleaners'
 import { bulkGet, errorCause } from 'edge-server-tools'
 import nano from 'nano'
 
-import { storeDatabaseName } from '../../db/store-db'
 import { AppState } from '../../server'
 import {
   asStoreFileDocument,
@@ -32,7 +31,7 @@ export const resolveAllDocumentConflicts = (appState: AppState) => async (
   // using _bulk_get
   const documentsResponse = await bulkGet<StoreDocument>(
     couchUri,
-    storeDatabaseName,
+    appState.storeDb.config.db,
     docRefs
   )
 
